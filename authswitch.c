@@ -340,9 +340,7 @@ void authswitch_postfork() {
 }
 
 /* authswitch_close:
- * Closes down each authentication driver. Note that it doesn't check whether
- * the driver started successfully, so even drivers which didn't start will
- * get called. So sue me. */
+ * Closes down any authentication drivers which have been started. */
 void authswitch_close() {
     const struct authdrv *aa;
     int *aar;
