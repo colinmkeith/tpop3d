@@ -156,7 +156,7 @@ int maildir_build_index(mailbox M, const char *subdir, time_t T) {
 
     dir = opendir(subdir);
     if (!dir) {
-        log_print(LOG_ERR, "maildir_build_index: opendir(%s/%s): %m", M->filename, subdir);
+        log_print(LOG_ERR, "maildir_build_index: opendir(%s/%s): %m", M->name, subdir);
         return -1;
     }
     
@@ -174,7 +174,7 @@ int maildir_build_index(mailbox M, const char *subdir, time_t T) {
             /* XXX Previously, we ignored messages from the future, since
              * that's what qmail-pop3d does. But it's not clear why this is
              * useful, so turn the check into a warning. */
-            if (stat.st_mtime > T)
+            if (st.st_mtime > T)
                 log_print(LOG_WARNING, _("maildir_build_index: %s: mtime is %d seconds in the future; this condition may indicate that you have a time synchronisation error, especially if you are using NFS-mounted mail directories"), filename, (int)(st.st_mtime - T));
             
             /* These get sorted by mtime later. */
