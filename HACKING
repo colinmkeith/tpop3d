@@ -104,7 +104,9 @@ mailbox drivers in mind.
   malloc(3) in the called function, and it is the caller's responsibility to
   free them. For more complex objects, there should be a constructor foo_new
   or foo_new_somehow, and a destructor foo_delete; methods on the object
-  should be foo_this and foo_that.
+  should be foo_this and foo_that. The exception to this is the list of
+  message offsets and unique IDs in the mailbox object, which are now allocated
+  in contiguous memory for performance reasons.
 
   Indentation is four spaces. Tabs should not, under any circumstances, appear
   in code.

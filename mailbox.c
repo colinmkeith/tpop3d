@@ -32,9 +32,13 @@
 
 struct mboxdrv mbox_drivers[] = {
 #ifdef MBOX_BSD
-    /* Traditional, "From " separated mail spool. */
+    /* Traditional, `From ' separated mail spool. */
     {"bsd",
+#ifdef MBOX_BSD_SAVE_INDICES
+     _X("BSD (`Unix') mailspool, with index saving support"),
+#else
      _X("BSD (`Unix') mailspool"),
+#endif
      mailspool_new_from_file},
 #endif /* MBOX_BSD */
 
@@ -91,9 +95,25 @@ mailbox mailbox_new(const char *filename, const char *type) {
  */
 void mailbox_delete(mailbox m) {
     if (!m) return;
-    if (m->index) vector_delete_free(m->index);
+    if (m->index) {
+        struct indexpoint *i;
+        for (i = m->index; i < m->index + m->num; ++i)
+            if (i->filename) free(i->filename);     /* should this be in a maildir-specific destructor? */
+        free(m->index);
+    }
     if (m->name) free(m->name);
     free(m);
+}
+
+/* mailbox_add_indexpoint:
+ * Add an indexpoint to a mailbox.
+ */
+void mailbox_add_indexpoint(mailbox m, const struct indexpoint *i) {
+    if (m->num == m->size) {
+        m->index = realloc(m->index, m->size * sizeof(struct indexpoint) * 2);
+        m->size *= 2;
+    }
+    m->index[m->num++] = *i;
 }
 
 /* emptymbox_new:
@@ -110,7 +130,7 @@ mailbox emptymbox_new(const char *unused) {
     M->send_message = NULL;                     /* should never be called */
 
     M->name = strdup(_("[empty mailbox]"));
-    M->index = vector_new();
+    M->index = NULL;
 
     return M;
 }
@@ -132,8 +152,8 @@ mailbox try_mailbox_locations(const char *specs, const char *user, const char *d
 
     if (!t) return NULL;
     
-    for (i = 0; i < t->toks->n_used; ++i) {
-        char *str = t->toks->ary[i].v, *mdrv = NULL, *subspec, *path;
+    for (i = 0; i < t->num; ++i) {
+        char *str = t->toks[i], *mdrv = NULL, *subspec, *path;
         struct sverr err;
 
         subspec = strchr(str, ':');

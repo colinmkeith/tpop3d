@@ -43,7 +43,17 @@
 
 #include <stdio.h>
 
-#include "vector.h"
+/* struct indexpoint:
+ * Individual messages which appear as files on FS for maildir or sections of
+ * a file in a BSD mailspool.
+ */
+struct indexpoint {
+    char    *filename;
+    size_t  offset, length, msglength;  /* Offsets and length for mailboxes.    */
+    time_t  mtime;                      /* Modification time used for maildirs. */
+    char    deleted;
+    unsigned char hash[16];
+};
 
 /* mailbox:
  * Generic object representing a store of messages.
@@ -51,12 +61,13 @@
 typedef struct _mailbox *mailbox;
 
 struct _mailbox {
-    char *name;                /* Spool filename or maildir directory name */
-    int fd;                    /* File descriptor for open mailspool. */
-    char isempty;              /* Boolean for mailspool. */
-    struct stat st;
-    vector index;              /* `array' of information for messages */
-    int numdeleted;
+    char *name;                 /* Spool filename or maildir directory name.    */
+    int fd;                     /* File descriptor for open mailspool.          */
+    char isempty;               /* Boolean for mailspool.                       */
+    struct stat st;             /* stat(2) buffer for file/directory.           */
+    struct indexpoint *index;   /* Array of message lengths/offsets.            */
+    int num, size;              /* Number of messages, and space allocated.     */
+    int numdeleted;             /* Number of messages deleted by client.        */
 
     /* function pointers for pseudo OO-ness */
     void    (*delete)(mailbox m);
@@ -69,18 +80,6 @@ struct _mailbox {
  */
 #define MBOX_NOENT      ((mailbox)-1)
 
-/* indexpoint:
- * Individual messages which appear as files on FS for maildir or sections of
- * a file in a BSD mailspool.
- */
-typedef struct _indexpoint {
-    char *filename;
-    size_t offset, length, msglength; /* offsets and length for mailboxes */
-    time_t mtime;                     /* modification time used for maildirs */
-    char deleted;
-    unsigned char hash[16];
-} *indexpoint;
-
 /* struct mboxdrv:
  * Structure for describing alternate mailspool drivers.
  */
@@ -91,21 +90,23 @@ struct mboxdrv {
 };
 
 /* mailspool, maildir common functions */
-void       mailbox_describe(FILE *fp);
-mailbox    mailbox_new(const char *filename, const char *type);
-void       mailbox_delete(mailbox m);
+void    mailbox_describe(FILE *fp);
+mailbox mailbox_new(const char *filename, const char *type);
+void    mailbox_delete(mailbox m);
+
+void    mailbox_add_indexpoint(mailbox m, const struct indexpoint *i);
 
 /* Empty mailbox implementation. */
 mailbox emptymbox_new(const char *filename);
-int emptymbox_apply_changes(mailbox m);
+int     emptymbox_apply_changes(mailbox m);
 
 #ifdef MBOX_BSD
 /* BSD mailspool implementation. */
-mailbox    mailspool_new_from_file(const char *filename);
-void       mailspool_delete(mailbox m);
-vector     mailspool_build_index(mailbox m);
-int        mailspool_send_message(mailbox m, int sck, const int i, int n);
-int        mailspool_apply_changes(mailbox m);
+mailbox mailspool_new_from_file(const char *filename);
+void    mailspool_delete(mailbox m);
+int     mailspool_build_index(mailbox m, char *filemem);
+int     mailspool_send_message(mailbox m, int sck, const int i, int n);
+int     mailspool_apply_changes(mailbox m);
 
 /* How long we wait between trying to lock the mailspool */
 #define MAILSPOOL_LOCK_WAIT           2
@@ -116,10 +117,10 @@ int        mailspool_apply_changes(mailbox m);
 
 /* Maildir implementation. */
 #ifdef MBOX_MAILDIR
-mailbox    maildir_new(const char *filename);
-void       maildir_delete(mailbox m);
-int        maildir_send_message(mailbox m, int sck, const int i, int n);
-int        maildir_apply_changes(mailbox m);
+mailbox maildir_new(const char *filename);
+void    maildir_delete(mailbox m);
+int     maildir_send_message(mailbox m, int sck, const int i, int n);
+int     maildir_apply_changes(mailbox m);
 #endif /* MBOX_MAILDIR */
 
 #endif /* __MAILBOX_H_ */

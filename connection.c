@@ -231,13 +231,13 @@ pop3command connection_parsecommand(connection c) {
         char *s;
         int i, l;
         l = strlen(_("connection_parsecommand: client %s: received `")) + 2 + strlen(c->idstr);
-        for (i = 0; i < pc->toks->toks->n_used; ++i) l += strlen((char*)(pc->toks->toks->ary[i].v)) + 6;
+        for (i = 0; i < pc->toks->num; ++i) l += strlen((char*)(pc->toks->toks[i])) + 6;
         s = (char*)malloc(l);
         sprintf(s, _("connection_parsecommand: client %s: received `"), c->idstr);
-        for (i = 0; i < pc->toks->toks->n_used; ++i) {
-            if (i == 0 || pc->cmd != PASS) strcat(s, (char*)(pc->toks->toks->ary[i].v));
+        for (i = 0; i < pc->toks->num; ++i) {
+            if (i == 0 || pc->cmd != PASS) strcat(s, (char*)(pc->toks->toks[i]));
             else strcat(s, "[...]");
-            if (i != pc->toks->toks->n_used - 1) strcat(s, " ");
+            if (i != pc->toks->num - 1) strcat(s, " ");
         }
         strcat(s, "'");
         print_log(LOG_DEBUG, "%s", s);
@@ -264,12 +264,12 @@ pop3command pop3command_new(const char *s) {
     p->toks = tokens_new(s, " \t");
 
     /* Does this command have a sane structure? */
-    if (p->toks->toks->n_used < 1 || p->toks->toks->n_used > 3)
+    if (p->toks->num < 1 || p->toks->num > 3)
         return p;
 
     /* Try to identify the command. */
     for (i = 0; pop3_commands[i].s; ++i)
-        if (!strcasecmp((char*)(p->toks->toks->ary[0].v), pop3_commands[i].s)) {
+        if (!strcasecmp((char*)(p->toks->toks[0]), pop3_commands[i].s)) {
             p->cmd = pop3_commands[i].cmd;
             break;
         }

@@ -182,6 +182,18 @@ standard configure options such as --prefix.)
   probably desirable if they do.
 
 
+* BSD mailspool metadata cache
+
+  If you use BSD mailspools, you can opt to have tpop3d cache metadata
+  (basically, the offsets of messages within the mailspool) in a file; this
+  makes opening the mailspool much faster, especially if it contains numerous
+  messages. To enable this feature -- which is experimental -- use
+
+    --enable-mbox-bsd-save-indices
+
+  See tpop3d.conf(5) for information on how to configure this feature.
+
+
 * Wording of server responses
 
   Some people may find that users whose POP3 clients report errors from the

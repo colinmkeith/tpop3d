@@ -30,19 +30,15 @@ static const char rcsid[] = "$Id$";
 #include "util.h"
 #include "vector.h"
 
-/* indexpoint_new_maildir:
+/* maildir_make_indexpoint:
  * Make an indexpoint to put in a maildir.
  */
-indexpoint indexpoint_new_maildir(const char *filename, off_t size, time_t mtime) {
-    indexpoint m = (indexpoint)malloc(sizeof(struct _indexpoint));
-    memset(m, 0, sizeof(struct _indexpoint));
-
-    if (!m) return NULL;
+static void maildir_make_indexpoint(struct indexpoint *m, const char *filename, off_t size, time_t mtime) {
+    memset(m, 0, sizeof(struct indexpoint));
 
     m->filename = strdup(filename);
     if (!m->filename) {
-        free(m);
-        return NULL;
+        return;
     }
     m->offset = 0;    /* not used */
     m->length = 0;    /* "\n\nFrom " delimiter not used */
@@ -52,8 +48,6 @@ indexpoint indexpoint_new_maildir(const char *filename, off_t size, time_t mtime
     strncpy(m->hash, filename+4, sizeof(m->hash));    /* +4: skip cur/ or new/ subdir */
     
     m->mtime = mtime;
-
-    return m;
 }
 
 /* maildir_build_index:
@@ -66,9 +60,6 @@ int maildir_build_index(mailbox M, const char *subdir, time_t time) {
     struct dirent *d;
 
     if (!M) return -1;
-
-    if (!M->index) M->index = vector_new();
-    if (!M->index) return -1;
 
     dir = opendir(subdir);
     if (!dir) {
@@ -84,9 +75,12 @@ int maildir_build_index(mailbox M, const char *subdir, time_t time) {
         filename = (char*)malloc(strlen(subdir) + strlen(d->d_name) + 2);
         sprintf(filename, "%s/%s", subdir, d->d_name);
         if (!filename) return -1;
-        if (stat(filename, &st) == 0 && st.st_mtime < time)
+        if (stat(filename, &st) == 0 && st.st_mtime < time) {
             /* These get sorted by mtime later. */
-            vector_push_back(M->index, item_ptr(indexpoint_new_maildir(filename, st.st_size, st.st_mtime)));
+            struct indexpoint pt;
+            maildir_make_indexpoint(&pt, filename, st.st_size, st.st_mtime);
+            mailbox_add_indexpoint(M, &pt);
+        }
         free(filename);
     }
     closedir(dir);
@@ -107,7 +101,7 @@ int maildir_build_index(mailbox M, const char *subdir, time_t time) {
  * qsort(3) callback for ordering messages in a maildir.
  */
 int maildir_sort_callback(const void *a, const void *b) {
-    const indexpoint A = (indexpoint)(((item*)a)->v), B = (indexpoint)(((item*)b)->v);
+    const struct indexpoint *A = a, *B = b;
     return A->mtime - B->mtime;
 }
 
@@ -126,6 +120,10 @@ mailbox maildir_new(const char *dirname) {
     M->delete = mailbox_delete;                 /* generic destructor */
     M->apply_changes = maildir_apply_changes;
     M->send_message = maildir_send_message;
+
+    /* Allocate space for the index. */
+    M->index = (struct indexpoint*)calloc(32, sizeof(struct indexpoint));
+    M->size = 32;
     
     if (chdir(dirname) == -1) {
         if (errno == ENOENT) failM = MBOX_NOENT;
@@ -141,16 +139,15 @@ mailbox maildir_new(const char *dirname) {
     gettimeofday(&tv1, NULL);
     
     /* Build index of maildir. */
-    M->index = NULL;
     if (maildir_build_index(M, "new", tv1.tv_sec) != 0) goto fail;
     if (maildir_build_index(M, "cur", tv1.tv_sec) != 0) goto fail;
 
     /* Now sort the messages. */
-    qsort(M->index->ary, M->index->n_used, sizeof(item), maildir_sort_callback);
+    qsort(M->index, M->num, sizeof(struct indexpoint), maildir_sort_callback);
 
     gettimeofday(&tv2, NULL);
     f = (float)(tv2.tv_sec - tv1.tv_sec) + 1e-6 * (float)(tv2.tv_usec - tv1.tv_usec);
-    print_log(LOG_DEBUG, "maildir_new: scanned maildir %s (%d messages) in %0.3fs", dirname, (int)M->index->n_used, f);
+    print_log(LOG_DEBUG, "maildir_new: scanned maildir %s (%d messages) in %0.3fs", dirname, (int)M->num, f);
     
     return M;
 
@@ -170,12 +167,12 @@ fail:
  * XXX Assumes that maildirs use only '\n' to indicate EOL.
  */
 int maildir_send_message(const mailbox M, int sck, const int i, int n) {
-    indexpoint m;
+    struct indexpoint *m;
     int fd, status;
     
     if (!M) return 0;
-    if (i < 0 || i >= M->index->n_used) return 0;
-    m = (indexpoint)M->index->ary[i].v;
+    if (i < 0 || i >= M->num) return 0;
+    m = M->index +i;
     fd = open(m->filename, O_RDONLY);
     if (fd == -1) {
         print_log(LOG_ERR, "maildir_send_message: open(%s): %m", m->filename);
@@ -189,21 +186,20 @@ int maildir_send_message(const mailbox M, int sck, const int i, int n) {
 }
 
 /* maildir_apply_changes:
- * Apply deletions to a maildir
+ * Apply deletions to a maildir.
  */
 int maildir_apply_changes(mailbox M) {
-    item *i;
+    struct indexpoint *m;
     if (!M) return 1;
 
-    vector_iterate(M->index, i) {
-        indexpoint m = (indexpoint)i->v;
-        
+    for (m = M->index; m < M->index + M->num; ++m) {
         if (m->deleted) {
             if (unlink(m->filename) == -1) {
                 print_log(LOG_ERR, "maildir_apply_changes: unlink(%s): %m", m->filename);
                 return 0;
             }
         } else {
+            /* Mark message read. */
             if (strncmp(m->filename, "new/", 4) == 0) {
                 char *cur;
                 cur = (char*)malloc(6 + strlen(m->filename) - 4);

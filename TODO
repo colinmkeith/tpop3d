@@ -34,18 +34,6 @@ $Id$
   most obvious ones. Nevertheless, a full security audit would be desirable.
 
 
-* Index-saving support
-
-  One of the deficiencies of the BSD mailspool format is the parsing time at
-  startup; a way to avoid this is to save metadata (message offsets) for each
-  mailspool, and re-use this information whenever that mailbox is opened. This
-  is a good optimisation for the case where a user leaves an enormous amount of
-  mail on the server, and checks their mailspool more frequently than they
-  receive new mail. (Some would argue that another, even more effective,
-  optimisation would address the behaviour of the user rather than the
-  software.)
-
-
 * Internationalisation
 
   The long-term plan is that tpop3d should support internationalised messages

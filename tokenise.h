@@ -1,8 +1,7 @@
 /*
- * tokenise.h:
- * break a string into a list of tokens
+ * tokenise.h: break a string into a list of tokens
  *
- * Copyright (c) 2001 Chris Lightfoot. All rights reserved.
+ * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Id$
  *
@@ -15,7 +14,8 @@
 
 typedef struct _tokens {
     char *str;
-    vector toks;
+    char **toks;
+    int num;
 } *tokens;
 
 /* tokenise.c */

@@ -70,6 +70,12 @@ int inet_aton(const char *s, struct in_addr *ip);
 char *strtok_r(char *s, const char *delim, char **saveptr);     /* GNU implementation in strtok_r.c */
 #endif
 
+/* Turn a 16-byte buffer into a binary string. */
+char *hex_digest(const unsigned char *u);
+
+/* Vice versa. */
+int unhex_digest(const char *from, unsigned char *to);
+
 /* Optional internationalisation support. */
 #ifdef WITH_I18N
 #   include <gettext.h>

@@ -69,15 +69,15 @@ timeout), then specify 600 seconds. This may be necessary with some clients
 which pause randomly whilst downloading messages.
 .TP
 .nf
-\fBmailbox:\fP: [\fImailbox driver\fP:]\fIpath\fP ...
+\fBmailbox\fP: [\fImailbox-driver\fP:]\fIpath-spec\fP ...
 .fi
 .Sp
 This selects the location, and optionally the type, of the mailbox to use when
-a user is authenticated. \fIMailbox driver\fP should be one of the names
+a user is authenticated. \fIMailbox-driver\fP should be one of the names
 listed when you execute \fBtpop3d -h\fP; if left blank the default (first
 available) one is used, but this is discouraged as it may vary between builds
-of tpop3d. \fIPath\fP should give a path name in the file system; you can use
-the substitution strings \fB$(user)\fP for username, \fB$(home)\fP for the
+of tpop3d. \fIPath-spec\fP should give a path name in the file system; you can
+use the substitution strings \fB$(user)\fP for username, \fB$(home)\fP for the
 user's home directory and \fB$(domain)\fP for the authenticated domain. In
 addition, the syntax \fB$(foo[\fP\fIindex\fP\fB])\fP may be used to select a
 given letter of the string. 0 is the first character, and -1 the last. This
@@ -103,6 +103,41 @@ to support both.
 Some authentication drivers will set the mailbox explicitly, overriding this
 option. Those that do not also have a specific option, of the form
 \fBauth-foo-mailbox:\fP which overrides the global setting.
+
+.TP
+.nf
+\fBmailspool-index:\fP \fIpath-spec\fP
+.fi
+.Sp
+This selects the location of metadata cache files for BSD mailspools, based
+on their file names. This option is only available when \fBtpop3d\fP is
+compiled with metadata caching enabled, and it is only switched on when this
+option is specified.
+
+\fIPath-spec\fP gives the location of the metadata cache file, using
+substitution strings similar to those for the \fBmailbox\fP option above. In
+particular, you can use \fB$(name)\fP, the full name of the mailspool;
+\fB$(path)\fP, the directory containing the mailspool; \fB$(file)\fP, the file
+name of the mailspool (the part after the final `/'); and
+\fB$(escaped_name)\fP, which is the full name of the mailspool escaped using
+the HTTP-style \fB%..\fP convention so that it does not contain any slashes.
+
+Examples include:
+
+.nf
+  mailspool-index: $(name).tpop3d-index
+  mailspool-index: /var/spool/tpop3d/$(escaped_name)
+.fi
+.Sp
+
+In order to use this facility, \fBtpop3d\fP must be able to write the metadata
+cache files to the locations specified. If you choose to use a specific
+directory for this (for instance, /var/spool/mail or /var/spool/tpop3d), you
+will need to set appropriate permissions. 1777 (as for /tmp) is probably the
+best choice. \fBtpop3d\fP will overwrite any file whose name is the same as
+the specified cache file for a given mailspool; therefore, it is recommended
+that the mailspool index files be stored in a directory to which users would
+not customarily have access, for instance /var/spool/tpop3d.
 
 .SS PAM authentication options
 

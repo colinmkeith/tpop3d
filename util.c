@@ -233,3 +233,40 @@ gid_t parse_gid(const char *group, gid_t *g) {
 
     return 0;
 }
+
+/* hex_digest:
+ * Make a hex version of a digest.
+ */
+char *hex_digest(const unsigned char *u) {
+    static char hex[33] = {0};
+    const unsigned char *p;
+    char *q;
+    for (p = u, q = hex; p < u + 16; ++p, q += 2)
+        snprintf(q, 3, "%02x", (unsigned int)*p);
+
+    return hex;
+}
+
+/* unhex_digest:
+ * Turn a hex representation of a digest into binary data. Returns 1 on
+ * success or 0 on failure.
+ */
+int unhex_digest(const char *from, unsigned char *to) {
+    const char *p;
+    unsigned char *q;
+    for (p = from, q = to; *p && q < to + 16; ++q) {
+        *q = 0;
+        if (strchr("0123456789", *p))  *q |= ((unsigned int)*p - '0') << 4;
+        else if (strchr("abcdef", *p)) *q |= ((unsigned int)*p - 'a' + 10) << 4;
+        else if (strchr("ABCDEF", *p)) *q |= ((unsigned int)*p - 'A' + 10) << 4;
+        else return 0;
+        ++p;
+        if (strchr("0123456789", *p))  *q |= ((unsigned int)*p - '0');
+        else if (strchr("abcdef", *p)) *q |= ((unsigned int)*p - 'a' + 10);
+        else if (strchr("ABCDEF", *p)) *q |= ((unsigned int)*p - 'A' + 10);
+        else return 0;
+        ++p;
+    }
+
+    return 1;
+}

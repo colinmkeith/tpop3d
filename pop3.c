@@ -29,19 +29,6 @@ static const char rcsid[] = "$Id$";
 
 extern int verbose;
 
-/* hex_digest:
- * Make a hex version of a digest.
- */
-static char *hex_digest(const unsigned char *u) {
-    static char hex[33] = {0};
-    const unsigned char *p;
-    char *q;
-    for (p = u, q = hex; p < u + 16; ++p, q += 2)
-        snprintf(q, 3, "%02x", (unsigned int)*p);
-
-    return hex;
-}
-
 /* connection_do:
  * Makes a command do something on a connection, returning a code indicating
  * what the caller should do.
@@ -56,14 +43,14 @@ enum connection_action connection_do(connection c, const pop3command p) {
         /* Authorisation state: gather username and password. */
         switch (p->cmd) {
         case USER:
-            if (p->toks->toks->n_used != 2) {
+            if (p->toks->num != 2) {
                 connection_sendresponse(c, 0, _("No, that's not right."));
                 return do_nothing;
             } else if (c->user) {
                 connection_sendresponse(c, 0, _("But you already said `USER'."));
                 return do_nothing;
             } else {
-                c->user = strdup((char*)p->toks->toks->ary[1].v);
+                c->user = strdup((char*)p->toks->toks[1]);
                 if (!c->user) {
 #ifndef NO_SNIDE_COMMENTS
                     connection_sendresponse(c, 0, _("Tell me your name, knave!"));
@@ -76,14 +63,14 @@ enum connection_action connection_do(connection c, const pop3command p) {
             break;
 
         case PASS:
-            if (p->toks->toks->n_used != 2) {
+            if (p->toks->num != 2) {
                 connection_sendresponse(c, 0, _("No, that's not right."));
                 return do_nothing;
             } else if (c->pass) {
                 connection_sendresponse(c, 0, _("But you already said `PASS'."));
                 return do_nothing;
             } else {
-                c->pass = strdup(p->toks->toks->ary[1].v);
+                c->pass = strdup(p->toks->toks[1]);
                 if (!c->pass) {
                     connection_sendresponse(c, 0, _("You must give a password."));
                     return do_nothing;
@@ -94,15 +81,15 @@ enum connection_action connection_do(connection c, const pop3command p) {
         case APOP: {
                 /* Interpret an APOP name digest command */
                 char *name, *hexdigest;
-                unsigned char digest[16], *q;
+                unsigned char digest[16];
 
-                if (p->toks->toks->n_used != 3) {
+                if (p->toks->num != 3) {
                     connection_sendresponse(c, 0, _("No, that's not right."));
                     return do_nothing;
                 }
 
-                name =      (char*)p->toks->toks->ary[1].v;
-                hexdigest = (char*)p->toks->toks->ary[2].v;
+                name =      (char*)p->toks->toks[1];
+                hexdigest = (char*)p->toks->toks[2];
 
                 if (c->n_auth_tries == MAX_AUTH_TRIES) {
 #ifndef NO_SNIDE_COMMENTS
@@ -129,37 +116,17 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 }
 
                 /* Obtain digest */
-                for (q = digest; q < digest + 16; ++q) {
-                    *q = 0;
-                    if (strchr("0123456789", *hexdigest))  *q |= ((unsigned int)*hexdigest - '0') << 4;
-                    else if (strchr("abcdef", *hexdigest)) *q |= ((unsigned int)*hexdigest - 'a' + 10) << 4;
-                    else if (strchr("ABCDEF", *hexdigest)) *q |= ((unsigned int)*hexdigest - 'A' + 10) << 4;
-                    else {
+                if (!unhex_digest(hexdigest, digest)) {
 #ifndef NO_SNIDE_COMMENTS
-                        connection_sendresponse(c, 0, _("Clueless bunny!"));
+                    connection_sendresponse(c, 0, _("Clueless bunny!"));
 #else
-                        connection_sendresponse(c, 0, _("Authentication failed."));
+                    connection_sendresponse(c, 0, _("Authentication failed."));
 #endif
-                        return do_nothing;
-                    }
-                    ++hexdigest;
-                    if (strchr("0123456789", *hexdigest))  *q |= ((unsigned int)*hexdigest - '0');
-                    else if (strchr("abcdef", *hexdigest)) *q |= ((unsigned int)*hexdigest - 'a' + 10);
-                    else if (strchr("ABCDEF", *hexdigest)) *q |= ((unsigned int)*hexdigest - 'A' + 10);
-                    else {
-#ifndef NO_SNIDE_COMMENTS
-                        connection_sendresponse(c, 0, _("Clueless bunny!"));
-#else
-                        connection_sendresponse(c, 0, _("Authentication failed."));
-#endif
-                        return do_nothing;
-                    }
-                    ++hexdigest;
+                    return do_nothing;
                 }
 
                 c->a = authcontext_new_apop(name, c->timestamp, digest, c->domain);
                 
-                /* XXX this is broken */
                 if (!c->a && append_domain && c->domain && strcspn(name, "@%!") == strlen(name)) {
                     /* OK, if we have a domain name, try appending that. */
                     char *nn = (char*)malloc(strlen(name) + strlen(c->domain) + 2);
@@ -277,8 +244,9 @@ enum connection_action connection_do(connection c, const pop3command p) {
     } else if (c->state == transaction) { 
         /* Transaction state: do things to mailbox. */
         char *a = NULL;
-        int num_args = p->toks->toks->n_used - 1, have_msg_num = 0, msg_num = 0, have_arg2 = 0, arg2 = 0;
-        indexpoint I = NULL;
+        int num_args = p->toks->num - 1, have_msg_num = 0, msg_num = 0, have_arg2 = 0, arg2 = 0;
+        struct indexpoint *curmsg = NULL;
+        mailbox curmbox = c->m; /* this connection's mailbox */
         
         /* No command has more than two arguments. */
         if (num_args > 2) {
@@ -294,14 +262,14 @@ enum connection_action connection_do(connection c, const pop3command p) {
          * number.
          */
         if (num_args >= 1) {
-            a = p->toks->toks->ary[1].v;
+            a = p->toks->toks[1];
             if (a && strlen(a) > 0) {
                 char *b;
                 msg_num = strtol(a, &b, 10);
                 --msg_num; /* RFC1939 demands that mailspools be indexed from 1 */
-                if (b && !*b && b != a && msg_num >= 0 && msg_num < c->m->index->n_used) {
+                if (b && !*b && b != a && msg_num >= 0 && msg_num < curmbox->num) {
                     have_msg_num = 1;
-                    I = (indexpoint)c->m->index->ary[msg_num].v;
+                    curmsg = curmbox->index + msg_num;
                 } else {
 #ifndef NO_SNIDE_COMMENTS
                     connection_sendresponse(c, 0, _("That does not compute."));
@@ -319,7 +287,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
         if (num_args == 2) {
             if (p->cmd == TOP) {
                 have_arg2 = 0;
-                a = p->toks->toks->ary[2].v;
+                a = p->toks->toks[2];
                 if (a && strlen(a) > 0) {
                     char *b;
                     arg2 = strtol(a, &b, 10);
@@ -343,22 +311,21 @@ enum connection_action connection_do(connection c, const pop3command p) {
         case LIST:
             /* Gives exact sizes taking account of the "From " lines. */
             if (have_msg_num) {
-                if (I->deleted)
+                if (curmsg->deleted)
                     connection_sendresponse(c, 0, _("That message is no more."));
                 else {
                     char response[32] = {0};
-                    snprintf(response, 31, "%d %d", 1 + msg_num, I->msglength - I->length - 1);
+                    snprintf(response, 31, "%d %d", 1 + msg_num, curmsg->msglength - curmsg->length - 1);
                     connection_sendresponse(c, 1, response);
                 }
             } else {
-                item *J;
+                struct indexpoint *m;
                 int nn = 0;
                 connection_sendresponse(c, 1, _("Scan list follows:"));
-                vector_iterate(c->m->index, J) {
-                    indexpoint m = (indexpoint)J->v;
+                for (m = curmbox->index; m < curmbox->index + curmbox->num; ++m) {
                     if (!m->deleted) {
                         char response[32] = {0};
-                        snprintf(response, 31, "%d %d", 1 + J - c->m->index->ary, m->msglength - m->length - 1);
+                        snprintf(response, 31, "%d %d", 1 + m - curmbox->index, m->msglength - m->length - 1);
                         connection_sendline(c, response);
                         ++nn;
                     }
@@ -376,23 +343,23 @@ enum connection_action connection_do(connection c, const pop3command p) {
              * though. See RFC1939.
              */
             if (have_msg_num) {
-                if (I->deleted)
+                if (curmsg->deleted)
                     connection_sendresponse(c, 0, _("That message is no more."));
                 else {
                     char response[64] = {0};
-                    print_log(LOG_INFO, "UIDL %d (hash = %s)", 1 + msg_num, hex_digest(I->hash));
-                    snprintf(response, 63, "%d %s", 1 + msg_num, hex_digest(I->hash));
+                    print_log(LOG_INFO, "UIDL %d (hash = %s)", 1 + msg_num, hex_digest(curmsg->hash));
+                    snprintf(response, 63, "%d %s", 1 + msg_num, hex_digest(curmsg->hash));
                     connection_sendresponse(c, 1, response);
                 }
             } else {
-                item *J;
+                struct indexpoint *J;
                 int nn = 0;
                 print_log(LOG_INFO, "UIDL");
                 connection_sendresponse(c, 1, _("ID list follows:"));
-                vector_iterate(c->m->index, J) {
-                    if (!((indexpoint)J->v)->deleted) {
+                for (J = curmbox->index; J < curmbox->index + curmbox->num; ++J) {
+                    if (!J->deleted) {
                         char response[64] = {0};
-                        snprintf(response, 63, "%d %s", 1 + J - c->m->index->ary, hex_digest(((indexpoint)J->v)->hash));
+                        snprintf(response, 63, "%d %s", 1 + J - curmbox->index, hex_digest(J->hash));
                         connection_sendline(c, response);
                         ++nn;
                     }
@@ -407,23 +374,23 @@ enum connection_action connection_do(connection c, const pop3command p) {
 
         case DELE:
             if (have_msg_num) {
-                I->deleted = 1;
+                curmsg->deleted = 1;
                 connection_sendresponse(c, 1, _("Done."));
-                ++c->m->numdeleted;
+                ++curmbox->numdeleted;
             } else
                 connection_sendresponse(c, 0, _("Which message do you want to delete?"));
             break;
 
         case RETR:
             if (have_msg_num) {
-                if (I->deleted)
+                if (curmsg->deleted)
                     connection_sendresponse(c, 0, _("That message is no more."));
                 else {
                     if (verbose)
                         print_log(LOG_DEBUG, _("connection_do: client %s: sending message %d (%d bytes)"),
-                                    c->idstr, msg_num + 1, ((indexpoint)c->m->index->ary[msg_num].v)->msglength);
+                                    c->idstr, msg_num + 1, (int)curmsg->msglength);
                     connection_sendresponse(c, 1, _("Message follows:"));
-                    if (!(c->m)->send_message(c->m, c->s, msg_num, -1)) {
+                    if (!(curmbox)->send_message(curmbox, c->s, msg_num, -1)) {
                         connection_sendresponse(c, 0, _("Oops"));
                         return close_connection;
                     }
@@ -442,7 +409,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 if (!have_msg_num) {
                     connection_sendresponse(c, 0, _("What do you want to see?"));
                     break;
-                } else if (I->deleted) {
+                } else if (curmsg->deleted) {
                     connection_sendresponse(c, 0, _("That message is no more."));
                     break;
                 } else if (!have_arg2) {
@@ -452,10 +419,10 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 
                 if (verbose)
                     print_log(LOG_DEBUG, _("connection_do: client %s: sending headers and up to %d lines of message %d (< %d bytes)"),
-                                c->idstr, arg2, msg_num + 1, (int)((indexpoint)c->m->index->ary[msg_num].v)->msglength);
+                                c->idstr, arg2, msg_num + 1, (int)curmsg->msglength);
                 connection_sendresponse(c, 1, _("Message follows:"));
 
-                if (!(c->m)->send_message(c->m, c->s, msg_num, arg2)) {
+                if (!(curmbox)->send_message(curmbox, c->s, msg_num, arg2)) {
                     connection_sendresponse(c, 0, _("Oops."));
                     return close_connection;
                 }
@@ -472,22 +439,22 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 /* Size here is approximate as we don't strip off the "From "
                  * headers.
                  */
-                snprintf(response, 31, "%d %d", c->m->index->n_used, (int)c->m->st.st_size);
+                snprintf(response, 31, "%d %d", curmbox->num, (int)curmbox->st.st_size);
                 connection_sendresponse(c, 1, response);
                 break;
             }
 
         case RSET: {
-                item *I;
-                vector_iterate(c->m->index, I) ((indexpoint)I->v)->deleted = 0;
-                c->m->numdeleted = 0;
+                struct indexpoint *i;
+                for (i = curmbox->index; i < curmbox->index + curmbox->num; ++i) i->deleted = 0;
+                curmbox->numdeleted = 0;
                 connection_sendresponse(c, 1, _("Done."));
                 break;
             }
 
         case QUIT:
             /* Now perform UPDATE */
-            if ((c->m)->apply_changes(c->m)) connection_sendresponse(c, 1, _("Done"));
+            if ((curmbox)->apply_changes(curmbox)) connection_sendresponse(c, 1, _("Done"));
             else connection_sendresponse(c, 0, _("Something went wrong."));
             return close_connection;
             

@@ -208,7 +208,7 @@ void fork_child(connection *C, listitem *i) {
                 strcpy(s, _("Welcome aboard!"));
                 strcat(s, " ");
                 p = s + strlen(s);
-                switch (c->m->index->n_used) {
+                switch (c->m->num) {
                     case 0:
                         strcpy(p, _("You have no messages at all."));
                         break;
@@ -218,7 +218,7 @@ void fork_child(connection *C, listitem *i) {
                         break;
 
                     default:
-                        sprintf(p, _("You have %d messages."), c->m->index->n_used);
+                        sprintf(p, _("You have %d messages."), c->m->num);
                         break;
                 }
                 connection_sendresponse(c, 1, s);
@@ -446,6 +446,10 @@ void usage(FILE *fp) {
  */
 char optstring[] = "+hdvf:p:";
 
+#if defined(MBOX_BSD) && defined(MBOX_BSD_SAVE_INDICES)
+extern int mailspool_save_indices;  /* in mailspool.c */
+#endif
+
 int main(int argc, char **argv, char **envp) {
     item *I;
     int nodaemon = 0;
@@ -500,6 +504,15 @@ int main(int argc, char **argv, char **envp) {
     /* Start logging. */
     openlog("tpop3d", LOG_PID | LOG_NDELAY, LOG_MAIL);
 
+    /* Perhaps we have been asked to save metadata caches for BSD mailspools? */
+#if defined(MBOX_BSD) && defined(MBOX_BSD_SAVE_INDICES)
+    I = stringmap_find(config, "mailspool-index");
+    if (I) {
+        mailspool_save_indices = 1;
+        print_log(LOG_INFO, "experimental BSD mailbox metadata cache enabled");
+    }
+#endif
+    
     /* Try to write PID file. */
     if (pidfile) {
         switch (write_pid_file(pidfile)) {
@@ -539,12 +552,12 @@ int main(int argc, char **argv, char **envp) {
     listeners = vector_new();
     if (I) {
         tokens t = tokens_new(I->v, " \t");
-        item *J;
+        char **J;
 
-        vector_iterate(t->toks, J) {
+        for (J = t->toks; J < t->toks + t->num; ++J) {
             struct sockaddr_in sin = {0};
             listener L;
-            char *s = J->v, *r = NULL, *domain = NULL;
+            char *s = *J, *r = NULL, *domain = NULL;
 
             sin.sin_family = AF_INET;
 

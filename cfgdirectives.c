@@ -65,6 +65,10 @@ char *cfgdirectives[] = {
     "auth-perl-apop",
     "auth-perl-pass",
 #endif /* AUTH_PERL */
+ 
+#if defined(MBOX_BSD) && defined(MBOX_BSD_SAVE_INDICES)
+    "mailspool-index",
+#endif
     
     /* final entry must be NULL */
     NULL};
