@@ -1,29 +1,10 @@
 /*
- * connection.h: connection to the pop3 server
+ * connection.h:
+ * connection to the pop3 server
  *
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Id$
- *
- * $Log$
- * Revision 1.6  2001/01/11 21:23:35  chris
- * Minor changes.
- *
- * Revision 1.5  2000/10/31 23:17:29  chris
- * Modified pop3_command structure to include vector of tokens.
- *
- * Revision 1.4  2000/10/18 22:21:23  chris
- * Added timeouts, APOP support.
- *
- * Revision 1.3  2000/10/18 21:34:12  chris
- * Changes due to Mark Longair.
- *
- * Revision 1.2  2000/10/02 18:20:19  chris
- * Minor changes.
- *
- * Revision 1.1  2000/09/18 23:43:38  chris
- * Initial revision
- *
  *
  */
 

@@ -1,17 +1,10 @@
 /*
- * auth_passwd.h: authenticate using /etc/passwd or /etc/shadow
+ * auth_passwd.h:
+ * authenticate using /etc/passwd or /etc/shadow
  *
  * Copyright (c) 2001 Chris Lightfoot. All rights reserved.
  *
  * $Id$
- *
- * $Log$
- * Revision 1.3  2001/01/11 21:37:34  chris
- * Minor changes.
- *
- * Revision 1.2  2001/01/11 21:23:35  chris
- * Minor changes.
- *
  *
  */
 

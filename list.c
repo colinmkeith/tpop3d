@@ -1,24 +1,8 @@
 /*
- * list.c: doubly-linked list
+ * list.c:
+ * doubly-linked list
  *
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
- *
- * $Log$
- * Revision 1.5  2000/10/31 20:37:22  chris
- * Minor changes.
- *
- * Revision 1.4  2000/10/28 14:57:04  chris
- * Minor changes.
- *
- * Revision 1.3  2000/10/07 17:41:16  chris
- * Minor changes.
- *
- * Revision 1.2  2000/09/26 22:23:36  chris
- * Various changes.
- *
- * Revision 1.1  2000/09/18 23:43:38  chris
- * Initial revision
- *
  *
  */
 

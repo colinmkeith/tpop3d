@@ -1,18 +1,11 @@
 /*
- * mailspool.h: Berkeley mailspool handling
+ * mailspool.h:
+ * Berkeley mailspool handling
  *
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Id$
- *
- * $Log$
- * Revision 1.2  2000/10/18 21:34:12  chris
- * Changes due to Mark Longair.
- *
- * Revision 1.1  2000/10/02 18:21:25  chris
- * Initial revision
- *
- *
+ * 
  */
 
 #ifndef __MAILSPOOL_H_ /* include guard */

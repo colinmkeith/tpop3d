@@ -5,11 +5,6 @@
  *
  * $Id$
  *
- * $Log$
- * Revision 1.1  2000/09/18 23:43:38  chris
- * Initial revision
- *
- *
  */
 
 #ifndef __MAIN_H_ /* include guard */

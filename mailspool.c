@@ -1,43 +1,8 @@
 /*
- * mailspool.c: Berkeley mailspool handling
+ * mailspool.c:
+ * Berkeley mailspool handling
  *
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
- *
- * $Log$
- * Revision 1.11  2001/01/11 21:23:35  chris
- * Minor changes.
- *
- * Revision 1.10  2000/10/31 23:17:29  chris
- * More robust locking, with hitching posts.
- *
- * Revision 1.9  2000/10/31 20:37:22  chris
- * Added cclient locking, flock locking.
- *
- * Revision 1.8  2000/10/28 14:57:04  chris
- * Minor changes.
- *
- * Revision 1.7  2000/10/18 21:34:12  chris
- * Changes due to Mark Longair.
- *
- * Revision 1.6  2000/10/10 00:05:36  chris
- * Fixed problems with nonexistent/empty mailspools.
- *
- * Revision 1.5  2000/10/09 18:44:47  chris
- * Minor changes.
- *
- * Revision 1.4  2000/10/08 16:53:21  chris
- * Modified UID generation; also signal handler will always remove lockfile
- * on quit.
- *
- * Revision 1.3  2000/10/02 18:21:25  chris
- * Now supports modifying mailspools.
- *
- * Revision 1.2  2000/09/27 23:57:15  chris
- * Various changes.
- *
- * Revision 1.1  2000/09/26 22:23:36  chris
- * Initial revision
- *
  *
  */
 

@@ -3,35 +3,6 @@
  *
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
- * $Log$
- * Revision 1.9  2001/01/11 21:23:35  chris
- * Various changes to support IP-based virtual domains and other features.
- *
- * Revision 1.8  2000/10/31 23:17:29  chris
- * More paranoia, and more fascist protocol checking.
- *
- * Revision 1.7  2000/10/28 14:57:04  chris
- * Minor changes.
- *
- * Revision 1.6  2000/10/18 22:21:23  chris
- * Added timeouts, APOP support.
- *
- * Revision 1.5  2000/10/18 21:34:12  chris
- * Changes due to Mark Longair.
- *
- * Revision 1.4  2000/10/09 17:38:36  chris
- * Now indexes mailspools from 1 a la RFC1939.
- *
- * Revision 1.3  2000/10/02 18:22:19  chris
- * Supports most of POP3.
- *
- * Revision 1.2  2000/09/26 22:23:36  chris
- * Various changes.
- *
- * Revision 1.1  2000/09/18 23:43:38  chris
- * Initial revision
- *
- *
  */
 
 static const char rcsid[] = "$Id$";

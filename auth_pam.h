@@ -1,20 +1,10 @@
 /*
- * auth_pam.h: authenticate using Pluggable Authentication Modules
+ * auth_pam.h:
+ * authenticate using Pluggable Authentication Modules
  *
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Id$
- *
- * $Log$
- * Revision 1.3  2001/01/11 21:23:35  chris
- * Minor changes.
- *
- * Revision 1.2  2000/10/02 18:20:19  chris
- * Added config file support.
- *
- * Revision 1.1  2000/09/18 23:43:38  chris
- * Initial revision
- *
  *
  */
 

@@ -1,14 +1,10 @@
 /*
- * util.h: global utility stuff for tpop3d
+ * util.h:
+ * global utility stuff for tpop3d
  *
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Id$
- *
- * $Log$
- * Revision 1.1  2000/10/28 14:57:04  chris
- * Initial revision
- *
  *
  */
 
@@ -24,9 +20,9 @@
 #define malloc(a)   mymalloc(__FILE__, __LINE__ ,(a))
 #define free(a)     myfree(__FILE__, __LINE__, (a))
 */
-
+/*
 char *mystrdup(char *, int, char *);
 void *mymalloc(char *, int, size_t);
 void myfree(char *, int, void *);
-
+*/
 #endif /* __UTIL_H_ */

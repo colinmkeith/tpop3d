@@ -1,12 +1,8 @@
 /*
- * tokenise.c: break a string into a list of tokens
+ * tokenise.c:
+ * break a string into a list of tokens
  *
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
- *
- * $Log$
- * Revision 1.1  2000/10/31 23:17:29  chris
- * Initial revision
- *
  *
  */
 

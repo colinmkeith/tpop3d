@@ -1,20 +1,10 @@
 /*
- * list.h: doubly-linked list
+ * list.h:
+ * doubly-linked list
  *
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Id$
- *
- * $Log$
- * Revision 1.3  2000/10/07 17:41:16  chris
- * Minor changes.
- *
- * Revision 1.2  2000/10/02 18:21:25  chris
- * Minor changes.
- *
- * Revision 1.1  2000/09/18 23:43:38  chris
- * Initial revision
- *
  *
  */
 

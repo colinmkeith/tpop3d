@@ -1,14 +1,10 @@
 /*
- * stringmap.h: map of strings
+ * stringmap.h:
+ * map of strings
  *
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Id$
- *
- * $Log$
- * Revision 1.1  2000/10/02 18:22:19  chris
- * Initial revision
- *
  *
  */
 

@@ -5,14 +5,6 @@
  *
  * $Id$
  *
- * $Log$
- * Revision 1.2  2000/10/28 14:57:04  chris
- * Minor changes.
- *
- * Revision 1.1  2000/10/02 18:20:19  chris
- * Initial revision
- *
- *
  */
 
 #ifndef __AUTH_MYSQL_H_ /* include guard */
