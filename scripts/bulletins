@@ -1,0 +1,81 @@
+#!/usr/bin/perl -w
+#
+# bulletins:
+# Deliver bulletins to POP3 users. Use via tpop3d's auth-perl.
+#
+# Copyright (c) 2003 Chris Lightfoot. All rights reserved.
+# Email: chris@ex-parrot.com; WWW: http://www.ex-parrot.com/~chris/
+#
+
+my $rcsid = ''; $rcsid .= '$Id$';
+
+use strict;
+
+use GDBM_File;
+
+# onlogin_bulletins_handler REQUEST
+# Deliver any bulletins which are pending for the authenticated user identified
+# in the REQUEST. This subroutine is called by tpop3d, which will set
+# REQUEST->{local_part} and REQUEST->{domain} to the proper values. Bulletins
+# should be complete RFC822 messages stored in flat text files under
+# /etc/mail/bulletins, each with the extension .msg. This function will use a
+# GDBM database for each bulletin to record the addresses of users to whom it
+# has been delivered, so as to ensure that each user receives only one copy of
+# each bulletin. Bulletins are delivered to user mailboxes using the local mail
+# transport agent, though this behaviour could be changed if required.
+sub onlogin_bulletins_handler ($) {
+    my $req = shift;
+    my $resp = { };
+    
+    #
+    # Iterate over list of bulletins.
+    #
+    foreach my $bull (glob("/etc/mail/bulletins/*.msg")) {
+        my $recips = $bull;
+        
+        # Obtain and tie delivery database, creating it if it does not
+        # already exist.
+
+        $recips =~ s/msg$/db/;
+        my $r = $req->{local_part} . '@' . $req->{domain};
+        my %rr;
+        tie(%rr, 'GDBM_File', $recips, &GDBM_WRCREAT, 0600);
+
+        # Attempt delivery if this user has not already been sent a copy
+        # of this message.
+
+        if (!exists($rr{$r})) {
+
+            # Invoke sendmail. There are better ways of doing this, but this is
+            # simplest. Note that it wouldn't usually be safe to call sendmail
+            # in this way, but tpop3d has already authenticated somebody using
+            # the given local-part and domain, so they're presumably safe
+            # strings.
+
+            system("sendmail -oi '$r' < $bull");
+            if ($? == 0) {
+
+                # Sendmail exits with code 0 on success.
+
+                # Record delivery of this bulletin to this user.
+                $rr{$r} = 1;
+
+print STDERR "sent bulletin $bull to user $r\n";
+            } else {
+
+                # Sendmail (or system(3)) failed. There's not a whole lot we
+                # can do here, but we log a message and abort sending any other
+                # bulletins to this user for the moment.
+
+                untie(%rr);
+                return { logmsg => "sendmail failed; error code $?" };
+            }
+        }
+        untie(%rr);
+    }
+    
+    # Don't log anything in case of success; we might want to note how
+    # many bulletins were delivered or something, of course.
+    return { };
+}
+
