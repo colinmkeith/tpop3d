@@ -62,3 +62,4 @@ $Id$
   a process to handle TLS, while the main daemon carries on doing its stuff.
 
 
+* Run as nonprivileged user
