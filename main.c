@@ -39,6 +39,8 @@ static const char rcsid[] = "$Id$";
  * Implementation of inet_aton for machines (Solaris [cough]) which do not
  * have it.
  */
+int inet_aton(const char *s, struct in_addr *ip);
+
 int inet_aton(const char *s, struct in_addr *ip) {                              
     in_addr_t i = inet_addr(s);                                                 
     if (i == ((in_addr_t)-1)) return 0;                                         
