@@ -174,6 +174,10 @@ void connections_pre_select(int *n, fd_set *readfds, fd_set *writefds, fd_set *e
 /* fork_child:
  * Handle forking a child to handle an individual connection c.
  */
+#ifdef AUTH_OTHER
+extern volatile int authchild_wr, authchild_rd; /* in auth_other.c */
+#endif /* AUTH_OTHER */
+
 void fork_child(connection c) {
     connection *J;
     item *t;
@@ -204,6 +208,12 @@ void fork_child(connection c) {
                     connection_delete(*J);
                     *J = NULL;
                 }
+            
+#ifdef AUTH_OTHER
+            /* Need to close the pipe to the authentication child. */
+            if (authchild_rd != -1) close(authchild_rd);
+            if (authchild_wr != -1) close(authchild_wr);
+#endif /* AUTH_OTHER */
 
             /* We never access mailspools as root. */
             if (c->a->uid == 0) {

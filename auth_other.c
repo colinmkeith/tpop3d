@@ -568,7 +568,7 @@ authcontext auth_other_new_user_pass(const char *user, const char *pass) {
        
         I = stringmap_find(S, "gid");
         if (!I) MISSING("gid");
-        else if (!parse_gid(I->v, &uid)) INVALID("gid", (char*)I->v);
+        else if (!parse_gid(I->v, &gid)) INVALID("gid", (char*)I->v);
 
         I = stringmap_find(S, "mailbox");
         if (I) mailbox = (char*)I->v;
