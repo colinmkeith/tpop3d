@@ -25,6 +25,7 @@ static const char rcsid[] = "$Id$";
 #include <syslog.h>
 #include <unistd.h>
 #include <utime.h>
+#include <time.h>
 
 #include <sys/fcntl.h>
 #include <sys/stat.h>
@@ -42,7 +43,6 @@ static const char rcsid[] = "$Id$";
  * semantics where POP3 sessions are exclusive. To do this we create a lock
  * directory called .poplock in the root of the maildir. This is convenient
  * because mkdir(2) is atomic, even on NFS.
- *
  */
 
 /* MAILDIR_LOCK_LIFETIME

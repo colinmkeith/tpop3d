@@ -240,7 +240,7 @@ int check_password(const char *who, const char *pwhash, const char *pass, const 
     /* Helper macro to detect schemes. */
 #   define IS_SCHEME(hash, scheme, def)                                 \
         ((*hash == '{' && strncmp(hash, scheme, strlen(scheme)) == 0)   \
-         || strcmp(scheme, def) == 0)
+         || (*hash != '{' && strcmp(scheme, def) == 0))
     
     if (IS_SCHEME(pwhash, "{crypt}", default_crypt_scheme)) {
         /* Password hashed by system crypt function. */
@@ -274,7 +274,7 @@ int check_password(const char *who, const char *pwhash, const char *pass, const 
          * encoding. */
         if (strlen(realhash) == 32) {
             /* Hex. */
-            return strcasecmp(realhash, md5_digest_str(pass, strlen(pass), 0));
+            return strcasecmp(realhash, md5_digest_str(pass, strlen(pass), 0)) == 0;
         } else if (strlen(pwhash) == 24) {
             /* Base 64. */
             return strcmp(realhash, md5_digest_str(pass, strlen(pass), 1)) == 0;

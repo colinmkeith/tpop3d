@@ -79,19 +79,41 @@ AC_ARG_WITH(mysql-include-dir,
         [
     --with-mysql-include-dir=DIR     
                               Set MySQL include directory, which should contain
-                              mysql.h.
-                              [default=/usr/include/mysql]
+                              mysql.h. [default=/usr/include/mysql]
 ],
     [mysql_include_dir=$withval],
     [mysql_include_dir="/usr/include/mysql"])
 
 AC_ARG_WITH(mysql-lib-dir,
         [    --with-mysql-lib-dir=DIR  Set MySQL library directory, which should contain
-                              libmysqlclient.so.
-                              [default=/usr/lib/mysql]
+                              libmysqlclient.so. [default=/usr/lib/mysql]
 ],
     [mysql_lib_dir=$withval],
     [mysql_lib_dir="/usr/lib/mysql"])
+
+AC_ARG_ENABLE(auth-pgsql,
+        [
+  --enable-auth-pgsql     Enable auth-pgsql (Postgres) authentication.
+                          [default=no]],
+    [enable_auth_pgsql=$enableval],
+    [enable_auth_pgsql="no"])
+
+AC_ARG_WITH(pgsql-include-dir,
+        [
+    --with-pgsql-include-dir=DIR     
+                              Set Postgres include directory, which should
+                              contain libpq-fe.h. [default=/usr/include]
+],
+    [pgsql_include_dir=$withval],
+    [pgsql_include_dir="/usr/include"])
+
+AC_ARG_WITH(pgsql-lib-dir,
+        [    --with-pgsql-lib-dir=DIR  Set Postgreslibrary directory, which should
+                              contain libpq.so. [default=/usr/lib]
+],
+    [pgsql_lib_dir=$withval],
+    [pgsql_lib_dir="/usr/lib"])
+
 
 AC_ARG_ENABLE(auth-ldap,
         [  --enable-auth-ldap      Enable authentication against an LDAP directory.
@@ -314,6 +336,11 @@ then
     AC_DEFINE(AUTH_MYSQL,1,[Use vmail-sql style authentication.])
 fi
 
+if test x"$enable_auth_pgsql" = x"yes"
+then
+    AC_DEFINE(AUTH_PGSQL,1,[Use Postgres authentication.])
+fi
+
 if test x"$enable_auth_ldap" = x"yes"
 then
     AC_DEFINE(AUTH_LDAP,1,[Use LDAP authentication.])
@@ -335,6 +362,18 @@ fi
 if test x"$enable_auth_perl" = x"yes"
 then
     AC_DEFINE(AUTH_PERL,1,[Use an embedded perl interpreter for authentication.])
+fi
+
+if test x"$enable_auth_pam" != x"yes" \
+&& test x"$enable_auth_passwd" != x"yes" \
+&& test x"$enable_shadow" != x"yes" \
+&& test x"$enable_auth_mysql" != x"yes" \
+&& test x"$enable_auth_ldap" != x"yes" \
+&& test x"$enable_auth_flatfile" != x"yes" \
+&& test x"$enable_auth_other" != x"yes" \
+&& test x"$enable_auth_perl" != x"yes"
+then
+    AC_MSG_ERROR([No authentication driver is enabled. At least one is required.])
 fi
 
 dnl Mailbox drivers
@@ -432,6 +471,14 @@ then
     CPPFLAGS="$CPPFLAGS -I$mysql_include_dir"
 fi
 
+# auth-pgsql.
+if test x"$enable_auth_pgsql" = x"yes"
+then
+    LDFLAGS="$LDFLAGS -L$pgsql_lib_dir"
+    dnl Also have to do CPPFLAGS, so that AC_CHECK_HEADER works...
+    CPPFLAGS="$CPPFLAGS -I$pgsql_include_dir"
+fi
+
 dnl auth-ldap.
 if test x"$enable_auth_ldap" = x"yes"
 then
@@ -478,10 +525,7 @@ then
 fi
 
 # Some machines have crypt(3) in libcrypt; test for this.
-if test x"$enable_auth_passwd" = x"yes" || test x"$enable_shadow" = x"yes" || test x"$enable_auth_mysql" = x"yes" || test x"$enable_auth_flatfile" = x"yes"
-then
-    AC_CHECK_LIB(crypt, crypt, , )
-fi
+AC_CHECK_LIB(crypt, crypt, , )
 
 # Some machines have dlopen etc. in libdl, and these are needed for PAM.
 if test x"$enable_auth_pam" = x"yes"
@@ -494,6 +538,13 @@ fi
 if test x"$enable_auth_mysql" = x"yes"
 then
     AC_CHECK_LIB2(mysqlclient, main, [], AC_MSG_ERROR([[vmail-sql authentication enabled, but can't find libmysqlclient]]), -lz )
+fi
+
+# Postgres client libraries
+if test x"$enable_auth_pgsql" = x"yes"
+  then
+    AC_CHECK_LIB2(pq, PQconnectdb, [], AC_MSG_ERROR([[postgres authentication enabled, but can't find libpq]]), -lz )
+    AC_CHECK_LIB2(pq, PQescapeString, AC_DEFINE(SYSTEM_PQESCAPESTRING,1,[libpq contains PQescapeString]), [], -lz )
 fi
 
 # LDAP client libraries.
@@ -549,7 +600,7 @@ dnl Checks for header files.
 AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
 
-AC_CHECK_HEADERS(fcntl.h limits.h sys/file.h sys/time.h syslog.h unistd.h crypt.h execinfo.h security/pam_appl.h ldap.h mysql.h tcpd.h openssl/ssl.h)
+AC_CHECK_HEADERS(fcntl.h limits.h sys/file.h sys/time.h syslog.h unistd.h crypt.h execinfo.h security/pam_appl.h ldap.h mysql.h tcpd.h openssl/ssl.h libpq-fe.h)
 
 if test x"$enable_backtrace" = x"yes"
 then
@@ -580,6 +631,14 @@ then
     if test x"$ac_cv_header_mysql_h" != x"yes"
     then
         AC_MSG_ERROR( [[vmail-sql authentication enabled, but can't find mysql.h]] )
+    fi
+fi
+
+if test x"$enable_auth_pgsql" = x"yes"
+then
+    if test x"$ac_cv_header_libpq_fe_h" != x"yes"
+    then
+        AC_MSG_ERROR( [[Postgres authentication enabled, but can't find libpq-fe.h]] )
     fi
 fi
 

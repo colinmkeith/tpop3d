@@ -9,7 +9,6 @@ $Id$
   thought about denial-of-service attacks, and I think that it is safe from the
   most obvious ones. Nevertheless, a full security audit would be desirable.
 
-
 * Internationalisation
 
   The long-term plan is that tpop3d should support internationalised messages
@@ -20,7 +19,6 @@ $Id$
   documentation.
 
   But this doesn't do anything yet :)
-
 
 * Asynchronous authentication
 
@@ -49,24 +47,19 @@ $Id$
   (such as database connections) must be disowned by the parent and
   reacquired. This is feasible, but would require careful thought.
 
-
 * Optionally, run as nonprivileged user
-
 
 * Optionally, don't log to syslog
 
-
 * Better control over logging verbosity
-
 
 * POP3 extended response codes (RFC2449)
 
-
 * setproctitle
 
-
-* Allow case-insensitive user names.
-
+* Allow case-insensitive user names
 
 * Automated test scripts
+
+* Non-constant UID in auth-flatfile
 

@@ -37,7 +37,9 @@ Angel Marin-- for the auth-flatfile authenticator.
 Arkadiusz Miskiewicz-- for WHOSON protocol support.
 
 Yann Grossel-- for MySQL server failover support and freezing connections on
-bad authentication.
+bad authentication, and many bug fixes.
+
+Stephen White-- for Postgres support.
 
 And numerous others, for putting up with foolish questions about Unix
 mailspool handling or (more often) indignant rants about Unix in general and

@@ -438,7 +438,7 @@ int connection_sendmessage(connection c, int fd, size_t msgoffset, size_t skip, 
     p += skip;
 
     /* Send the message headers */
-    do {
+	 while (p < r && *p != '\n') {
         q = memchr(p, '\n', r - p);
         if (!q) q = r;
         errno = 0;
@@ -454,7 +454,7 @@ int connection_sendmessage(connection c, int fd, size_t msgoffset, size_t skip, 
         nwritten += q - p + 2;
 
         p = q + 1;
-    } while (p < r && *p != '\n');
+    }
 
     ++p;
 

@@ -258,8 +258,9 @@ int auth_other_init() {
             log_print(LOG_ERR, _("auth_other_init: auth-program %s: %m"), auth_program);
             return 0;
         }
-        /* XXX should fail if it turns out that the program is not executable
-         * by the given group and user; but this is a pain to work out. */
+        /* We should, perhaps, fail if it turns out that the program is not
+         * executable by the given group and user; but this is a pain to work
+         * out. */
     }
 
     /* Find out the timeout for talking to the program. */

@@ -20,7 +20,9 @@ static const char rcsid[] = "$Id$";
 #include <signal.h>
 #include <string.h>
 #include <syslog.h>
+#include <time.h>
 #include <unistd.h>
+#include <time.h>
 
 #ifdef USE_TCP_WRAPPERS
 #   include <tcpd.h>

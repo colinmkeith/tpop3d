@@ -2,12 +2,6 @@
  * auth_mysql.c:
  * Authenticate users against a MySQL database.
  *
- * The only subtlety here is that the config directives for the database
- * (password etc.) are privileged information, which must be cleared prior to
- * forking after which the program could be attached to a debugger by a
- * malicious user. In fact, we zero the information at point of attaching to
- * the database.
- * 
  * Copyright (c) 2001 Chris Lightfoot. All rights reserved.
  *
  */
@@ -140,9 +134,7 @@ static int get_mysql_server(void) {
 }
 
 /* auth_mysql_init:
- * Initialise the database connection driver. Clears the config directives
- * associated with the database so that a user cannot recover them with a
- * debugger. */
+ * Initialise the database connection driver. */
 int auth_mysql_init() {
     char *hostname = NULL, *localhost = "localhost", *s;
 
@@ -264,7 +256,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *local_part, const 
                     goto fail;
                 } else if (!row[1]) {
                     log_print(LOG_ERR, _("auth_mysql_new_apop: password hash for user %s is NULL"), who);
-                    break;
+                    goto fail;
                 }
  
                 /* Actually check the password. */
@@ -292,15 +284,14 @@ authcontext auth_mysql_new_apop(const char *name, const char *local_part, const 
             }
 
         default:
-            log_print(LOG_ERR, _("auth_mysql_new_apop: database inconsistency: query for %s returned %d rows"), name, i);
+            log_print(LOG_ERR, _("auth_mysql_new_apop: database inconsistency: query for %s returned %d rows, should be 0 or 1"), name, i);
             break;
         }
 
         mysql_free_result(result);
         
-    } else {
+    } else
         log_print(LOG_ERR, "auth_mysql_new_apop: mysql_query: %s", mysql_error(mysql));
-    }
 
 fail:
     if (query) xfree(query);
@@ -392,7 +383,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *local_part, c
             }
 
         default:
-            log_print(LOG_ERR, _("auth_mysql_new_user_pass: database inconsistency: query for %s returned %d rows"), who, i);
+            log_print(LOG_ERR, _("auth_mysql_new_user_pass: database inconsistency: query for %s returned %d rows, should be 0 or 1"), who, i);
             break;
         }
 
@@ -447,7 +438,7 @@ void auth_mysql_onlogin(const authcontext A, const char *clienthost, const char 
 /* auth_mysql_postfork:
  * Post-fork cleanup. */
 void auth_mysql_postfork() {
-    mysql = NULL; /* XXX */
+    mysql = NULL;
     mysql_driver_active = 0;
 }
 

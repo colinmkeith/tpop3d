@@ -84,6 +84,19 @@ char *cfgdirectives[] = {
     "auth-mysql-onlogin-query",
 #endif /* AUTH_MYSQL */
 
+#ifdef AUTH_PGSQL
+    /* auth-pgsql options */
+    "auth-pgsql-enable",
+    "auth-pgsql-username",
+    "auth-pgsql-password",
+    "auth-pgsql-database",
+    "auth-pgsql-hostname",
+    "auth-pgsql-mail-group",
+    "auth-pgsql-pass-query",
+    "auth-pgsql-apop-query",
+    "auth-pgsql-onlogin-query",
+#endif /* AUTH_PGSQL */
+
 #ifdef AUTH_LDAP
     "auth-ldap-enable",
     "auth-ldap-url",

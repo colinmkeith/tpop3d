@@ -91,9 +91,9 @@ static char *verrprintf(const char *fmt, va_list ap) {
 
     *fmtbuf = 0;
 
-    /* First, we need to substitute errors into the string.
-     * XXX this would not be safe in the presence of very long format strings
-     * in the rest of the code, but we can guarantee that won't happen.... */
+    /* First, we need to substitute errors into the string. This would not be
+     * safe in the presence of very long format strings in the rest of the
+     * code, but we can guarantee that won't happen.... */
     for (p = fmt, q = strstr(p, "%m"); q; p = q, q = strstr(p, "%m")) {
         strncat(fmtbuf, p, q - p);
         strcat(fmtbuf, e);

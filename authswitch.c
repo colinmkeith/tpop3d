@@ -28,6 +28,10 @@ static const char rcsid[] = "$Id$";
 #include "auth_mysql.h"
 #endif /* AUTH_MYSQL */
 
+#ifdef AUTH_PGSQL
+#include "auth_pgsql.h"
+#endif /* AUTH_PGSQL */
+
 #ifdef AUTH_OTHER
 #include "auth_other.h"
 #endif /* AUTH_OTHER */
@@ -83,6 +87,13 @@ struct authdrv auth_drivers[] = {
             "mysql",
             _X("Uses a MySQL database")},
 #endif /* AUTH_MYSQL */
+
+#ifdef AUTH_PGSQL
+        /* Postgres. */
+        {auth_pgsql_init, auth_pgsql_new_apop, auth_pgsql_new_user_pass, auth_pgsql_onlogin, auth_pgsql_postfork, auth_pgsql_close,
+            "pgsql",
+            _X("Uses a Postgres database")},
+#endif /* AUTH_PGSQL */
 
 #ifdef AUTH_LDAP
         /* Authenticate against a directory. */

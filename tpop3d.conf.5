@@ -462,6 +462,32 @@ arbitrary person to obtain information from the database if they have
 access to the machine on which it resides.  The corollary to this is that the
 \fBtpop3d.conf\fP file should not be readable by arbitrary users.
 
+.SS Postgres authentication options
+
+These are only available if you compiled \fBtpop3d\fP with \fBauth-pgsql\fP
+support.
+.TP
+\fBauth-pgsql-enable\fP: (\fByes\fP | \fBtrue\fP)
+Enable Postgres authentication.
+.TP
+\fBauth-pgsql-username\fP
+.TP
+\fBauth-pgsql-password\fP
+.TP
+\fBauth-pgsql-database\fP
+.TP
+\fBauth-pgsql-hostname\fP
+.TP
+\fBauth-pgsql-pass-query\fP
+.TP
+\fBauth-pgsql-apop-query\fP
+.TP
+\fBauth-pgsql-onlogin-query\fP
+.TP
+\fBauth-pgsql-mail-group\fP
+Behave like the equivalent \fBauth-mysql\fP options.
+
+
 .SS LDAP authentication options
 
 These are only available if you compiled \fBtpop3d\fP with support for
@@ -539,9 +565,9 @@ Enable flat file authentication.
 \fBauth-flatfile-passwd-file\fP: \fIsubstitution string\fP
 Specify the file in which \fBtpop3d\fP will search for a user's password.
 .TP
-\fBauth-ldap-mail-user\fP: (\fIuser-name\fP | \fIuid\fP)
+\fBauth-flatfile-mail-user\fP: (\fIuser-name\fP | \fIuid\fP)
 .TP
-\fBauth-ldap-mail-group\fP: (\fIgroup-name\fP | \fIgid\fP)
+\fBauth-flatfile-mail-group\fP: (\fIgroup-name\fP | \fIgid\fP)
 User and group under which access to the mailbox will take place.
 
 .SS A note on flat file authentication

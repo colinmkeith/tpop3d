@@ -307,7 +307,7 @@ authcontext auth_ldap_new_user_pass(const char *username, const char *local_part
             break;
 
         default:
-            log_print(LOG_ERR, _("auth_ldap_new_user_pass: search returned %d entries"), nentries);
+            log_print(LOG_ERR, _("auth_ldap_new_user_pass: search returned %d entries, should be 0 or 1"), nentries);
             /* fall through */
 
         case 0:

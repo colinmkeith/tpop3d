@@ -500,7 +500,7 @@ retry_pid_file:
         strip_domain = 1;
 
     if (append_domain && strip_domain)
-        log_print(LOG_WARNING, _("%s: specifying append-domain and strip-domain does not make much sense"));
+        log_print(LOG_WARNING, _("%s: specifying append-domain and strip-domain does not make much sense"), configfile);
 
     /* Should we disconnect any client which sends a USER command? */
     if (config_get_bool("apop-only"))
