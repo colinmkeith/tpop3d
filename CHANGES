@@ -3,7 +3,7 @@ $Id$
 
 Fixed a couple of errors in the man page and configuration directives which
 got lost; thanks to Haris Hudji. Increased the default value for max-children
-from 16 to 100.
+from 16 to 100. Fixed a typo in Makefile.am.
 
 1.5.2
 

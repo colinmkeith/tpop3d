@@ -52,8 +52,8 @@ EXTRA_DIST = bootstrap \
              darwin/TPOP3D/StartupParameters.plist darwin/TPOP3D/TPOP3D \
              config/check_lib2.m4
              
-MAINTERCLEANFILES = Makefile.in aclocal.m4 configure configuration.h.in \
-                    stamp-h.in
+MAINTERAINCLEANFILES = Makefile.in aclocal.m4 configure configuration.h.in \
+                       stamp-h.in
 
 ACLOCAL = aclocal -I @ac_aux_dir@
 
