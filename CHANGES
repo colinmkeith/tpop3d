@@ -12,7 +12,7 @@ change to the documentation to make it clearer. tpop3d now obeys configure's
 problem in the command parsing code which could cause problems with Eudora's
 command pipelining; thanks to Shin Zukeran for this fix. Fixed a minor problem
 in the PAM code, thanks to Christian Nordmann, and also added facility to use
-auth-pam for authenticating users who have no UNIX account.
+auth-pam for authenticating users who have no UNIX account based on his patch.
 
 1.4.2
 
