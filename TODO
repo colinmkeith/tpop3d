@@ -1,6 +1,7 @@
 Things To Do
 $Id$
 
+
 * More portability
 
 I only use tpop3d on Linux, but would be interested in getting it running
@@ -32,3 +33,4 @@ most obvious ones. Nevertheless, a full security audit would be desirable.
 Editing Makefiles may be the way "we" did things in the good old days, but
 nowadays even people like me who don't believe in package management do
 believe in ./configure.
+

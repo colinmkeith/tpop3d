@@ -7,7 +7,8 @@ something better.
 Mark Longair-- for testing, patches, bug fixes and the odd (metaphorical)
 kick in the teeth when I'd done something dense and he'd acted as the victim.
 
-Dom Gallagher-- for help testing tpop3d on Solaris.
+Dom Gallagher-- for help testing tpop3d on Solaris, and for contributing
+crypt(3)-style authentication for auth_mysql.
 
 And numerous others, for putting up with foolish questions about Unix
 mailspool handling or (more often) indignant rants about Unix in general and

@@ -19,8 +19,8 @@ Authentication Modules to mediate access of registered users of a
 machine to their Unix-style mailboxes, and auth_mysql, which uses a
 MySQL database to mediate access to virtual-domain email, and is compatible
 with the vmail-sql schema for doing this:
-  http://www.ex-parrot.com/~chris/vmail-sql/
 
+  http://www.ex-parrot.com/~chris/vmail-sql/
 
 Usage instructions
 
@@ -47,6 +47,12 @@ to review the authentication schemes available; at present, these are
     auth_mysql
         Uses a MySQL database, allowing authentication of users in
         virtual domains.
+
+        By default, auth_mysql uses MD5 hashes of passwords for authentication
+        (or clear-text passwords for APOP authentication). By applying the
+        patches in mysql_crypt.patch, you can alter this to use passwords
+        which are hashed using crypt(3) (as in /etc/passwd on most Unix
+        systems). This patch was contributed by Dom Gallagher.
 
         Not enabled in the distribution makefile.
 

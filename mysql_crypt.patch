@@ -1,29 +1,6 @@
---- auth_mysql.c	Thu Feb  1 19:28:11 2001
-+++ auth_mysql_crypt.c	Thu Feb  1 21:08:41 2001
-@@ -1,5 +1,6 @@
- /*
-- * auth_mysql.c: authenticate users against a MySQL database
-+ * auth_mysql.c:
-+ * Authenticate users against a MySQL database, using crypt(3) authentication.
-  *
-  * The only subtlety here is that the config directives for the database
-  * (password etc.) are privileged information, which must be cleared prior to
-@@ -7,12 +8,12 @@
-  * malicious user. In fact, we zero the information at point of attaching to
-  * the database.
-  * 
-- * Copyright (c) 2001 Chris Lightfoot. All rights reserved.
-+ * Copyright (c) 2001 Chris Lightfoot and Dom Gallagher. All rights reserved.
-  *
-  */
- 
- #ifdef AUTH_MYSQL
--static const char rcsid[] = "$Id$";
-+static const char rcsid[] = "$Id$";
- 
- #include <sys/types.h> /* BSD needs this here, apparently. */
- 
-@@ -97,190 +98,26 @@
+--- auth_mysql.c	Thu Feb  1 21:23:08 2001
++++ auth_mysql_crypt.c	Thu Feb  1 21:26:58 2001
+@@ -97,190 +97,26 @@
      return ret;
  }
  
@@ -216,7 +193,7 @@
      item *I;
      size_t l;
      int use_gid = 0;
-@@ -323,21 +160,15 @@
+@@ -323,21 +159,15 @@
          return NULL;
      }
  
@@ -240,7 +217,7 @@
  
      if (mysql_query(mysql, query) == 0) {
          MYSQL_RES *result = mysql_store_result(mysql);
-@@ -350,16 +181,23 @@
+@@ -350,16 +180,23 @@
  
          switch (i = mysql_num_rows(result)) {
          case 0:
@@ -265,20 +242,9 @@
                  
                  pw = getpwnam((const char*)row[2]);
  
---- auth_mysql.h	Thu Feb  1 19:28:11 2001
-+++ auth_mysql_crypt.h	Thu Feb  1 21:08:26 2001
-@@ -1,7 +1,8 @@
- /*
-- * auth_mysql.h: authenticate users against a MySQL database
-+ * auth_mysql_crypt.h:
-+ * Authenticate users against a MySQL database, using crypt(3) authentication.
-  *
-- * Copyright (c) 2001 Chris Lightfoot. All rights reserved.
-+ * Copyright (c) 2001 Chris Lightfoot and Dom Gallagher. All rights reserved.
-  *
-  * $Id$
-  *
-@@ -24,15 +25,14 @@
+--- auth_mysql.h	Thu Feb  1 21:23:32 2001
++++ auth_mysql_crypt.h	Thu Feb  1 21:26:39 2001
+@@ -24,15 +24,14 @@
   */
  
  /* Config directive: auth-mysql-mail-group */
@@ -296,9 +262,8 @@
 +#endif /* AUTH_MYSQL_CRYPT */
  
  #endif /* __AUTH_MYSQL_H_ */
-
---- authswitch.c	Thu Feb  1 19:28:11 2001
-+++ authswitch_mysql_crypt.c	Thu Feb  1 21:12:22 2001
+--- authswitch.c	Thu Feb  1 21:23:54 2001
++++ authswitch_mysql_crypt.c	Thu Feb  1 21:23:44 2001
 @@ -53,7 +53,7 @@
              
  #ifdef AUTH_MYSQL

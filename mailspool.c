@@ -67,7 +67,8 @@ int file_unlock(const int fd, const char *name) {
  * definitions.
  */
 int file_lock(const int fd, const char *name) {
-    int l_fcntl = 0, l_flock = 0, l_dotfile = 0;
+    int l_fcntl, l_flock, l_dotfile;
+    l_fcntl = l_flock = l_dotfile = 0;
 
 #ifdef WITH_FCNTL_LOCKING
     if (fcntl_lock(fd) == -1) goto fail;
