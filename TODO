@@ -79,5 +79,5 @@ $Id$
   point for an implementation.
 
 
-* Fix DELE/STAT bug
+* Obey --sysconfdir.
 
