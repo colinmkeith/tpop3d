@@ -14,7 +14,8 @@ command pipelining; thanks to Shin Zukeran for this fix. Fixed a minor problem
 in the PAM code, thanks to Christian Nordmann, and also added facility to use
 auth-pam for authenticating users who have no UNIX account based on his patch.
 Added scripts/tpop3dtraffic, which extracts the identity of the heaviest POP3
-users from logfiles.
+users from logfiles. Added a permit-empty-passwords option, default no,
+largely to protect LDAP users who left LDAP authentication switched on....
 
 1.4.2
 
