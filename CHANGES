@@ -6,7 +6,8 @@ $Id$
 tpop3d now supports the WHOSON protocol (http://whoson.sourceforge.net) for
 POP-before-SMTP relaying, thanks to Arkadiusz Miski. Added support for `mass
 virtual hosting', where the domain name used for a connection is based upon
-the name associated with the address to which a client connects.
+the name associated with the address to which a client connects. Made a small
+change to the documentation to make it clearer.
 
 1.4.2
 
