@@ -2,7 +2,7 @@
  * pidfile.c:
  * functions for creating and removing PID files
  *
- * Copyright (c) 2001 Chris Lightfoot. All rights reserved.
+ * Copyright (c) 2001 Mark Longair. All rights reserved.
  *
  */
 
