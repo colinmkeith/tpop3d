@@ -53,10 +53,13 @@ case "$1" in
                 rm -f /var/lock/subsys/tpop3d
         fi
         ;;
-  restart|reload)
+  restart)
 	$0 stop
 	$0 start
 	;;
+  reload)
+        kill -HUP `pidof tpop3d`
+        ;;
   *)
         echo "Usage: tpop3d {start|stop|restart|reload}"
         exit 1

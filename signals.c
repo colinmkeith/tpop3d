@@ -116,8 +116,8 @@ void child_signal_handler(const int i) {
 /* restart_signal_handler:
  * Signal handler to restart the server on receivinga SIGHUP.
  */
-extern int restart;                         /* in main.c */
+extern int restart, post_fork;              /* in main.c */
 
 void restart_signal_handler(const int i) {
-    foad = restart = 1;
+    if (!post_fork) foad = restart = 1;
 }

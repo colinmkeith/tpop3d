@@ -1,6 +1,6 @@
 /*
  * util.h:
- * global utility stuff for tpop3d
+ * Global utility stuff for tpop3d
  *
  * Copyright (c) 2001 Chris Lightfoot. All rights reserved.
  *
@@ -17,10 +17,12 @@
 #   define TPOP3D_VERSION   "(unknown)"
 #endif
 
-/* syslog(3) replacement */
 void print_log(int priority, const char *fmt, ...);
-
-/* write(2) replacement */
 ssize_t xwrite(int fd, const void *buf, size_t count);
+int daemon(int nochdir, int noclose);
+
+#ifdef __SVR4
+int inet_aton(const char *s, struct in_addr *ip);
+#endif
 
 #endif /* __UTIL_H_ */

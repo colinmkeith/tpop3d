@@ -53,13 +53,14 @@ int max_running_children = 16;    /* How many children may exist at once. */
 
 int foad = 0, restart = 0;        /* Flag used to indicate that we should exit. */
 
+int post_fork = 0;                /* Flag used to indicate that we are handling a connection in a child. */
+
 long int timeout_seconds = 30;
 
 connection this_child_connection; /* Stored here so that if a signal terminates the child, the mailspool will still get unlocked. */
 
 void net_loop(vector listen_addrs) {
     list connections = list_new();
-    int post_fork = 0;
     listitem I, J;
     item *t;
 
@@ -138,18 +139,14 @@ void net_loop(vector listen_addrs) {
                         if (post_fork) exit(0);
                         if (!I) break;
                     } else if (n < 0 && errno != EINTR) {
-                        /* Some sort of error occurred, and we should close
-                         * the connection.
-                         */
+                        /* Some sort of error occurred, and we should close the connection. */
                         print_log(LOG_ERR, "net_loop: connection_read: client %s: disconnected: %m", c->idstr);
                         connection_delete(c);
                         I = list_remove(connections, I);
                         if (post_fork) exit(0);
                         if (!I) break;
                     } else {
-                        /* We read some data and should try to interpret
-                         * command/s.
-                         */
+                        /* We read some data and should try to interpret command/s. */
                         pop3command p;
                         while (c && (p = connection_parsecommand(c))) {
                             switch(connection_do(c, p)) {
@@ -171,7 +168,7 @@ void net_loop(vector listen_addrs) {
                                 } else switch(fork()) {
                                 case 0:
                                     /* Child. */
-                                    post_fork = 1;
+                                    post_fork = 1; /* XXX minor race condition with SIGHUP */
 
                                     vector_iterate(listen_addrs, t) listener_delete((listener)t->v);
                                     vector_delete(listen_addrs);

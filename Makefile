@@ -6,7 +6,7 @@
 # $Id$
 #
 
-VERSION = 1.2.3
+VERSION = 1.2.4
 
 # On machines where gcc is not the default C compiler, you may wish to specify
 # gcc here, for instance if your vendor's compiler is broken (Solaris
@@ -156,13 +156,16 @@ SRCS =  auth_mysql.c	\
         connection.c	\
         errprintf.c     \
         list.c	        \
+        listener.c      \
         locks.c         \
         mailspool.c	\
         main.c	        \
         md5c.c	        \
         pop3.c	        \
+        signals.c       \
         stringmap.c	\
 	tokenise.c      \
+        util.c          \
         vector.c
 
 OBJS = $(SRCS:.c=.o)
@@ -176,10 +179,12 @@ HDRS =  auth_mysql.h	\
         errprintf.h     \
         global.h	\
         list.h	        \
+        listener.h      \
         locks.h         \
         mailspool.h	\
         main.h	        \
         md5.h	        \
+        signals.h       \
         stringmap.h	\
 	tokenise.h      \
         vector.h        \
