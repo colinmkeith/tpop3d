@@ -79,3 +79,13 @@ $Id$
    that this is not now necessary, since newer versions of the package tools
    can obtain this information from files in a standard .tar.gz file.
 
+4. I see that tpop3d supports MySQL, but I want to use another/a proper
+   database....
+
+   You can, if you want, write a database authentication driver in C, using
+   auth_mysql as an example. However, a better approach would be to write an
+   authenticator in a scripting language such as Perl or Python, and have
+   tpop3d call it through the auth_perl or auth_other mechanisms. There is a
+   perl example for Oracle (contributed by Paul Makepeace) in the scripts/
+   subdirectory of the distribution.
+
