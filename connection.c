@@ -401,7 +401,7 @@ int connection_sendresponse(connection c, const int success, const char *s) {
     l = (success ? 6 : 7) + strlen(s);
 
     if (!buf || buflen < l + 1)
-        buf = xmalloc(buflen = l + 1);
+        buf = xrealloc(buf, buflen = l + 1);
     
     sprintf(buf, "%s %s\r\n", success ? "+OK" : "-ERR", s);
     if (connection_send(c, buf, l)) {
