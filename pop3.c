@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.3  2000/10/02 18:22:19  chris
+ * Supports most of POP3.
+ *
  * Revision 1.2  2000/09/26 22:23:36  chris
  * Various changes.
  *
@@ -155,13 +158,14 @@ enum connection_action connection_do(connection c, const pop3command p) {
         
         switch (p->cmd) {
         case LIST:
+            /* Gives exact sizes taking account of the "From " lines. */
             if (have_arg)
                 if (have_msg_num)
                     if (I->deleted)
                         connection_sendresponse(c, 0, "That message is no more");
                     else {
                         char response[32];
-                        snprintf(response, 31, "%d %d", msg_num, I->msglength);
+                        snprintf(response, 31, "%d %d", msg_num, I->msglength - I->length - 1);
                         connection_sendresponse(c, 1, response);
                     }
                 else connection_sendresponse(c, 0, "Not a valid message number");
@@ -171,7 +175,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 vector_iterate(c->m->index, J) {
                     if (!((indexpoint)J->v)->deleted) {
                         char response[48];
-                        snprintf(response, 47, "%d %d", J - c->m->index->ary, ((indexpoint)J->v)->msglength);
+                        snprintf(response, 47, "%d %d", J - c->m->index->ary, ((indexpoint)J->v)->msglength - ((indexpoint)J->v)->length - 1);
                         connection_sendline(c, response);
                     }
                 }
@@ -180,6 +184,9 @@ enum connection_action connection_do(connection c, const pop3command p) {
             break;
 
         case UIDL:
+            /* It isn't guaranteed that these IDs are unique; it is likely,
+             * though. See RFC1939.
+             */
             if (have_arg)
                 if (have_msg_num)
                     if (I->deleted)
@@ -208,17 +215,80 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 if (have_msg_num) {
                     I->deleted = 1;
                     connection_sendresponse(c, 1, "Done");
+                    ++c->m->numdeleted;
                 } else
                     connection_sendresponse(c, 0, "Which message do you want to delete?");
                 break;
 
+        case RETR:
+                if (have_msg_num) {
+                    connection_sendresponse(c, 1, "Message follows");
+                    if (!mailspool_send_message(c->m, c->s, msg_num, -1)) {
+                        connection_sendresponse(c, 0, "Oops");
+                        return close_connection;
+                    }
+                    break;
+                } else {
+                    connection_sendresponse(c, 0, "Which message do you want to see?");
+                    break;
+                }
+
+        case TOP: {
+                int len;
+                char *x, *y;
+
+                if (!p->tail) {
+                    connection_sendresponse(c, 0, "What do you want to see?");
+                    break;
+                }
+
+                msg_num = strtol(p->tail, &x, 10);
+                if (x == a) {
+                    connection_sendresponse(c, 0, "Which message do you want to see?");
+                    break;
+                }
+                len = strtol(x, &y, 10);
+                if (y == x) {
+                    connection_sendresponse(c, 0, "How much do you want to see?");
+                    break;
+                }
+
+                if (msg_num < 0 || msg_num >= c->m->index->n_used || len < 0) {
+                    connection_sendresponse(c, 0, "Try again");
+                    break;
+                }
+
+                if (!mailspool_send_message(c->m, c->s, msg_num, len)) {
+                    connection_sendresponse(c, 0, "Oops");
+                    return close_connection;
+                }
+                break;
+            }
+                
+
         case STAT: {
                 char response[32];
+                /* Size here is approximate as we don't strip off the "From "
+                 * headers.
+                 */
                 snprintf(response, 31, "%d %d", c->m->index->n_used, c->m->st.st_size);
                 connection_sendresponse(c, 1, response);
                 break;
             }
-            
+
+        case RSET: {
+                item *I;
+                vector_iterate(c->m->index, I) ((indexpoint)I->v)->deleted = 0;
+                c->m->numdeleted = 0;
+                connection_sendresponse(c, 1, "Done");
+                break;
+            }
+
+        case QUIT:
+            /* Now perform UPDATE */
+            if (mailspool_apply_changes(c->m)) connection_sendresponse(c, 1, "Done");
+            else connection_sendresponse(c, 0, "Something went wrong");
+            return close_connection;
             
         case NOOP:
             connection_sendresponse(c, 1, "I'm still here");
@@ -228,8 +298,6 @@ enum connection_action connection_do(connection c, const pop3command p) {
             connection_sendresponse(c, 0, "Oops");
             break;
         }
-
-        free(a);
 
         return do_nothing;
     } else {

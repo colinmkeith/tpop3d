@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.3  2000/10/02 18:20:19  chris
+ * Supports most of POP3.
+ *
  * Revision 1.2  2000/09/26 22:23:36  chris
  * Various changes.
  *
@@ -105,6 +108,9 @@ void connection_delete(connection c) {
 
     shutdown(c->s, 2);
 
+    if (c->a) authcontext_delete(c->a);
+    if (c->m) mailspool_delete(c->m);
+
     if (c->buffer)    free(c->buffer);
     if (c->timestamp) free(c->timestamp);
     if (c->user)      free(c->user);
@@ -125,8 +131,29 @@ ssize_t connection_read(connection c) {
     return n;
 }
 
+/*
+static void dump(const char *s, size_t l) {
+    const char *p;
+    for (p = s; p < s + l; ++p) {
+        if (*p < 32)
+            switch(*p) {
+            case '\t': fprintf(stderr, "\\t"); break;
+            case '\r': fprintf(stderr, "\\r"); break;
+            case '\n': fprintf(stderr, "\\n"); break;
+            default:   fprintf(stderr, "\\x%02x", *p);
+            }
+        else fprintf(stderr, "%c", (int)*p);
+    }
+    fprintf(stderr, "\n");
+}
+*/
+
 /* connection_parsecommand:
  * Parse a command from the connection, returning NULL if none is available.
+ *
+ * POP3 is simple enough that this can be done without a machine-generated
+ * lexer and a grammar, though the code in pop3.c is a little bit hairy for
+ * commands which take multiple parameters. This might get changed....
  */
 struct {
     char *s;
@@ -144,25 +171,8 @@ struct {
      {"TOP",  TOP },
      {"UIDL", UIDL},
      {"USER", USER},
-     {NULL,   UNKNOWN}};
+     {NULL,   UNKNOWN}}; /* last command MUST have s = NULL */
 
-/*
-static void dump(const char *s, size_t l) {
-    const char *p;
-    for (p = s; p < s + l; ++p) {
-        if (*p < 32)
-            switch(*p) {
-            case '\t': fprintf(stderr, "\\t"); break;
-            case '\r': fprintf(stderr, "\\r"); break;
-            case '\n': fprintf(stderr, "\\n"); break;
-            default:   fprintf(stderr, "\\x%02x", *p);
-            }
-        else fprintf(stderr, "%c", (int)*p);
-    }
-    fprintf(stderr, "\n");
-}
-*/
-     
 pop3command connection_parsecommand(connection c) {
     char *p, *q, *r;
     pop3command pc = NULL;
@@ -178,8 +188,9 @@ pop3command connection_parsecommand(connection c) {
     if (q >= p) {
         int i;
         size_t n;
+        /* identify the command */
         for (i = 0; pop3_commands[i].s; ++i)
-            if (!strncasecmp(p, pop3_commands[i].s, n = strlen(pop3_commands[i].s))) {
+            if (!strncasecmp(p, pop3_commands[i].s, n = strlen(pop3_commands[i].s)) && (!*(p + n) || strchr(" \t\r\n", *(p + n)))) {
                 char *s = p + n;
                 for (; s < q && strchr(" \t", *s); ++s);
                 pc = pop3command_new(pop3_commands[i].cmd, s, q);
@@ -214,7 +225,7 @@ int connection_sendresponse(connection c, const int success, const char *s) {
 
 /* connection_sendline:
  * Send an arbitrary line to a connected peer. Returns 1 on success or 0 on
- * failure.
+ * failure. Used to send multiline responses.
  */
 int connection_sendline(connection c, const char *s) {
     char *x;
