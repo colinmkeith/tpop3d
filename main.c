@@ -184,9 +184,17 @@ void connections_pre_select(int *n, fd_set *readfds, fd_set *writefds, fd_set *e
     connection *J;
     for (J = connections; J < connections + max_connections; ++J)
         if (*J) {
-            int s = (*J)->s;
-            FD_SET(s, readfds);
-            if (s > *n) *n = s;
+            int s;
+            s = (*J)->s;
+            /* Don't add frozen connections to the select masks. */
+            if ((*J)->frozenuntil <= time(NULL)) {
+                FD_SET(s, readfds);
+                /* Only care about writing if the buffer is nonempty. */
+                if ((*J)->wrb.p > (*J)->wrb.buffer)
+                    FD_SET(s, writefds);
+                if (s > *n) *n = s;
+                (*J)->frozenuntil = 0;
+            }
         }
 }
 
@@ -321,63 +329,74 @@ void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfd
     for (I = connections; I < connections + max_connections; ++I) {
         connection c = *I;
         if (c) {
+            if (!c->closing) {
                 if (FD_ISSET(c->s, readfds)) {
-                /* Data is available on this socket. */
-                int n;
-                n = connection_read(c);
-                if (n == 0) {
-                    /* Peer closed the connection */
-                    log_print(LOG_INFO, _("connections_post_select: connection_read: client %s: closed connection"), c->idstr);
-                    connection_delete(c);
-                    *I = NULL;
-                    if (post_fork) _exit(0);
-                } else if (n < 0 && errno != EINTR) {
-                    /* Some sort of error occurred, and we should close the connection. */
-                    log_print(LOG_ERR, _("connections_post_select: connection_read: client %s: disconnected: %m"), c->idstr);
-                    connection_delete(c);
-                    *I = NULL;
-                    if (post_fork) _exit(0);
-                } else {
-                    /* We read some data and should try to interpret command/s. */
-                    pop3command p;
-                    while (c && (p = connection_parsecommand(c))) {
-                        enum connection_action act = connection_do(c, p);
-                        pop3command_delete(p);
-                        switch (act) {
-                            case close_connection:
-                                log_print(LOG_INFO, _("connections_post_select: client %s: disconnected; %d/%d bytes read/written"), c->idstr, c->nrd, c->nwr);
-                                remove_connection(c);
-                                connection_delete(c);
-                                *I = c = NULL;
-                                if (post_fork) _exit(0);
-                                break;
-
-                            case fork_and_setuid:
-                                if (num_running_children >= max_running_children) {
-                                    connection_sendresponse(c, 0, _("Sorry, I'm too busy right now"));
-                                    log_print(LOG_WARNING, _("connections_post_select: client %s: rejected login owing to high load"), c->idstr);
-                                    connection_delete(c);
-                                    *I = c = NULL;
+                    /* Data are available to read from this socket. */
+                    int n;
+                    n = connection_read(c);
+                    if (n == 0) {
+                        /* Peer closed the connection */
+                        log_print(LOG_INFO, _("connections_post_select: connection_read: client %s: closed connection"), c->idstr);
+                        c->closing = 1;
+                    } else if (n < 0 && errno != EAGAIN) {
+                        /* Some sort of error occurred, and we should close the connection. */
+                        log_print(LOG_ERR, _("connections_post_select: connection_read: client %s: disconnected: %m"), c->idstr);
+                        c->closing = 1;
+                    } else {
+                        /* We read some data and should try to interpret command/s. */
+                        pop3command p;
+                        while (c && (p = connection_parsecommand(c))) {
+                            enum connection_action act;
+                            act = connection_do(c, p);
+                            pop3command_delete(p);
+                            switch (act) {
+                                case close_connection:
+                                    c->closing = 1;
                                     break;
-                                } else {
-                                    fork_child(c);
-                                    c = NULL;
-                                }
 
-                            default:;
+                                case fork_and_setuid:
+                                    if (num_running_children >= max_running_children) {
+                                        connection_sendresponse(c, 0, _("Sorry, I'm too busy right now"));
+                                        log_print(LOG_WARNING, _("connections_post_select: client %s: rejected login owing to high load"), c->idstr);
+                                        c->closing = 1;
+                                        break;
+                                    } else {
+                                        fork_child(c);
+                                        c = NULL;
+                                    }
+
+                                default:;
+                            }
                         }
                     }
-                }
-            } else if (timeout_seconds && (time(NULL) > (c->idlesince + timeout_seconds))) {
-                /* Connection has timed out. */
+                } else if (FD_ISSET(c->s, writefds)) {
+                    /* We can write data to this socket. */
+                    ssize_t n;
+                    n = connection_write(c);
+                    if (n == -1 && errno != EAGAIN) {
+                        /* Some sort of error occurred, and we should close the connection. */
+                        log_print(LOG_ERR, _("connections_post_select: connection_write: client %s: disconnected: %m"), c->idstr);
+                        c->closing = 1;
+                    } else if (n > 0)
+                        c->idlesince = time(NULL);
+                } else if (timeout_seconds && (time(NULL) > (c->idlesince + timeout_seconds))) {
+                    /* Connection has timed out. */
 #ifndef NO_SNIDE_COMMENTS
-                connection_sendresponse(c, 0, _("You can hang around all day if you like. I have better things to do."));
+                    connection_sendresponse(c, 0, _("You can hang around all day if you like. I have better things to do."));
 #else
-                connection_sendresponse(c, 0, _("Client has been idle for too long."));
+                    connection_sendresponse(c, 0, _("Client has been idle for too long."));
 #endif
-                log_print(LOG_INFO, "net_loop: timed out client %s", c->idstr);
+                    log_print(LOG_INFO, "net_loop: timed out client %s", c->idstr);
+                    c->closing = 1;
+                }
+            }
+
+            /* Handle possibly delayed connection closing. */
+            if (c && c->closing && c->frozenuntil <= time(NULL)) {
+                log_print(LOG_INFO, _("connections_post_select: client %s: disconnected; %d/%d bytes read/written"), c->idstr, c->nrd, c->nwr);
+                remove_connection(c);
                 connection_delete(c);
-                *I = NULL;
+                *I = c = NULL;
                 if (post_fork) _exit(0);
             }
         }
@@ -388,7 +407,6 @@ void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfd
  * Accept connections and put them into an appropriate state, calling
  * setuid() and fork() when appropriate. */
 volatile int foad = 0, restart = 0; /* Flags used to indicate that we should exit or should re-exec. */
-
 
 void net_loop(void) {
     connection *J;
@@ -411,25 +429,26 @@ void net_loop(void) {
     
     /* Main select() loop */
     while (!foad) {
-        fd_set readfds;
+        fd_set readfds, writefds;
         struct timeval tv = {1, 0}; /* Must be less than IDLE_TIMEOUT and small enough that termination on receipt of SIGTERM is timely. */
         int n = 0, e;
 
         FD_ZERO(&readfds);
+        FD_ZERO(&writefds);
 
-        if (!post_fork) listeners_pre_select(&n, &readfds, NULL, NULL);
+        if (!post_fork) listeners_pre_select(&n, &readfds, &writefds, NULL);
 
-        connections_pre_select(&n, &readfds, NULL, NULL);
+        connections_pre_select(&n, &readfds, &writefds, NULL);
 
-        e = select(n + 1, &readfds, NULL, NULL, &tv);
+        e = select(n + 1, &readfds, &writefds, NULL, &tv);
         if (e == -1 && errno != EINTR) {
             log_print(LOG_WARNING, "net_loop: select: %m");
         } else if (e >= 0) {
             /* Check for new incoming connections */
-            if (!post_fork) listeners_post_select(&readfds, NULL, NULL);
+            if (!post_fork) listeners_post_select(&readfds, &writefds, NULL);
 
             /* Monitor existing connections */
-            connections_post_select(&readfds, NULL, NULL);
+            connections_post_select(&readfds, &writefds, NULL);
         }
 
         sigprocmask(SIG_BLOCK, &chmask, NULL);
