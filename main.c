@@ -87,7 +87,7 @@ void usage(FILE *fp) {
 "  -d               Do not detach from controlling terminal\n"
 "  -v               Log traffic to/from server for debugging purposes\n"
             )
-#ifdef TPOP3D_TLS
+#ifdef USE_TLS
             _(
 "  -P               Permit reading of certificate/private key pass phrases\n"
 "                   for TLS operation from the terminal on startup\n"
@@ -142,7 +142,7 @@ int parse_listeners(const char *stmt) {
         char *s, *p;
         struct sockaddr_in sin = {0};
         char *host = NULL, *port = NULL, *domain = NULL;
-#ifdef TPOP3D_TLS
+#ifdef USE_TLS
         enum tls_mode tls = none;
         char *cert = NULL, *pkey = NULL;
 #endif
@@ -194,7 +194,7 @@ int parse_listeners(const char *stmt) {
 
 
         if (strncmp(p, ";tls=", 5) == 0) {
-#ifdef TPOP3D_TLS
+#ifdef USE_TLS
             /* TLS mode */
             p += 5;
             if (strncmp(p, "immediate", 9) == 0)
@@ -264,7 +264,7 @@ int parse_listeners(const char *stmt) {
 #ifdef MASS_HOSTING
                                 , regex
 #endif
-#ifdef TPOP3D_TLS
+#ifdef USE_TLS
                                 , tls, cert, pkey
 #endif
                             ))) {
@@ -277,7 +277,7 @@ int parse_listeners(const char *stmt) {
             if (L->have_re)
                 sprintf(msg + strlen(msg), ", regex /%s/", L->regex);
 #endif
-#ifdef TPOP3D_TLS
+#ifdef USE_TLS
             if (L->tls.mode != none)
                 sprintf(msg + strlen(msg), "; TLS mode %s", L->tls.mode == immediate ? "immediate" : "STLS");
 #endif
@@ -287,7 +287,7 @@ int parse_listeners(const char *stmt) {
 skip:
         xfree(host);
         xfree(port);
-#ifdef TPOP3D_TLS
+#ifdef USE_TLS
         xfree(cert);
         xfree(pkey);
 #endif
@@ -304,7 +304,7 @@ skip:
 /* main:
  * Read config file, set up authentication and proceed to main loop. */
 char optstring[] = "+hdvf:p:"
-#ifdef TPOP3D_TLS
+#ifdef USE_TLS
                     "P"
 #endif
                     ;
@@ -317,7 +317,7 @@ int main(int argc, char **argv, char **envp) {
     int nodaemon = 0;
     char *configfile = CONFIG_DIR"/tpop3d.conf", *s;
     int na, c;
-#ifdef TPOP3D_TLS
+#ifdef USE_TLS
     extern int noreadpassphrase; /* in tls.c */
 #endif
 
@@ -350,7 +350,7 @@ int main(int argc, char **argv, char **envp) {
                 pidfile = optarg;
                 break;
 
-#ifdef TPOP3D_TLS
+#ifdef USE_TLS
             case 'P':
                 noreadpassphrase = 0;
                 break;
