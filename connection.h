@@ -21,15 +21,6 @@
 #include "tokenise.h"
 #include "vector.h"
 
-/* How long a period of inactivity is allowed before we time a client out. The
- * RFC states that this should not be less than ten minutes, but because we
- * have mandatory locking on the whole mailspool, that would stop any mail
- * delivery to a user for that period. Hence, a shorter period.
- */
-#ifndef IDLE_TIMEOUT
-#   define IDLE_TIMEOUT     30          /* in seconds */
-#endif
-
 #define MAX_POP3_LINE       1024        /* should be sufficient */
 
 #define MAX_AUTH_TRIES      3
@@ -51,7 +42,7 @@ typedef struct _connection {
 
     enum pop3_state state;  /* from rfc1939 */
 
-    time_t lastcmd;         /* used to implement timeouts */
+    time_t idlesince;         /* used to implement timeouts */
 
     int n_auth_tries, n_errors;
     char *user, *pass;      /* state accumulated */
@@ -64,7 +55,8 @@ enum pop3_command_code {UNKNOWN,
                         APOP, DELE, LIST,
                         NOOP, PASS, QUIT,
                         RETR, RSET, STAT,
-                        TOP,  UIDL, USER};
+                        TOP,  UIDL, USER,
+                        LAST};
     
 typedef struct _pop3command {
     enum pop3_command_code cmd;

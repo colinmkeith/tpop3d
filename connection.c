@@ -109,7 +109,7 @@ connection connection_new(int s, const struct sockaddr_in *sin, const char *doma
     
     c->state = authorisation;
 
-    c->lastcmd = time(NULL);
+    c->idlesince = time(NULL);
 
     if (!connection_sendresponse(c, 1, c->timestamp)) goto fail;
 
@@ -194,6 +194,7 @@ struct {
      {"TOP",  TOP },
      {"UIDL", UIDL},
      {"USER", USER},
+     {"LAST", LAST},
      {NULL,   UNKNOWN}}; /* last command MUST have s = NULL */
 
 pop3command connection_parsecommand(connection c) {

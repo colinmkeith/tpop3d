@@ -46,7 +46,7 @@ int append_domain;  /* Do we automatically try user@domain if user alone fails t
 
 enum connection_action connection_do(connection c, const pop3command p) {
     /* This breaks the RFC, but is sensible. */
-    if (p->cmd != NOOP && p->cmd != UNKNOWN) c->lastcmd = time(NULL);
+    if (p->cmd != NOOP && p->cmd != UNKNOWN) c->idlesince = time(NULL);
     
     if (c->state == authorisation) {
         /* Authorisation state: gather username and password. */
@@ -299,7 +299,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 }
                 connection_sendline(c, ".");
                 /* That might have taken a long time. */
-                c->lastcmd = time(NULL);
+                c->idlesince = time(NULL);
                 if (verbose)
                     print_log(LOG_DEBUG, "connection_do: client %s: sent %d-line scan list", c->idstr, nn + 1);
             }
@@ -331,7 +331,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 }
                 connection_sendline(c, ".");
                 /* That might have taken a long time. */
-                c->lastcmd = time(NULL);
+                c->idlesince = time(NULL);
                 if (verbose)
                     print_log(LOG_DEBUG, "connection_do: client %s: sent %d-line unique ID list", c->idstr, nn + 1);
             }
@@ -357,7 +357,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                         return close_connection;
                     }
                     /* That might have taken a long time. */
-                    c->lastcmd = time(NULL);
+                    c->idlesince = time(NULL);
                     if (verbose)
                         print_log(LOG_DEBUG, "connection_do: client %s: sent message %d", c->idstr, msg_num + 1);
                 }
@@ -386,7 +386,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     return close_connection;
                 }
                 /* That might have taken a long time. */
-                c->lastcmd = time(NULL);
+                c->idlesince = time(NULL);
                 if (verbose)
                     print_log(LOG_DEBUG, "connection_do: client %s: sent headers and up to %d lines of message %d", c->idstr, arg2, msg_num + 1);
                 break;
@@ -419,6 +419,10 @@ enum connection_action connection_do(connection c, const pop3command p) {
             
         case NOOP:
             connection_sendresponse(c, 1, "I'm still here.");
+            break;
+
+	case LAST:
+            connection_sendresponse(c, 0, "Sorry, the LAST command was removed in RFC1725.");
             break;
 
         default:

@@ -236,6 +236,8 @@ void listener_delete(listener L) {
 int num_running_children = 0;   /* How many children are active. */
 int max_running_children = 16;  /* How many children may exist at once. */
 
+long int timeout_seconds = 30;
+
 connection this_child_connection; /* Stored here so that if a signal terminates the child, the mailspool will still get unlocked. */
 
 void net_loop(vector listen_addrs) {
@@ -434,7 +436,7 @@ void net_loop(vector listen_addrs) {
 
                         if (!I) break;
                     }
-                } else if (time(NULL) > (((connection)(I->d.v))->lastcmd + IDLE_TIMEOUT)) {
+                } else if ( timeout_seconds && (time(NULL) > (((connection)(I->d.v))->idlesince + timeout_seconds)) ) {
                     /* Connection has timed out. */
                     connection_sendresponse((connection)(I->d.v), 0, "You can hang around all day if you like. I have better things to do.");
                     print_log(LOG_INFO, "net_loop: timed out client %s", ((connection)I->d.v)->idstr);
@@ -680,6 +682,27 @@ int main(int argc, char **argv) {
     I = stringmap_find(config, "append-domain");
     if (I && (!strcmp(I->v, "yes") || !strcmp(I->v, "true"))) append_domain = 1;
 
+    /* Find out how long we wait before timing out... */
+    I = stringmap_find(config, "timeout-seconds");
+    if (I) {
+        char * endptr;
+        errno = 0;
+        timeout_seconds = strtol(I->v, &endptr, 10);
+        if(endptr == I->v) {
+            print_log(LOG_ERR, "%s: value of `%s' for timeout-seconds does not make sense; exiting\n", configfile, (char *)I->v); 
+            return 1;
+        }
+        if(timeout_seconds < 0) {
+            print_log(LOG_ERR, "%s: cannot specify a negative value (`%s') for timeout-seconds; exiting\n", configfile, (char *)I->v); 
+            return 1;
+        }
+        if(errno == ERANGE) {
+            print_log(LOG_ERR, "%s: value of `%s' is too large; exiting\n", configfile, (char *)I->v); 
+            return 1;
+        }
+    } else {
+        timeout_seconds = 30;
+    }
    
     set_signals();
 

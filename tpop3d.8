@@ -37,7 +37,7 @@ Print a brief usage summary.
 
 .TP
 .BI -f\  file
-Read configuration from \fIfile\fP, instead of from \fB/etc/tpop3d\fP.
+Read configuration from \fIfile\fP, instead of from \fB/etc/tpop3d.conf\fP.
 
 .TP
 .B -d
@@ -88,6 +88,13 @@ with the address on which the connection was received. This is intended to
 be used where multiple virtual domains are served from multiple IP addresses.
 This option only takes effect when \fIusername\fP does not contain a
 separator, which may be `@', `%' or `!'.
+
+.TP
+\fBtimeout-seconds\fP: \fInumber\fP
+This is the number of seconds a connection may be idle for before it
+is closed.  If it is set to 0, then timeouts are disabled.  The
+default value is 30 seconds (see BUGS, below.)
+
 
 
 .SS PAM authentication options
@@ -188,7 +195,7 @@ users.
 
 .SH BUGS
 
-Locking of mailspools under Unix is problematic, mostly becuase of past
+Locking of mailspools under Unix is problematic, mostly because of past
 brokenness which has now been fixed. \fBtpop3d\fP's locking scheme should
 suffice in most cases (and should work reliably over NFS) but it is naive: it
 locks the mailspool for exclusive access, so that an MTA cannot

@@ -7,14 +7,13 @@
 #
 
 VERSION = 1.2.1
-IDLE_TIMEOUT = 30   # seconds before we time out clients
 
 # On machines where gcc is not the default C compiler, you may wish specify
 # gcc here, for instance if your vendor's compiler is broken (Solaris
 # [cough]).
 #CC = gcc
 
-CFLAGS  += -g -DTPOP3D_VERSION='"$(VERSION)"' -DIDLE_TIMEOUT=$(IDLE_TIMEOUT) -Wall
+CFLAGS  += -g -DTPOP3D_VERSION='"$(VERSION)"' -Wall
 LDFLAGS += -g
 
 # Here you define the location of mailspools; /var/spool/mail is appropriate

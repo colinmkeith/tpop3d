@@ -28,16 +28,18 @@
 # Check that networking is up.
 [ "${NETWORKING}" = "no" ] && exit 0
 
-[ -f /software/sbin/tpop3d ] || exit 0
+DAEMON=/software/sbin/tpop3d
+
+[ -f $DAEMON ] || exit 0
 
 # See how we were called.
 case "$1" in
   start)
         # Start daemons.
         echo -n "Starting tpop3d: "
-        /software/sbin/tpop3d -f /etc/tpop3d.conf
+        $DAEMON -f /etc/tpop3d.conf
         echo -n "tpop3d "
-        /software/sbin/tpop3d -f /etc/tpop3d-secure.conf
+        $DAEMON -f /etc/tpop3d-secure.conf
         echo "tpop3d-secure "
         touch /var/lock/subsys/tpop3d
         ;;
