@@ -22,9 +22,13 @@ sub howlong () {
     return $T2;
 }
 
+# parse_options ARGUMENTS
+# Return a reference to a hash with the options to be used by the program.
 sub parse_options (@) {
     my @args = @_;
     my $res = {
+        port => 110,
+        mode => 'tcp',
         apop => 0,
         pipelining => 0,
         user => undef,
@@ -48,9 +52,17 @@ sub parse_options (@) {
                 return "`$_' is not a known command" unless (exists($allowed{$_}));
                 push(@{$res->{commands}}, $_);
             }
+        } elsif ($1 =~ /^s?tls/) {
+            return "specify at most one of --tls, --stls" if ($res->{mode} ne 'tcp')
+            $res->{mode} = $1;
         } else {
             return "`--$1': unknown option";
         }
     }
+
+    return "arguments are host and optional port" if (@args > 2 || @args == 0);
+
+    $res->{host} = shift(@args);
+    $res->{port} = shift(@args) if (@args);
 }
 
