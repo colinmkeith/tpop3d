@@ -148,7 +148,7 @@ static void maildir_make_indexpoint(struct indexpoint *m, const char *filename, 
  * Build an index of the MAILDIR; SUBDIRis one of cur, tmp or new; TIME is the
  * time at which the operation started, used to ignore messages delivered
  * during processes. Returns 0 on success, -1 otherwise. */
-int maildir_build_index(mailbox M, const char *subdir, time_t time) {
+int maildir_build_index(mailbox M, const char *subdir, time_t T) {
     DIR *dir;
     struct dirent *d;
 
@@ -156,7 +156,7 @@ int maildir_build_index(mailbox M, const char *subdir, time_t time) {
 
     dir = opendir(subdir);
     if (!dir) {
-        log_print(LOG_ERR, "maildir_build_index: opendir(%s): %m", subdir);
+        log_print(LOG_ERR, "maildir_build_index: opendir(%s/%s): %m", M->filename, subdir);
         return -1;
     }
     
@@ -168,11 +168,19 @@ int maildir_build_index(mailbox M, const char *subdir, time_t time) {
         filename = xmalloc(strlen(subdir) + strlen(d->d_name) + 2);
         sprintf(filename, "%s/%s", subdir, d->d_name);
         if (!filename) return -1;
-        if (stat(filename, &st) == 0 && st.st_mtime < time) {
-            /* These get sorted by mtime later. */
+        if (stat(filename, &st)) {
             struct indexpoint pt;
+
+            /* XXX Previously, we ignored messages from the future, since
+             * that's what qmail-pop3d does. But it's not clear why this is
+             * useful, so turn the check into a warning. */
+            if (stat.st_mtime > T)
+                log_print(LOG_WARNING, _("maildir_build_index: %s: mtime is %d seconds in the future; this condition may indicate that you have a time synchronisation error, especially if you are using NFS-mounted mail directories"), filename, (int)(st.st_mtime - T));
+            
+            /* These get sorted by mtime later. */
             maildir_make_indexpoint(&pt, filename, st.st_size, st.st_mtime);
             mailbox_add_indexpoint(M, &pt);
+
             /* Accumulate size of messages. */
             M->totalsize += st.st_size;
         }
