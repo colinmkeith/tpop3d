@@ -494,7 +494,7 @@ retry_pid_file:
             break;
 
         default:
-            max_running_children = 16;
+            max_running_children = 100;
     }
 
     /* Should we automatically append or strip domain names and retry authentication? */

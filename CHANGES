@@ -2,7 +2,8 @@ Changes for tpop3d
 $Id$
 
 Fixed a couple of errors in the man page and configuration directives which
-got lost; thanks to Haris Hudji.
+got lost; thanks to Haris Hudji. Increased the default value for max-children
+from 16 to 100.
 
 1.5.2
 

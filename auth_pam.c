@@ -142,7 +142,6 @@ authcontext auth_pam_new_user_pass(const char *user, const char *local_part, con
 
     /* Copy the password structure, since it is in static storage and may
      * get overwritten by calls in the PAM code. */
-    if (!(pw2 = getpwnam(user))) return NULL;
     pw = *pw2;
 
     /* pw now contains either the data for the real UNIX user named or the UNIX
