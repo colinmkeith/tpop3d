@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.8  2000/10/31 20:37:22  chris
+ * More diagnostics.
+ *
  * Revision 1.7  2000/10/28 14:57:04  chris
  * Minor changes.
  *
@@ -39,6 +42,8 @@ static const char rcsid[] = "$Id$";
 #include <syslog.h>
 #include <time.h>
 #include <unistd.h>
+
+#include <arpa/inet.h>
 
 #include <netinet/in.h>
 
@@ -144,7 +149,11 @@ void connection_delete(connection c) {
 ssize_t connection_read(connection c) {
     ssize_t n;
     if (!c) return -1;
-    if (c->p == c->buffer + c->bufferlen) return -1;
+    if (c->p == c->buffer + c->bufferlen) {
+        syslog(LOG_ERR, "connection_read: over-long line from client %s", inet_ntoa(c->sin.sin_addr));
+        errno = ENOBUFS;
+        return -1;
+    }
     n = read(c->s, c->p, c->buffer + c->bufferlen - c->p);
     if (n > 0) c->p += n;
     return n;
