@@ -238,8 +238,8 @@ static char *ldap_strerror(void) {
 
 /* try_ldap_connect_bind:
  * Try to connect to the LDAP server and bind. */
-static int try_ldap_connect_bind(char *who, char *passwd) {
-    int ret, i;
+static int try_ldap_connect_bind(const char *who, const char *passwd) {
+    int ret = LDAP_OTHER, i;    /* XXX */
     for (i = 0; i < 3; ++i) {
         if (ldapinfo.ldap || auth_ldap_connect()) {
             ret = ldap_simple_bind_s(ldapinfo.ldap, who, passwd);
@@ -260,7 +260,7 @@ static int try_ldap_connect_bind(char *who, char *passwd) {
 
 /* try_ldap_bind:
  * Try a bind against the LDAP server. */
-static int try_ldap_bind(LDAP *ld, char *who, char *passwd) {
+static int try_ldap_bind(LDAP *ld, const char *who, const char *passwd) {
     int ret, i;
     for (i = 0; i < 3; ++i) {
         ret = ldap_simple_bind_s(ld, who, passwd);
@@ -367,9 +367,9 @@ authcontext auth_ldap_new_user_pass(const char *username, const char *local_part
         ber_free(ber, 0);
 
         /* Check that we've retrieved all the attributes we need. */
-#define GOT_ATTR(a)     if (ldapinfo.attr.##a && !a) { \
+#define GOT_ATTR(a)     if (ldapinfo.attr.a && !a) { \
                             log_print(LOG_ERR, _("auth_ldap_new_user_pass: did not find required attribute `%s' for %s"), \
-                                      ldapinfo.attr.##a, who); \
+                                      ldapinfo.attr.a, who); \
                             goto fail; \
                         }
         GOT_ATTR(mailbox);

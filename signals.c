@@ -69,6 +69,9 @@ void set_signals() {
     int *i;
     struct sigaction sa = {0};
 
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_RESTART;
+    
     for (i = ignore_signals; *i; ++i)
         xsignal(*i, SIG_IGN);
     
