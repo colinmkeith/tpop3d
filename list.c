@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.5  2000/10/31 20:37:22  chris
+ * Minor changes.
+ *
  * Revision 1.4  2000/10/28 14:57:04  chris
  * Minor changes.
  *
@@ -22,6 +25,7 @@
 static const char rcsid[] = "$Id$";
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "list.h"
 #include "vector.h"
