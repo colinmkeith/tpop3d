@@ -508,8 +508,11 @@ These are only available if you compiled \fBtpop3d\fP with support for
 \fBauth-ldap-enable\fP: (\fByes\fP | \fBtrue\fP)
 Enable LDAP authentication.
 .TP
-\fBauth-ldap-url\fP: \fILDAP URL\fP
-LDAP URL indicating server against which to make authentication requests.
+\fBauth-ldap-url\fP: \fIsubstitution string\fP
+Template giving an LDAP URL indicating the server against which to make
+authentication requests. Note that the variables \fB$(user)\fP,
+\fB$(local_part)\fP and \fB$(domain)\fP may appear \fIonly\fP in the DN part of
+the URL.
 .TP
 \fBauth-ldap-tls\fP: (\fByes\fP | \fBtrue\fP)
 Use an encrypted connection to contact the LDAP server.
@@ -557,17 +560,16 @@ mailbox will take place.
 \fBtpop3d\fP uses a search-bind model for authenticating users against an LDAP
 server. When a user attempts to log in by supplying a username and password,
 \fBtpop3d\fP will attempt to locate an LDAP record for the user by substituting
-for \fB$(user)\fP, \fB$(local_part)\fP and \fB$(domain)\fP in the
-\fBauth-ldap-filter\fP filter template, binding to the LDAP server as the
-search user, and querying the LDAP server with this filter. If the search
-yields exactly one result, then an attempt is made to bind to the server using
-the credentials supplied by the client. If the bind is successful, then the
-user is authenticated.
+for \fB$(user)\fP, \fB$(local_part)\fP and \fB$(domain)\fP in the base DN given
+by \fBauth-ldap-url\fP and in the \fBauth-ldap-filter\fP filter template,
+binding to the LDAP server as the search user, and querying the LDAP server
+with this filter. If the search yields exactly one result, then an attempt is
+made to bind to the server using the credentials supplied by the client. If the
+bind is successful, then the user is authenticated.
 
 Information about the user's account, in particular, the user and group id
-to use for mailbox access, and the location and type of the mailbox,
-may be obtained either from the directory, or from values in the configuration
-file.
+to use for mailbox access, and the location and type of the mailbox, may be
+obtained either from the directory, or from values in the configuration file.
 
 .SS Flat file authentication options
 
