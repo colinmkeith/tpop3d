@@ -1,0 +1,12 @@
+{
+  Description   = "tpop3d mail server";
+  Provides      = ("POP3");
+  Requires      = ("Resolver");
+  Uses          = ("Network Time", "NFS");
+  Preference    = "None";
+  Messages =
+  {
+    start = "Starting tpop3d";
+    stop  = "Stopping tpop3d";
+  };
+}

@@ -1,0 +1,13 @@
+#!/bin/sh
+
+. /etc/rc.common
+
+##
+# Start pop3d server
+##
+
+if [ "${MAILSERVER:=-NO-}" = "-YES-" ]; then
+
+    ConsoleMessage "Starting tpop3d mail services"
+    /usr/local/sbin/tpop3d
+fi
