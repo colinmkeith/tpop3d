@@ -440,6 +440,12 @@ authcontext auth_mysql_new_apop(const char *name, const char *local_part, const 
                 /* These are "can't happen" errors */
                 if (!row || !(lengths = mysql_fetch_lengths(result))) break;
 
+                /* Sanity check. XXX how about row[0], row[3]? */
+                if (!row[2]) {
+                    log_print(LOG_ERR, _("auth_mysql_new_apop: UID for user %s is NULL"), who);
+                    goto error;
+                }
+                
                 /* Verify that this user has a plaintext password. */
                 if (!row[1]) {
                     log_print(LOG_ERR, _("auth_mysql_new_apop: password hash for user %s is NULL"), who);
@@ -549,6 +555,12 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *local_part, c
 
                 /* These are "can't happen" errors */
                 if (!row || !(lengths = mysql_fetch_lengths(result))) break;
+
+                /* Sanity check. XXX how about row[0], row[3]? */
+                if (!row[2]) {
+                    log_print(LOG_ERR, _("auth_mysql_new_apop: UID for user %s is NULL"), who);
+                    goto error;
+                }
 
                 /* Verify the password. There are several possibilities here. */
                 pwhash = (char*)row[1];
