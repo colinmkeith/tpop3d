@@ -123,6 +123,7 @@ CFLAGS += -DIGNORE_CCLIENT_METADATA
 
 TXTS =  README          \
 	PORTABILITY     \
+        CHANGES         \
         COPYING         \
         CREDITS         \
         TODO            \

@@ -1,0 +1,7 @@
+Changes for tpop3d
+$Id$
+
+1.2.1
+
+Various fixes; added a patch for crypt(3) passwords in auth_mysql, and added
+an option to suppress c-client metadata. CHANGES file created.
