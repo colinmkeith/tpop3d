@@ -41,8 +41,6 @@ It is designed to run as a daemon, not from inetd.
 
 It contains some (minimal) Linux-isms.
 
-It does not yet have session timeouts.
-
 
 Usage
 
