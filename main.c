@@ -391,18 +391,19 @@ void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfd
  * setuid() and fork() when appropriate. */
 volatile int foad = 0, restart = 0; /* Flags used to indicate that we should exit or should re-exec. */
 
-#ifdef AUTH_OTHER
-extern pid_t authchild_died;
-extern int authchild_status;
-#endif /* AUTH_OTHER */
 
 void net_loop(void) {
     connection *J;
 #ifdef AUTH_OTHER
+    extern pid_t authchild_died;
+    extern int authchild_status;
+#endif /* AUTH_OTHER */
+    extern pid_t child_died;
+    extern int child_died_signal;
     sigset_t chmask;
+    
     sigemptyset(&chmask);
     sigaddset(&chmask, SIGCHLD);
-#endif /* AUTH_OTHER */
 
     /* 2 * max_running_children is a reasonable ball-park figure. */
     max_connections = 2 * max_running_children;
@@ -433,17 +434,24 @@ void net_loop(void) {
             connections_post_select(&readfds, NULL, NULL);
         }
 
+        sigprocmask(SIG_BLOCK, &chmask, NULL);
+        
 #ifdef AUTH_OTHER
         /* It may be that the authentication child died; log the message here
-         * to avoid doing something we shouldn't in the signal handler. We
-         * block SIGCHLD while doing this. */
-        sigprocmask(SIG_BLOCK, &chmask, NULL);
+         * to avoid doing something we shouldn't in the signal handler. */
         if (authchild_died) {
             log_print(LOG_WARNING, _("net_loop: authentication child %d terminated with status %d"), (int)authchild_died, authchild_status);
             authchild_died = 0;
         }
-        sigprocmask(SIG_UNBLOCK, &chmask, NULL);
 #endif /* AUTH_OTHER */
+        
+        /* Also log a message if a child process died with a signal. */
+        if (child_died) {
+            log_print(LOG_ERR, _("net_loop: child process %d killed by signal %d (shouldn't happen)"), (int)child_died, child_died_signal);
+            child_died = 0;
+        }
+        
+        sigprocmask(SIG_UNBLOCK, &chmask, NULL);
     }
 
     /* Termination request received; we should close all connections in an

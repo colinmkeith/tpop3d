@@ -65,7 +65,7 @@ void set_signals() {
         0};
     int terminate_signals[] = {SIGINT, SIGTERM, 0};
     int restart_signals[]   = {SIGHUP, 0};
-    int die_signals[]       = {SIGQUIT, SIGABRT, SIGSEGV, SIGBUS, 0};
+    int die_signals[]       = {SIGQUIT, SIGABRT, SIGSEGV, SIGBUS, SIGILL, 0};
     int *i;
     struct sigaction sa, saz = {0};
 
@@ -144,6 +144,10 @@ extern pid_t authchild_pid, authchild_died; /* in auth_other.c */
 extern int authchild_wr, authchild_rd, authchild_status;
 #endif /* AUTH_OTHER */
 
+/* Save information about any child which dies with a signal. */
+pid_t child_died;
+int child_died_signal;
+
 void child_signal_handler(const int i) {
     pid_t pid;
     int e, status;
@@ -163,7 +167,18 @@ void child_signal_handler(const int i) {
                 close(authchild_rd);
             } else
 #endif /* AUTH_OTHER */
+            {
                 --num_running_children;
+                /* If the child process was killed by a signal, save its PID
+                 * so that the main daemon can report it. Note that we dont't
+                 * cope with the situation of several children dying nearly
+                 * simultaneously, but this is a `shouldn't happen'
+                 * anyway.... */
+                if (WIFSIGNALED(status)) {
+                    child_died = pid;
+                    child_died_signal = WTERMSIG(status);
+                }
+            }
         } else if (pid == 0 || (pid == -1 && errno != EINTR)) {
             errno = e;
             return;
