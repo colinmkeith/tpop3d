@@ -4,6 +4,10 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.4  2000/10/08 16:53:21  chris
+ * Modified UID generation; also signal handler will always remove lockfile
+ * on quit.
+ *
  * Revision 1.3  2000/10/02 18:21:25  chris
  * Now supports modifying mailspools.
  *
@@ -51,8 +55,13 @@ static const char rcsid[] = "$Id$";
  */
 
 /* file_lock:
- * Lock a mailspool file. Returns 1 on success or 0 on failure.
+ * Lock a mailspool file. Returns 1 on success or 0 on failure. We save the
+ * name of the lockfile in a global variable accessible to the signal handler,
+ * so that the lock can be undone even if a signal is received whilst the
+ * mailspool is being processed.
  */
+extern char *this_lockfile;
+
 int file_lock(const int fd, const char *name) {
     struct flock fl = {0};
     char *lockfile = (char*)malloc(strlen(name) + 6);
@@ -73,18 +82,19 @@ int file_lock(const int fd, const char *name) {
     }
 
     fl.l_type = F_UNLCK;
-syslog(LOG_INFO, "uid = %d gid = %d", getuid(), getgid());
+
     /* Make lockfile; this is pretty naive, but that doesn't particularly
      * matter as we will not be running as root at this stage.
      */
     fd2 = open(lockfile, O_EXCL|O_CREAT|O_WRONLY); /* XXX NFS unsafe */
-    free(lockfile);
+    this_lockfile = lockfile; /* Store this so that we ensure that mailspool is unlocked if a signal is received. */
     if (fd2 == -1) {
         syslog(LOG_ERR, "file_lock(%s): unable to create lockfile: %m", name);
         fcntl(fd, F_SETLK, &fl);
         return 0;
     }
     close(fd2);
+
     return 1;
 }
 
@@ -150,10 +160,7 @@ mailspool mailspool_new_from_file(const char *filename) {
         }
     } else M->name = strdup(filename);
     
-    /* FIXME Naive locking strategy. This will not work over NFS and should be
-     * replaced by something using fcntl, which will, at least on modern
-     * machines.
-     */
+    /* FIXME Naive locking strategy. */
     for (i = 0; i < MAILSPOOL_LOCK_TRIES; ++i) {
         M->fd = open(M->name, O_RDWR);
         if (M->fd == -1) {
@@ -261,22 +268,37 @@ vector mailspool_build_index(mailspool M) {
         }
     } while (p);
 
-    munmap(filemem, len);
-
     /* OK, we're done, figure out the lengths */
     for (t = M->index->ary; t < M->index->ary + M->index->n_used - 1; ++t)
         ((indexpoint)t->v)->msglength = ((indexpoint)(t + 1)->v)->offset - ((indexpoint)t->v)->offset;
     ((indexpoint)t->v)->msglength = M->st.st_size - ((indexpoint)t->v)->offset;
 
+    /* We generate "unique" IDs by hashing the first 512 or so bytes of the
+     * data in each message.
+     */
+    vector_iterate(M->index, t) {
+        MD5_CTX ctx;
+        indexpoint x = (indexpoint)t->v;
+        size_t n = 512;
+
+        if (n > x->msglength) n = x->msglength;
+        
+        /* Compute MD5 */
+        MD5Init(&ctx);
+        MD5Update(&ctx, (unsigned char*)filemem + x->offset, n);
+        MD5Final(x->hash, &ctx);
+    }
+
+    munmap(filemem, len);
+    
     return M->index;
 }
 
 /* indexpoint_new:
- * Make an indexpoint, doing a hash of the data (the "From " line).
+ * Make an indexpoint.
  */
 indexpoint indexpoint_new(const size_t offset, const size_t length, const size_t msglength, const void *data) {
     indexpoint x;
-    MD5_CTX ctx;
 
     x = (indexpoint)malloc(sizeof(struct _indexpoint));
     
@@ -286,11 +308,6 @@ indexpoint indexpoint_new(const size_t offset, const size_t length, const size_t
     x->offset = offset;
     x->length = length;
     x->msglength = msglength;
-
-    /* Compute MD5 */
-    MD5Init(&ctx);
-    MD5Update(&ctx, (unsigned char*)data, length);
-    MD5Final(x->hash, &ctx);
 
     return x;
 }
