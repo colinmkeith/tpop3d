@@ -26,7 +26,7 @@ typedef struct _vector{
     size_t n, n_used;
 } *vector;
 
-vector vector_new();
+vector vector_new(void);
 void vector_delete(vector);
 void vector_delete_free(vector);
 

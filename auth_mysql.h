@@ -30,14 +30,14 @@
 /* Config directive: auth-mysql-mail-group */
 #undef AUTH_MYSQL_MAIL_GID
 
-int  auth_mysql_init();
+int  auth_mysql_init(void);
 
 /* These use SELECT statements defined in auth_mysql.c */
 authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const unsigned char *digest, const char *host);
 authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const char *host);
 void auth_mysql_onlogin(const authcontext A, const char *host);
-void auth_mysql_postfork();
-void auth_mysql_close();
+void auth_mysql_postfork(void);
+void auth_mysql_close(void);
 
 #endif /* AUTH_MYSQL */
 

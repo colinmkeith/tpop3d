@@ -49,8 +49,9 @@ static struct logfac {
 /* log_init:
  * Start up logging. */
 void log_init(void) {
-    int fac = LOG_MAIL, warn;
+    int fac = LOG_MAIL, warn = 0;
     char *s;
+
     if ((s = config_get_string("log-facility"))) {
         struct logfac *l;
         warn = 1;

@@ -90,7 +90,7 @@ size_t max_connections;             /* Number of connection slots allocated. */
 /* find_free_connection:
  * Find a free connection slot.
  */
-connection *find_free_connection() {
+connection *find_free_connection(void) {
     connection *J;
     for (J = connections; J < connections + max_connections; ++J)
         if (!*J) return J;
@@ -394,7 +394,7 @@ extern pid_t authchild_died;
 extern int authchild_status;
 #endif /* AUTH_OTHER */
 
-void net_loop() {
+void net_loop(void) {
     connection *J;
 #ifdef AUTH_OTHER
     sigset_t chmask;

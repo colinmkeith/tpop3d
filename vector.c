@@ -18,7 +18,7 @@ static const char rcsid[] = "$Id$";
 #include "vector.h"
 #include "util.h"
 
-vector vector_new() {
+vector vector_new(void) {
     vector v;
     
     v = xcalloc(1, sizeof *v);

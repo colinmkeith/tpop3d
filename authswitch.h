@@ -57,13 +57,13 @@ struct authdrv {
 
 void authswitch_describe(FILE *fp);
 
-int authswitch_init();
+int authswitch_init(void);
 authcontext authcontext_new_apop(const char *name, const char *timestamp, const unsigned char *digest, const char *domain, const char *host);
 authcontext authcontext_new_user_pass(const char *user, const char *pass, const char *domain, const char *host);
 
 void authswitch_onlogin(const authcontext A, const char *host);
-void authswitch_postfork();
-void authswitch_close();
+void authswitch_postfork(void);
+void authswitch_close(void);
 
 authcontext authcontext_new(const uid_t uid, const gid_t gid, const char *mboxdrv, const char *mailbox, const char *home, const char *domain);
 void authcontext_delete(authcontext);

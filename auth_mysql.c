@@ -270,7 +270,6 @@ static void strclr(char *s) {
  * Initialise the database connection driver. Clears the config directives
  * associated with the database so that a user cannot recover them with a
  * debugger. */
-extern stringmap config; /* in main.c */
 MYSQL *mysql;
 
 int auth_mysql_init() {
@@ -700,6 +699,7 @@ static char *substitute_query_params(const char *template, const char *local_par
         xfree(c);
     } else
         query = substitute_variables(template, &err, 2, "local_part", l, "domain", d);
+
     if (!query)
         log_print(LOG_ERR, _("substitute_query_params: %s near `%.16s'"), err.msg, template + err.offset);
     

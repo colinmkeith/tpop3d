@@ -20,6 +20,10 @@ static const char rcsid[] = "$Id$";
 #include <unistd.h>
 #include <sys/types.h>
 
+#ifdef AUTH_LDAP
+#include "auth_ldap.h"
+#endif /* AUTH_LDAP */
+
 #ifdef AUTH_MYSQL
 #include "auth_mysql.h"
 #endif /* AUTH_MYSQL */
@@ -66,12 +70,19 @@ struct authdrv auth_drivers[] = {
 #endif /* AUTH_PASSWD */
             
 #ifdef AUTH_MYSQL
-        /* This is for vmail-sql and similar schemes */
+        /* This is for vmail-sql and similar schemes. */
         {auth_mysql_init, auth_mysql_new_apop, auth_mysql_new_user_pass, auth_mysql_onlogin, auth_mysql_postfork, auth_mysql_close,
             "mysql",
             _X("Uses a MySQL database")},
 #endif /* AUTH_MYSQL */
 
+#ifdef AUTH_LDAP
+        /* Authenticate against a directory. */
+        {auth_ldap_init, NULL, auth_ldap_new_user_pass, NULL, auth_ldap_postfork, auth_ldap_close,
+            "ldap",
+            _X("Uses an LDAP directory")},
+#endif /* AUTH_LDAP */
+            
 #ifdef AUTH_OTHER
         /* This talks to an external program. */
         {auth_other_init, auth_other_new_apop, auth_other_new_user_pass, auth_other_onlogin, auth_other_postfork, auth_other_close,

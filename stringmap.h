@@ -19,7 +19,7 @@ typedef struct _stringmap {
     struct _stringmap *l, *g;
 } *stringmap;
 
-stringmap stringmap_new();
+stringmap stringmap_new(void);
 void      stringmap_delete(stringmap);
 void      stringmap_delete_free(stringmap);
 

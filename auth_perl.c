@@ -69,7 +69,7 @@ void xs_init(void) {
  * Initialise the perl interpreter and run its startup code. */
 extern stringmap config;    /* in main.c */
 
-int auth_perl_init() {
+int auth_perl_init(void) {
     dSP;
     int argc = 2;
     char *argv[3] = {"auth_perl", "/dev/null", NULL};
@@ -123,13 +123,13 @@ int auth_perl_init() {
 
 /* auth_perl_postfork:
  * Post-fork cleanup. */
-void auth_perl_postfork() {
+void auth_perl_postfork(void) {
     perl_interp = NULL; /* XXX */
 }
 
 /* auth_perl_close:
  * Shut down the perl interpreter. */
-void auth_perl_close() {
+void auth_perl_close(void) {
     if (perl_interp) {
         /* There may be code to execute on shutdown. */
         char *s;

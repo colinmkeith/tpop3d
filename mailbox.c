@@ -58,8 +58,7 @@ struct mboxdrv mbox_drivers[] = {
 #define mbox_drivers_end    mbox_drivers + NUM_MBOX_DRIVERS
 
 /* mailbox_describe:
- * Describe available mailbox drivers.
- */
+ * Describe available mailbox drivers. */
 void mailbox_describe(FILE *fp) {
     const struct mboxdrv *mr;
     fprintf(fp, _("Available mailbox drivers:\n\n"));
@@ -71,8 +70,7 @@ void mailbox_describe(FILE *fp) {
 
 /* mailbox_new:
  * Create a new mailspool of the specified type, or a default type if the
- * passed value is NULL.
- */
+ * passed value is NULL. */
 mailbox mailbox_new(const char *filename, const char *type) {
     struct mboxdrv *mr;
 
@@ -90,8 +88,7 @@ mailbox mailbox_new(const char *filename, const char *type) {
  * mailspool... the terminology is from C++ so it doesn't have to be logical).
  *
  * Note that this does `generic' deletion; there should be specific
- * destructors for each type of mailbox.
- */
+ * destructors for each type of mailbox. */
 void mailbox_delete(mailbox m) {
     if (!m) return;
     if (m->index) {
@@ -105,8 +102,7 @@ void mailbox_delete(mailbox m) {
 }
 
 /* mailbox_add_indexpoint:
- * Add an indexpoint to a mailbox.
- */
+ * Add an indexpoint to a mailbox. */
 void mailbox_add_indexpoint(mailbox m, const struct indexpoint *i) {
     if (m->num == m->size) {
         m->index = xrealloc(m->index, m->size * sizeof(struct indexpoint) * 2);
@@ -116,8 +112,7 @@ void mailbox_add_indexpoint(mailbox m, const struct indexpoint *i) {
 }
 
 /* emptymbox_new:
- * New empty mailbox.
- */
+ * New empty mailbox. */
 mailbox emptymbox_new(const char *unused) {
     mailbox M;
     M = xcalloc(1, sizeof *M);
@@ -134,25 +129,25 @@ mailbox emptymbox_new(const char *unused) {
 }
 
 /* emptymbox_apply_changes:
- * Null function for empty mailbox.
- */
+ * Null function for empty mailbox. */
 int emptymbox_apply_changes(mailbox M) {
     return 1;
 }
 
 /* try_mailbox_locations:
- * Helper function for find_mailbox.
- */
-mailbox try_mailbox_locations(const char *specs, const char *user, const char *domain, const char *home) {
-    tokens t = tokens_new(specs, " \t");
+ * Helper function for find_mailbox. */
+static mailbox try_mailbox_locations(const char *specs, const char *user, const char *domain, const char *home) {
+    tokens t;
     mailbox m = NULL;
     int i;
 
-    if (!t) return NULL;
+    if (!(t = tokens_new(specs, " \t"))) return NULL;
     
     for (i = 0; i < t->num; ++i) {
-        char *str = t->toks[i], *mdrv = NULL, *subspec, *path;
+        char *str, *mdrv = NULL, *subspec, *path;
         struct sverr err;
+
+        str = t->toks[i];
 
         subspec = strchr(str, ':');
         if (subspec) {
