@@ -192,7 +192,7 @@ checkin:
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean: nodepend
-	rm -f *~ *.o core tpop3d depend TAGS
+	rm -f *~ *.o core tpop3d depend TAGS *.bak
 
 tags :
 	etags *.c *.h
