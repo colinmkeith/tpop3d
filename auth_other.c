@@ -460,7 +460,7 @@ stringmap auth_other_recv_response() {
 
 formaterror:
         print_log(LOG_ERR, _("auth_other_recv_response: response data not correctly formatted; killing child"));
-        stringmap_delete_xfree(S);
+        stringmap_delete_free(S);
         S = NULL;
     }
 
@@ -526,7 +526,7 @@ authcontext auth_other_new_apop(const char *name, const char *timestamp, const u
     } else if (strcmp((char*)I->v, "NO") != 0) INVALID("result", (char*)I->v);
         
 fail:
-    stringmap_delete_xfree(S);
+    stringmap_delete_free(S);
     return a;
 #undef MISSING
 #undef INVALID
@@ -584,7 +584,7 @@ authcontext auth_other_new_user_pass(const char *user, const char *pass, const c
     } else if (strcmp((char*)I->v, "NO") != 0) INVALID("result", (char*)I->v);
         
 fail:
-    stringmap_delete_xfree(S);
+    stringmap_delete_free(S);
     return a;
 #undef MISSING
 #undef INVALID

@@ -35,7 +35,7 @@ void vector_delete(vector v) {
     xfree(v);
 }
 
-void vector_delete_xfree(vector v) {
+void vector_delete_free(vector v) {
     item *i;
     vector_iterate(v, i) {
         xfree(i->v);

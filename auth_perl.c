@@ -113,7 +113,7 @@ int auth_perl_init() {
     if (SvTRUE(ERRSV)) {
         print_log(LOG_ERR, _("auth_perl_init: error executing perl start code: %s"), SvPV(ERRSV, len));
         perl_destruct(auth_perl_interp);
-        perl_xfree(auth_perl_interp);
+        perl_free(auth_perl_interp);
         auth_perl_interp = NULL;
         return 0;
     }
@@ -140,7 +140,7 @@ void auth_perl_close() {
                 print_log(LOG_ERR, _("auth_perl_close: error executing perl finish code: %s"), SvPV(ERRSV, len));
         }
         perl_destruct(auth_perl_interp);
-        perl_xfree(auth_perl_interp);
+        perl_free(auth_perl_interp);
         auth_perl_interp = NULL;
     }
 }
@@ -279,7 +279,7 @@ authcontext auth_perl_new_apop(const char *name, const char *timestamp, const un
     } else if (strcmp((char*)I->v, "NO") != 0) INVALID("result", (char*)I->v);
         
 fail:
-    stringmap_delete_xfree(S);
+    stringmap_delete_free(S);
     return a;
 #undef MISSING
 #undef INVALID
@@ -333,7 +333,7 @@ authcontext auth_perl_new_user_pass(const char *user, const char *pass, const ch
     } else if (strcmp((char*)I->v, "NO") != 0) INVALID("result", (char*)I->v);
         
 fail:
-    stringmap_delete_xfree(S);
+    stringmap_delete_free(S);
     return a;
 #undef MISSING
 #undef INVALID

@@ -50,7 +50,6 @@ authcontext auth_passwd_new_user_pass(const char *user, const char *pass, const 
 #ifdef AUTH_PASSWD_SHADOW
     struct spwd *spw;
 #endif /* AUTH_PASSWD_SHADOW */
-    char *mailspool_dir;
     char *user_passwd;
     item *I;
     int use_gid = 0;

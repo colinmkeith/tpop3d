@@ -572,11 +572,11 @@ static char *substitute_query_params(const char *template, const char *local_par
     struct sverr err;
 
     /* Form escaped copies of the user and domain. */
-    if xmalloc(strlen(local_part) * 2 + 1)))
+    if (!(l = xmalloc(strlen(local_part) * 2 + 1)))
 	return NULL;
     mysql_escape_string(l, local_part, strlen(local_part));
 
-    if xmalloc(strlen(domain) * 2 + 1))) {
+    if (!(d = xmalloc(strlen(domain) * 2 + 1))) {
 	xfree(l);
 	return NULL;
     }
