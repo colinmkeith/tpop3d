@@ -1,0 +1,191 @@
+.TH TPOP3D 8
+.\"
+.\" tpop3d.8: manual page for tpop3d and its configuration file
+.\"
+.\" Copyright (c) 2000 Chris Lightfoot. All rights reserved.
+.\"
+.\" $Id$
+.\"
+.\" $Log$
+.\" Revision 1.1  2000/10/28 14:57:04  chris
+.\" Initial revision
+.\"
+.\"
+.SH NAME
+tpop3d \- small, fast, extensible POP3 server
+.SH SYNOPSIS
+.B tpop3d
+[
+.B \-d
+] [
+.B -f
+.I file
+]
+.SH DESCRIPTION
+.B tpop3d
+is a server which implements the RFC1939 POP3 protocol, including UIDL
+support. Most options are set via a configuration file, typically
+\fB/etc/tpop3d.conf\fP. \fBtpop3d\fP is a daemon which waits in the
+background and accepts incoming connections. It \fIcannot\fP be operated from
+.BR inetd (8).
+
+.B tpop3d
+logs most diagnostics via
+.BR syslog (3),
+using facility \fBmail\fP.
+
+.SS OPTIONS
+
+.TP
+.B -d
+do not fork to become a daemon, but stay attached to a controlling terminal
+and print log messages to standard error as well as the syslog
+
+.TP
+.BI -f\  file
+read configuration from \fIfile\fP, instead of from \fB/etc/tpop3d\fP.
+
+.SH CONFIGURATION FILE
+
+The configuration file, \fB/etc/tpop3d.conf\fP, expresses a number of
+\fIkey\fP:\ \fIvalue\fP pairs. Blank lines and comments introduced by `#' are ignored.
+
+Presently-recognised configuration directives are:
+
+.SS Global options
+
+.TP
+\fBlisten-address\fP: (\fIhostname\fP | \fIIP number\fP)[:\fIport\fP] ...
+The ports and addresses on which the daemon should listen for incoming
+connections. If any \fIport\fP is not specified, it is assumed to be
+\fBpop-3\fP (110).
+
+To listen for connections on any interface and the default port, the directive
+
+listen-address: 0.0.0.0
+
+is sufficient. There is no default for this option.
+
+.TP
+\fBmax-children\fP: \fInumber\fP
+The maximum number of child processes which may be activelyserving connections
+at any given time. Consists of a single number.
+
+.SS PAM authentication options
+
+.TP
+\fBauth-pam-enable\fP: (\fByes\fP|\fBtrue\fP)
+Enable authentication using Pluggable Authentication Modules.
+
+.TP
+\fBauth-pam-facility\fP: \fIfacility\fP
+Sets the PAM facility name used by \fBtpop3d\fP to \fIfacility\fP. Defaults to
+\fBtpop3d\fP.
+
+.TP
+\fBauth-pam-mailspool-dir\fP: \fIpath\fP
+Sets the path where mailspools for PAM users are located. Defaults to
+\fB/var/spool/mail\fP.
+
+.TP
+\fBauth-pam-mail-group\fP: (\fIgroup-name\fP | \fIgid\fP)
+The group name or gid under which access to the mailspool will take place. The
+default for this option is the primary group of the authenticated user, which
+will probably not work. You will normally want to set this to `mail'.
+
+.SS MySQL authentication options
+
+These are only available if you compiled tpop3d with \fBauth_mysql\fP support.
+
+.TP
+\fBauth-mysql-enable\fP: (\fByes\fP | \fBtrue\fP)
+`yes' or `true' to enable MySQL authentication.
+
+.TP
+\fBauth-mysql-mail-group\fP: (\fIgroup-name\fP | \fIgid\fP)
+The group name or gid under which access to the mailspool will take place. The
+default for this option is the primary group of the UNIX user associated with
+the virtual domain.
+
+.TP
+\fBauth-mysql-hostname\fI: \fIhostname\fP
+Host on which to connect to MySQL, by default \fBlocalhost\fP.
+
+.TP
+\fBauth-mysql-database\fP: \fIdatabase\fP
+MySQL database to use for authentication.
+
+.TP
+\fBauth-mysql-username\fP: \fIusername\fP
+MySQL username used to access the database.
+
+.TP
+\fBauth-mysql-password\fP: \fIpassword\fP
+Password of MySQL user.
+
+.SS A note on MySQL authentication
+
+The MySQL authentication scheme is intended to be used with the
+vmail-sql virtual domains configuration described at
+
+.I    http://www.ex-parrot.com/~chris/vmail-sql/
+
+However, it would be extremely simple to adjust it to use another
+database schema, should this be required. The code is all contained in
+auth_mysql.c in the distribution.
+
+Note that the username and password supplied in the configuration file
+are privileged information, in the sense that they would allow an
+arbitrary person to obtain information from the database if they have
+access to the machine on which it resides. \fPtpop3d\fP clears this data from
+memory when the MySQL authentication code is initialised (though note
+that if you leave the \fBauth-mysql-...\fP directives in place but remove the
+\fBauth-mysql-enable: yes\fP line, then this will not occur). The corollary to
+this is that the \fBtpop3d.conf\fP file should not be readable by arbitrary
+users.
+
+.SH BUGS
+
+\fBtpop3d\fP does not use a locking scheme which works well with NFS. In
+addition, it locks the mailspool for exclusive access, so that an MTA cannot
+deliver mail to the mailspool whilst it is being accessed by a \fBtpop3d\fP
+user. As a result, it is configured by default to time out users rather
+rapidly (after 30s of inactivity). This is one of several places where it is
+marginally noncompliant with RFC1939.
+
+.SH FILES
+
+.B /etc/tpop3d.conf
+
+.SH SEE ALSO
+
+.BR exim (8),
+.BR inetd (8),
+.BR syslog (3),
+.BR mysql (1),
+.BR RFC1939,
+.br
+.IR http://www.ex-parrot.com/~chris/tpop3d/ ,
+.br
+.IR http://www.ex-parrot.com/~chris/vmail-sql/ ,
+.br
+.IR http://www.mysql.com/ ,
+
+.SH AUTHOR
+Chris Lightfoot <chris@ex-parrot.com>
+
+.SH COPYING
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
