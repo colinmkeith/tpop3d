@@ -1,6 +1,10 @@
 Changes for tpop3d
 $Id$
 
+1.3.3
+
+Fixes for a couple of portability bugs which crept in to 1.3.2.
+
 1.3.2
 
 Minor changes, and an update for auth_mysql to allow passwords in formats
