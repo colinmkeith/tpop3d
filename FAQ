@@ -105,3 +105,14 @@ $Id$
    you specify is passed to authenticators. See also archived postings on the
    mailing list.
 
+
+6. tpop3d seems to be leaking memory.
+
+   A number of memory leaks have been found and fixed in tpop3d over time.
+   It's possible that you've found another one. Another possibility is that
+   one of your authenticators leaks memory. If you're using auth-perl, check
+   your code carefully. If you're using auth-pam, consider using the
+   --enable-pam-leak-hack option to configure (see INSTALL file and
+   auth_pam.c in the distribution). If that doesn't fix it, ask on the
+   tpop3d-discuss mailing list (see README for further details).
+
