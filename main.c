@@ -186,7 +186,7 @@ void connections_pre_select(int *n, fd_set *readfds, fd_set *writefds, fd_set *e
 }
 
 /* fork_child:
- * Handle forking a child to handle an individual connection c.
+ * Handle forking a child to handle an individual connection c after authentication.
  */
 #ifdef AUTH_OTHER
 extern volatile int authchild_wr, authchild_rd; /* in auth_other.c */
@@ -348,6 +348,7 @@ void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfd
                         pop3command_delete(p);
                         switch (act) {
                             case close_connection:
+                                print_log(LOG_INFO, _("connections_post_select: client %s: disconnected"), c->idstr);
                                 remove_connection(c);
                                 connection_delete(c);
                                 *I = c = NULL;
@@ -743,6 +744,8 @@ int main(int argc, char **argv, char **envp) {
         vector_delete(listeners);
     }
 
+    stringmap_delete_free(config);
+    
     /* We may have got here because we're supposed to terminate and restart. */
     if (restart) {
         execve(argv[0], argv, envp);

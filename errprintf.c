@@ -21,7 +21,7 @@ static const char rcsid[] = "$Id$";
 #include "util.h"
 
 /* verrprintf:
- * Returns a static string with the appropriate arguments printed into it.a
+ * Returns a static string with the appropriate arguments printed into it.
  * (Replaced the dynamically allocating one with a static-buffer based
  * alternative, since it isn't possible to call vsnprintf(..., ap) in a loop,
  * as the arg list can't be reset. D'oh.) */

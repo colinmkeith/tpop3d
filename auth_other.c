@@ -446,7 +446,7 @@ stringmap auth_other_recv_response() {
      * value.
      */
     q = buffer;
-    while (*q) {
+    while (*q && S) {
         r = memchr(q, 0, p - q);
         if (!r || r > (p - 3)) goto formaterror;
         

@@ -93,8 +93,8 @@ static char *make_timestamp(const char *domain) {
  */
 connection connection_new(int s, const struct sockaddr_in *sin, const char *domain) {
     connection c = 0;
+
     c = xcalloc(1, sizeof *c);
-    if (!c) return NULL;
 
     c->s = s;
     memcpy(&(c->sin), sin, sizeof(struct sockaddr_in));

@@ -408,13 +408,8 @@ fail:
 }
 
 /* auth_mysql_new_user_pass:
- * Attempt to authenticate a user via USER/PASS, using a SELECT statement of
- * the form
- *   SELECT domain.path, popbox.mbox_name, popbox.password_hash, domain.unix_user
- *          FROM popbox, domain
- *          WHERE popbox.local_part = $local_part
- *            AND popbox.domain_name = $domain
- *            AND popbox.domain_name = domain.domain_name
+ * Attempt to authenticate a user via USER/PASS, using the template SELECT
+ * query in the config file or the default defined above otherwise.
  */
 authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const char *host /* unused */) {
     char *query = NULL;

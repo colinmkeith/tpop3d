@@ -6,10 +6,10 @@ mailbox drivers in mind.
 
 * Architecture
 
-  tpop3d is a daemon server which forks subprocesses to handle incoming
+  tpop3d is a daemon server which forks children to handle incoming
   connections. All authentication and book-keeping is done by the main server
-  process, which runs as root; all access to mailboxes is done by
-  subprocesses, which drop privileges before opening the mailboxes.
+  process, which runs as root; all access to mailboxes is done by child
+  processes, which drop privileges before opening the mailboxes.
 
   When an incoming connection needs to be authenticated, its credentials are
   passed to all available authentication drivers in turn, until either one
@@ -53,14 +53,14 @@ mailbox drivers in mind.
   authentication strategies. In particular, it makes it easy to use programs
   written in a scripting language to do authentication; if you want to use
   this, have a look at the description in the man page and the example scripts
-  in the scripts/ subdirectory. There is a perl module which makes writing
-  perl authenticators very easy in the TPOP3D-AuthDriver subdirectory; the
+  in the scripts/ subdirectory. There is a perl module, which makes writing
+  perl authenticators very easy, in the TPOP3D-AuthDriver subdirectory; the
   standard perl Makefile.PL ; make ; make install procedure will install it
   for you. The dotapopfile example perl script in scripts/ uses this module.
 
-  If you wish to write an authenticator in perl, you can also use the
-  auth_perl driver, which embeds a perl interpreter in the main tpop3d daemon.
-  This may well be more efficient than using auth_other.
+  If you wish to write an authenticator in perl, you can also use the auth_perl
+  driver, which embeds a perl interpreter in the main tpop3d daemon.  This may
+  well be more efficient than using auth_other.
 
 
 * Developing new mailbox formats
