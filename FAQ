@@ -38,14 +38,15 @@ $Id$
        'fork_child: [42]billg(12.34.56.78) successfully authenticated with pam' 
  
    Of course, this may not be an issue if there are no shell users on your
-   POP3 server system.
-   
-   
+   POP3 server system, though you might want to think carefully about whether
+   any other process on your system could be tricked into writing a log line of
+   the above form.
+
    The alternative is to have tpop3d trigger addition of a client to the
    allowed-to-relay table. If you are happy to alter the C code, then the best
    thing to do is to insert some code at the same place that the above log
    line is generated to do whatever book-keeping you need. This is in the
-   function fork_child in main.c. . Alternatively, you could write an auth-perl
+   function fork_child in main.c. Alternatively, you could write an auth-perl
    or auth-other authenticator which did the dirty work for cases of successful
    authentication. Of course, this means that you have to implement the
    authentication yourself, too, which is slightly wasteful.
@@ -85,9 +86,21 @@ $Id$
    database....
 
    You can, if you want, write a database authentication driver in C, using
-   auth_mysql as an example. However, a better approach would be to write an
+   auth-mysql as an example. However, a better approach would be to write an
    authenticator in a scripting language such as Perl or Python, and have
-   tpop3d call it through the auth_perl or auth_other mechanisms. There is a
+   tpop3d call it through the auth-perl or auth-other mechanisms. There is a
    perl example for Oracle (contributed by Paul Makepeace) in the scripts/
    subdirectory of the distribution.
+
+
+5. I'm using auth-mysql, but authentication doesn't seem to work....
+
+   auth-mysql is a virtual domains authenticator. This means that users need to
+   log in with a domain specified in order to be authenticated. This is a
+   Feature. If you only have users in one domain and you still want to use
+   auth-mysql (it's not obvious why you would want to do this), then you can
+   define a default domain using the (domain) syntax in the listener:
+   configuration directive, and then switch append-domain on so that the domain
+   you specify is passed to authenticators. See also archived postings on the
+   mailing list.
 
