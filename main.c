@@ -25,6 +25,7 @@ static const char rcsid[] = "$Id$";
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <sys/utsname.h>
 #include <sys/wait.h>
 
 #include "config.h"
@@ -196,6 +197,19 @@ listener listener_new(const struct sockaddr_in *addr, const char *domain) {
                 print_log(LOG_WARNING, "listener_new: %s: no suitable domain suffix found for this address", inet_ntoa(addr->sin_addr));
         }
     } else L->domain = strdup(domain);
+
+    /* Last try; use the nodename from uname(2). */
+    if (!L->domain) {
+        struct utsname u;
+        if (uname(&u) == -1) {
+            print_log(LOG_WARNING, "listener_new: uname: %m");
+            print_log(LOG_WARNING, "listener_new: %s: using domain suffix `x.invalid'", inet_ntoa(addr->sin_addr));
+            L->domain = strdup("x.invalid");
+        } else {
+            print_log(LOG_WARNING, "listener_new: %s: using fallback domain suffix %s", inet_ntoa(addr->sin_addr), u.nodename);
+            L->domain = strdup(u.nodename);
+        }
+    }
 
     return L;
 
