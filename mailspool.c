@@ -6,8 +6,12 @@
  * quoting /^From / in body text and attempting to use Content-Length to
  * figure out where messages start and end.
  *
- * See
- * http://home.netscape.com/eng/mozilla/2.0/relnotes/demo/content-length.html
+ * See http://home.netscape.com/eng/mozilla/2.0/relnotes/demo/content-length.html
+ *
+ * This also, optionally, allows the metadata stored into mailspools (why,
+ * Washington University, why?) by PINE to be ignored. This means that those
+ * who use PINE locally and a POP3 client remotely will not find themselves
+ * continuously downloading copies of "DON'T DELETE THIS MESSAGE -- ...".
  *
  * Copyright (c) 2001 Chris Lightfoot. All rights reserved.
  *
@@ -269,10 +273,10 @@ vector mailspool_build_index(mailspool M) {
         if (p) {
             const char hdr1[] = "\nX-IMAP: ", hdr2[] = "Subject: DON'T DELETE THIS MESSAGE -- FOLDER INTERNAL DATA\n";
             if (memstr(filemem, p - filemem, hdr1, strlen(hdr1)) && memstr(filemem, p - filemem, hdr2, strlen(hdr2))) {
-                print_log(LOG_DEBUG, "mailspool_build_index(%s): found c-client metadata; skipping", M->name);
+                print_log(LOG_DEBUG, "mailspool_build_index(%s): skipping c-client metadata", M->name);
+                free(M->index->ary->v);
                 vector_remove(M->index, M->index->ary);
             }
-
         }
     }
 #endif /* IGNORE_CCLIENT_METADATA */
@@ -326,12 +330,13 @@ void mailspool_delete(mailspool m) {
  *
  * XXX Assumes that mailspools use only '\n' to indicate EOL.
  */
+#define try_write(a, b, c)      (xwrite((a), (b), (c)) == (c))
+
 int mailspool_send_message(const mailspool M, int sck, const int i, int n) {
     char *filemem;
     size_t offset, length;
     indexpoint x;
     char *p, *q, *r;
-    int A;
 
     if (!M) return 0;
     if (i < 0 || i >= M->index->n_used) return 0;
@@ -357,21 +362,22 @@ int mailspool_send_message(const mailspool M, int sck, const int i, int n) {
         q = memchr(p, '\n', r - p);
         if (!q) q = r;
         errno = 0;
-        if ((*p == '.' && xwrite(sck, ".", 1) != 1) || xwrite(sck, p, q - p) != (q - p) || xwrite(sck, "\r\n", 2) != 2) {
-            print_log(LOG_ERR, "mailspool_send_message: write: %m");
-            munmap(filemem, length);
-            return 0;
-        }
+        /* Escape a leading ., if present. */
+        if (*p == '.' && !try_write(sck, ".", 1)) goto write_failure;
+        /* Send line itself. */
+        if (!try_write(sck, p, q - p) || !try_write(sck, "\r\n", 2))
+            goto write_failure;
         p = q + 1;
     } while (*p != '\n');
     ++p;
 
     errno = 0;
-    if (xwrite(sck, "\r\n", 2) != 2) {
+    if (!try_write(sck, "\r\n", 2)) {
         print_log(LOG_ERR, "mailspool_send_message: write: %m");
         munmap(filemem, length);
         return 0;
     }
+    
     /* Now send the message itself */
     while (p < r && n) {
         if (n > 0) --n;
@@ -379,20 +385,28 @@ int mailspool_send_message(const mailspool M, int sck, const int i, int n) {
         q = memchr(p, '\n', r - p);
         if (!q) q = r;
         errno = 0;
-        if ((*p == '.' && xwrite(sck, ".", 1) != 1) || xwrite(sck, p, q - p) != (q - p) || xwrite(sck, "\r\n", 2) != 2) {
-            print_log(LOG_ERR, "mailspool_send_message: write: %m");
-            munmap(filemem, length);
-            return 0;
-        }
+
+        /* Escape a leading ., if present. */
+        if (*p == '.' && !try_write(sck, ".", 1)) goto write_failure;
+        /* Send line itself. */
+        if (!try_write(sck, p, q - p) || !try_write(sck, "\r\n", 2))
+            goto write_failure;
+
         p = q + 1;
     }
     if (munmap(filemem, length) == -1)
         print_log(LOG_ERR, "mailspool_send_message: munmap: %m");
+    
     errno = 0;
-    if ((A = xwrite(sck, ".\r\n", 3)) != 3) {
-        print_log(LOG_ERR, "mailspool_send_message: write: %d %m", A);
+    if (!try_write(sck, ".\r\n", 3)) {
+        print_log(LOG_ERR, "mailspool_send_message: write: %m");
         return 0;
     } else return 1;
+
+write_failure:
+    print_log(LOG_ERR, "mailspool_send_message: write: %m");
+    munmap(filemem, length);
+    return 0;
 }
 
 /* mailspool_apply_changes:

@@ -229,7 +229,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
         
         /* No command has more than two arguments. */
         if (num_args > 2) {
-            connection_sendresponse(c, 0, "Already you have told me too much.");
+            connection_sendresponse(c, 0, "Already, you have told me too much.");
             return do_nothing;
         }
         
@@ -264,7 +264,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     arg2 = strtol(a, &b, 10);
                     if (b && !*b && b != a && arg2 >= 0) have_arg2 = 1;
                     else {
-                        connection_sendresponse(c, 0, "You are thick and numberless.");
+                        connection_sendresponse(c, 0, "Can you actually count?");
                         return do_nothing;
                     }
                 }
@@ -288,7 +288,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
             } else {
                 item *J;
                 int nn = 0;
-                connection_sendresponse(c, 1, "Scan list follows");
+                connection_sendresponse(c, 1, "Scan list follows:");
                 vector_iterate(c->m->index, J) {
                     if (!((indexpoint)J->v)->deleted) {
                         char response[32];
@@ -320,7 +320,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
             } else {
                 item *J;
                 int nn = 0;
-                connection_sendresponse(c, 1, "ID list follows");
+                connection_sendresponse(c, 1, "ID list follows:");
                 vector_iterate(c->m->index, J) {
                     if (!((indexpoint)J->v)->deleted) {
                         char response[64];
@@ -340,7 +340,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
         case DELE:
             if (have_msg_num) {
                 I->deleted = 1;
-                connection_sendresponse(c, 1, "Done");
+                connection_sendresponse(c, 1, "Done.");
                 ++c->m->numdeleted;
             } else
                 connection_sendresponse(c, 0, "Which message do you want to delete?");
@@ -351,7 +351,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 if (I->deleted)
                     connection_sendresponse(c, 0, "That message is no more.");
                 else {
-                    connection_sendresponse(c, 1, "Message follows");
+                    connection_sendresponse(c, 1, "Message follows:");
                     if (!mailspool_send_message(c->m, c->s, msg_num, -1)) {
                         connection_sendresponse(c, 0, "Oops");
                         return close_connection;
@@ -359,7 +359,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     /* That might have taken a long time. */
                     c->lastcmd = time(NULL);
                     if (verbose)
-                        print_log(LOG_DEBUG, "connection_do: client %s: sent message %d", c->idstr, msg_num);
+                        print_log(LOG_DEBUG, "connection_do: client %s: sent message %d", c->idstr, msg_num + 1);
                 }
                 break;
             } else {
@@ -379,16 +379,16 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     break;
                 }
 
-                connection_sendresponse(c, 1, "Message follows");
+                connection_sendresponse(c, 1, "Message follows:");
 
                 if (!mailspool_send_message(c->m, c->s, msg_num, arg2)) {
-                    connection_sendresponse(c, 0, "Oops");
+                    connection_sendresponse(c, 0, "Oops.");
                     return close_connection;
                 }
                 /* That might have taken a long time. */
                 c->lastcmd = time(NULL);
                 if (verbose)
-                    print_log(LOG_DEBUG, "connection_do: client %s: sent up to %d lines of message %d", c->idstr, arg2, msg_num);
+                    print_log(LOG_DEBUG, "connection_do: client %s: sent headers and up to %d lines of message %d", c->idstr, arg2, msg_num + 1);
                 break;
             }
                 
@@ -407,18 +407,18 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 item *I;
                 vector_iterate(c->m->index, I) ((indexpoint)I->v)->deleted = 0;
                 c->m->numdeleted = 0;
-                connection_sendresponse(c, 1, "Done");
+                connection_sendresponse(c, 1, "Done.");
                 break;
             }
 
         case QUIT:
             /* Now perform UPDATE */
             if (mailspool_apply_changes(c->m)) connection_sendresponse(c, 1, "Done");
-            else connection_sendresponse(c, 0, "Something went wrong");
+            else connection_sendresponse(c, 0, "Something went wrong.");
             return close_connection;
             
         case NOOP:
-            connection_sendresponse(c, 1, "I'm still here");
+            connection_sendresponse(c, 1, "I'm still here.");
             break;
 
         default:
