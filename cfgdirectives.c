@@ -34,6 +34,7 @@ char *cfgdirectives[] = {
     "permit-empty-passwords",
     "onlogin-child-wait",
     "log-bad-passwords",
+    "no-commit-on-early-close",
  
 #if defined(MBOX_BSD) && defined(MBOX_BSD_SAVE_INDICES)
     "mailspool-index",

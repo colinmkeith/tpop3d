@@ -402,13 +402,6 @@ static void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *e
         /* Handle all post-select I/O. */
         r = c->io->post_select(c, readfds, writefds, exceptfds);
 
-        /* At this stage, the connection may be closed or closing. But we
-         * should try to interpret commands anyway, in case the client sends
-         * QUIT and immediately closes the connection.
-         * XXX That's not actually what we do. This creates a race condition
-         * with badly-behaved clients like Microsoft Outlook (cf. email of
-         * 20040203). We might want to consider an option to process remaining
-         * commands even if the connection is actually closed. */
         if (r && !connection_isfrozen(c)) {
             /*
              * Handling of POP3 commands, and forking children to handle
@@ -492,8 +485,18 @@ static void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *e
         if (c->cstate == closed) {
             /* We should now log the closure of the connection and ending
              * of any authenticated session. */
-            if (c->a)
+            if (c->a) {
+                /* Microsoft Outlook closes connections immediately after
+                 * issuing QUIT. By default we'd lose any message deletions
+                 * that were pending, so add an option to apply them even
+                 * so. */
+                if (!config_get_bool("no-commit-on-early-close")) {
+                    pop3command p;
+                    if ((p = connection_parsecommand(c)) && p->cmd == QUIT)
+                        c->m->apply_changes(c->m);
+                }
                 log_print(LOG_INFO, _("connections_post_select: client %s: finished session for `%s' with %s"), c->idstr, c->a->user, c->a->auth);
+            }
             log_print(LOG_INFO, _("connections_post_select: client %s: disconnected; %d/%d bytes read/written"), c->idstr, c->nrd, c->nwr);
 
 /*            remove_connection(c);*/

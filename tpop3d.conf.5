@@ -367,6 +367,16 @@ bulletins and similar features.
 Log incorrect passwords supplied by users who fail to log in. Use of this
 option is an invasion of privacy, but may be useful for debugging client
 configuration problems.
+.TP
+\fBno-commit-on-early-close\fP: (\fByes\fP|\fBtrue\fP)
+Some POP3 clients (most notably Microsoft `Outlook') will close their
+connection to the server immediately after issuing a QUIT command and before
+receiving any response. Strictly they oughtn't to do that, and historically if
+they did, \fBtpop3d\fP would abort the connection and not delete messages for
+which DELE commands had been issued during the session. That behaviour has been
+changed for greater compatibility with broken clients; you can set this option
+to restore the previous behaviour. Doing so will reduce the chance that your
+clients will lose mail due to flakey network connectivity.
 .PP
 \fBtpop3d\fP can cache the results of successful login attempts, and re-use
 them when the same user logs in again. This is probably not useful except
