@@ -1,9 +1,12 @@
 /*
- * connection.c:
+ * connection.c: deal with connections from clients
  *
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.4  2000/10/09 18:44:47  chris
+ * Minor changes.
+ *
  * Revision 1.3  2000/10/02 18:20:19  chris
  * Supports most of POP3.
  *
@@ -22,6 +25,7 @@ static const char rcsid[] = "$Id$";
 #include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <syslog.h>
 #include <unistd.h>
 
 #include <netinet/in.h>

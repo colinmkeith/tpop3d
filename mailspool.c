@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.5  2000/10/09 18:44:47  chris
+ * Minor changes.
+ *
  * Revision 1.4  2000/10/08 16:53:21  chris
  * Modified UID generation; also signal handler will always remove lockfile
  * on quit.
@@ -513,7 +516,6 @@ int mailspool_apply_changes(mailspool M) {
             /* Not every machine has a working memmove(3) (allows overlapping
              * memory areas). If yours doesn't, you should get a better one ;)
              */
-            syslog(LOG_ERR, "filemem %p s %p d %p copylen %d", filemem, s, d, copylen);
             memmove(d, s, copylen);
             d += copylen;
         }
