@@ -197,7 +197,7 @@ char *listener_obtain_domain(listener L, int s) {
     struct sockaddr_in sin;
     size_t l = sizeof sin;
     struct hostent *he;
-    regmatch_t match;
+    regmatch_t match[2];
     int err;
 
     if (!L->have_re)
@@ -216,20 +216,20 @@ char *listener_obtain_domain(listener L, int s) {
 
     /* OK, we have a name; we need to run the regular expression against it and
      * check that we get one match exactly. */
-    if ((err = regexec(&L->re, he->h_name, 1, &match, 0)) == REG_NOMATCH) {
+    if ((err = regexec(&L->re, he->h_name, 2, match, 0)) == REG_NOMATCH) {
         log_print(LOG_WARNING, _("listener_obtain_domain: /%s/: %s: no regex match"), L->regex, he->h_name);
         return NULL;
-    } else if (match.rm_so == -1) {
+    } else if (match[1].rm_so == -1) {
         log_print(LOG_WARNING, _("listener_obtain_domain: /%s/: %s: regex failed to match any subexpression"), L->regex, he->h_name);
         return NULL;
-    } else if (match.rm_so == match.rm_eo) {
+    } else if (match[1].rm_so == match[1].rm_eo) {
         log_print(LOG_WARNING, _("listener_obtain_domain: /%s/: %s: zero-length subexpression"), L->regex, he->h_name);
         return NULL;
     } else {
         char *x;
         int l;
-        x = xcalloc((l = match.rm_eo - match.rm_so) + 1, 1);
-        memcpy(x, he->h_name + match.rm_so, l);
+        x = xcalloc((l = match[1].rm_eo - match[1].rm_so) + 1, 1);
+        memcpy(x, he->h_name + match[1].rm_so, l);
         return x;
     }
 }
