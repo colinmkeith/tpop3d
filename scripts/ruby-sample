@@ -45,6 +45,12 @@ $password_file = "/etc/tpop3d.users"
 mailbox_dir = "/var/spool/vmail"
 # mailbox_dir = nil
 
+# There is no logging in this authenticator, but if you need to add
+# some calls to log_message for debugging purposes, then the output
+# will go to this log file...
+
+$authenticator_log = "/tmp/sample-authenticator.log"
+
 #-----------------------------------------------------------------------
 
 # A usage message, to remind people what the program is for...
@@ -56,6 +62,16 @@ This script is an authenticator for tpop3d.  It is not a useful standalone
 program.  See tpop3d.conf(5) for more information.
 EOF
   
+end
+
+def log_message( message )
+
+  open( $authenticator_log, "a" ) do |f|
+
+    f.print "[#{Time.now}] #{message}\n"
+
+  end
+
 end
 
 # Add some useful methods to the IO class for dealing with null
@@ -78,7 +94,7 @@ class IO
 # Each pair is of the form <key>\0<value>\0 If <key> is empty
 # (i.e. the first character read is null) the method returns
 # immediately.  If at any point end of file is reached, the method
-# returns.
+# raises EOFError
 
   def each_pair
 
@@ -92,9 +108,8 @@ class IO
       loop do
 	c = getc
 
-	# Check for EOF...
 	if ! c
-	  return
+	  raise EOFError
 	end
 
 	if c == 0
@@ -115,9 +130,8 @@ class IO
 	
 	c = getc
 	
-	# Check for EOF...
 	if ! c
-	  return
+	  raise EOFError
 	end
 	
 	if c == 0
@@ -138,16 +152,9 @@ class IO
   
 end
 
-# Call this with a reason string to refuse authentication and
-# exit...
+# An exception we will need later...
 
-def refuse ( reason )
-
-  $stdout.write_pair "result", "NO"
-  $stdout.write_pair "logmsg", reason
-  $stdout.put_zero
-  exit
-
+class AuthFailure < RuntimeError
 end
 
 # Look up a user, domain and password combination in the password
@@ -182,7 +189,7 @@ def authenticates_correctly? ( user, domain, password )
 	
       else
 	
-	refuse "A line in the users file is badly formed: `#{line}'"
+	raise AuthFailure.new "A line in the users file is badly formed: `#{line}'"
 	
       end
       
@@ -229,96 +236,132 @@ rescue
   
 end
 
-# Now parse the authentication request...
-
-method = nil
-timestamp = nil
-user = nil
-password = nil
-digest = nil
-clienthost = nil
-local_part = nil
-domain = nil
-
-$stdin.each_pair do |key, value|
-  
-  case key
-
-  when "method"
-    method = value
-  when "timestamp"
-    timestamp = value
-  when "user"
-    user = value
-  when "pass"
-    password = value
-  when "digest"
-    digest = value
-  when "clienthost"
-    clienthost = value
-  when "local_part"
-    local_part = value
-  when "domain"
-    domain = value
-  else
-    refuse "Unknown key `#{key}' in pair: (#{key},#{value})"
-  end
-
-end
-
-refuse "No method specified" unless method
-refuse "No local-part specified" unless local_part
-refuse "No domain specified" unless domain
-
-if method == "APOP"
-
-  refuse "APOP chosen, but no timestamp provided." unless timestamp
-  refuse "APOP chosen, but no digest provided." unless digest
-  refuse "APOP chosen, but a password was provided." if password
-
-  refuse "APOP is not currently supported by this autheticator."
-
-elsif method == "PASS"
-
-  refuse "PASS authentication was chosen, but a timestamp was provided" if timestamp
-  refuse "PASS authentication was chosen, but a digest was provided" if digest
+loop do
 
   begin
-  
-    if authenticates_correctly?( local_part, domain, password )
 
-      $stdout.write_pair "result", "YES"
-      $stdout.write_pair "logmsg", "Authentication succeeded for user #{user}"
-      $stdout.write_pair "uid", spool_user
-      $stdout.write_pair "gid", spool_group
-      $stdout.write_pair "domain", domain
-      if mailbox_dir
-	$stdout.write_pair "mailbox", "#{mailbox_dir}/#{domain}/#{local_part}"
+    # Now parse the authentication request...
+
+    method = nil
+    timestamp = nil
+    user = nil
+    password = nil
+    digest = nil
+    clienthost = nil
+    local_part = nil
+    domain = nil
+
+    $stdin.each_pair do |key, value|
+  
+      case key
+
+      when "method"
+	method = value
+      when "timestamp"
+	timestamp = value
+      when "user"
+	user = value
+      when "pass"
+	password = value
+      when "digest"
+	digest = value
+      when "clienthost"
+	clienthost = value
+      when "local_part"
+	local_part = value
+      when "domain"
+	domain = value
+      else
+	raise AuthFailure.new( "Unknown key `#{key}' in pair: (#{key},#{value})" )
       end
-      $stdout.put_zero
-      
-    else
-      
-      refuse "Authentication failed for user #{user}" 
-      
+
     end
 
-  rescue
+    raise AuthFailure.new( "No method specified" ) unless method
+    raise AuthFailure.new( "No user specified" ) unless user
+    raise AuthFailure.new( "No local_part specified" ) unless user
+    raise AuthFailure.new( "No domain specified" ) unless user
 
-    refuse "There was an error during authentication: " + $!
+    if method == "APOP"
+
+      unless timestamp
+	raise AuthFailure.new( "APOP method was chosen, but no timestamp was provided." )
+      end
+
+      unless digest
+	raise AuthFailure.new( "APOP method was chosen, but no digest was provided." )
+      end
+
+      unless password
+	raise AuthFailure.new( "APOP method was chosen, but a password was provided." )
+      end
     
+      raise AuthFailure.new( "APOP is not currently supported by this authenticator." )
+
+    elsif method == "PASS"
+
+      if timestamp
+	raise AuthFailure.new "PASS method was chosen, but a timestamp was provided"
+      end
+
+      if digest
+	raise AuthFailure.new "PASS method was chosen, but a digest was provided"
+      end
+
+      if authenticates_correctly?( local_part, domain, password )
+
+	$stdout.write_pair "result", "YES"
+	$stdout.write_pair "logmsg", "Authentication succeeded for user #{user}"
+	$stdout.write_pair "uid", spool_user
+	$stdout.write_pair "gid", spool_group
+	$stdout.write_pair "domain", domain
+	if mailbox_dir
+	  $stdout.write_pair "mailbox", "#{mailbox_dir}/#{domain}/#{local_part}"
+	end
+	$stdout.put_zero
+	$stdout.flush
+
+	next
+
+      else
+
+	raise AuthFailure.new "Authentication failed for user #{user}"
+
+      end
+
+    elsif method == "ONLOGIN"
+
+      # We don't do anything with the ONLOGIN information, so return an
+      # empty packet.
+
+      $stdout.put_zero
+      $stdout.flush
+
+    else
+
+      raise AuthFailure.new "Method was `#{method}' - should be `PASS', `APOP' or `ONLOGIN'"
+
+    end
+
+  rescue AuthFailure => message
+    
+    $stdout.write_pair "result", "NO"
+    $stdout.write_pair "logmsg", message
+    $stdout.put_zero
+    $stdout.flush
+
+  rescue EOFError
+
+    # We hit EOF unexpectely, so just exit...
+    exit
+    
+  rescue
+    
+    $stdout.write_pair "result", "NO"
+    $stdout.write_pair "logmsg", "There was an error during authentication: " + $!
+    $stdout.put_zero
+    $stdout.flush
+
   end
 
-elsif method == "ONLOGIN"
-
-  # We don't do anything with the ONLOGIN information, so return an
-  # empty packet.
-
-  $stdout.put_zero
-
-else
-
-  refuse "Method was `#{method}' - should be `PASS', `APOP' or `ONLOGIN'"
-
 end
-
