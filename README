@@ -23,8 +23,9 @@ mechanisms:
     auth_mysql          a vmail-sql style MySQL database; see
                             http://www.ex-parrot.com/~chris/vmail-sql/
     auth_other          an external program
+    auth_perl           embedded perl subroutines
 
-The latter two options provide virtual domain support; the first two are
+The latter three options provide virtual domain support; the first two are
 designed to authenticate local (Unix) users.
 
 The following mailbox formats are supported:
@@ -48,7 +49,8 @@ so it should be reasonably simple to make it work.
 Modifying and extending tpop3d
 
 Have a look at the file HACKING in the distribution. tpop3d is fairly well
-commented and a number of people have been able to make useful modifications.
+commented and you should find it easy to hack whatever functionality you want
+into it. You may also wish to read the list of Things To Do in TODO.
 
 
 Mailing list

@@ -55,7 +55,7 @@ tpop3d_LDFLAGS = -L@mysql_root@/lib/mysql
 
 CFLAGS = -Wall -g
 
-man_MANS = tpop3d.8
+man_MANS = tpop3d.8 tpop3d.conf.5
 
 SUBDIRS = init.d config
 

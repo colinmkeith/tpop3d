@@ -306,9 +306,9 @@ USER/PASS authentication is received.
 
 The perl subroutines named in the configuration file should take as their
 single argument a reference to a hash; this will contain keys and values as
-listed for \fBauth_other\fP above. The subroutine should also return a
+listed for \fBauth_other\fP above. The subroutines should also return a
 reference to a hash, indicating results as for \fBauth_other\fP. In addition,
-it may call \fBTPOP3D::print_log\fP with a single scalar argument to write a
+they may call \fBTPOP3D::print_log\fP with a single scalar argument to write a
 message via \fBtpop3d\fP's logging facility.
 
 .SH FILES

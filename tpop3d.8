@@ -1,6 +1,6 @@
 .TH TPOP3D 8
 .\"
-.\" tpop3d.8: manual page for tpop3d and its configuration file
+.\" tpop3d.8: manual page for tpop3d
 .\"
 .\" Copyright (c) 2001 Chris Lightfoot. All rights reserved.
 .\"
@@ -33,6 +33,10 @@ and accepts incoming connections. It cannot be operated from
 
 \fBtpop3d\fP logs most diagnostics via \fBsyslog\fP(3), using facility
 \fBmail\fP.
+
+Detailed control over the operation of \fBtpop3d\fP is exercised by editing its
+configuration file, by default \fB/etc/tpop3d.conf\fP. See the manual entry for
+\fBtpop3d.conf\fP(5) for more information.
 
 .SH OPTIONS
 
@@ -77,298 +81,6 @@ In particular, the configuration options which you used to compile \fBtpop3d\fP
 and the operating system and version under which you are running it are
 essential information for a bug report.
 
-.SH CONFIGURATION FILE
-
-The configuration file, \fB/etc/tpop3d.conf\fP, consists of a number of
-\fIkey\fP:\ \fIvalue\fP pairs. Blank lines and comments introduced by `#' are ignored.
-
-Presently-recognised configuration directives are:
-
-.SS Global options
-
-.TP
-.nf
-\fBlisten-address\fP: (\fIhostname\fP | \fIIP number\fP)[:\fIport\fP][(\fIdomain\fP)] ...
-.fi
-.Sp
-The ports and addresses on which the daemon should listen for incoming
-connections. If any \fIport\fP is not specified, it is assumed to be
-\fBpop-3\fP (110). If \fIdomain\fP is not specified, it is assumed to be the
-section of the name associated with the given address after the first `.', or,
-if no such name can be established, the nodename of the system as determined
-by
-.BR uname (2).
-
-To listen for connections on any interface and the default port, the directive
-.nf
-  listen-address: 0.0.0.0
-.Sp
-.fi
-is sufficient. There is no default for this option.
-.TP
-\fBmax-children\fP: \fInumber\fP
-The maximum number of child processes which may be actively serving
-connections at any given time. Consists of a single number.
-.TP
-\fBappend-domain\fP: (\fByes\fP|\fBtrue\fP)
-If authentication does not succeed for a given \fIusername\fP, retry with
-\fIusername\fP@\fIdomain\fP, where \fIdomain\fP is the domain name associated
-with the address on which the connection was received. This is intended to
-be used where multiple virtual domains are served from multiple IP addresses.
-This option only takes effect when \fIusername\fP does not contain a
-separator, which may be `@', `%' or `!'.
-.TP
-\fBtimeout-seconds\fP: \fInumber\fP
-This is the number of seconds for which a connection may be idle for before it
-is closed.  If it is set to 0, then timeouts are disabled.  The default value
-is 30 seconds (see BUGS, below.)
-.TP
-.nf
-\fBmailbox:\fP: [\fImailbox driver\fP:]\fIpath\fP ...
-.fi
-.Sp
-This selects the location, and optionally the type, of the mailbox to use when
-a user is authenticated. \fIMailbox driver\fP should be one of the names
-listed when you execute \fBtpop3d -h\fP; if left blank the default (first
-available) one is used, but this is discouraged as it may vary between builds
-of tpop3d. \fIPath\fP should give a path name in the file system; you can use
-the substitution strings \fB$(user)\fP for username, \fB$(home)\fP for the
-user's home directory and \fB$(domain)\fP for the authenticated domain. In
-addition, the syntax \fB$(foo[\fP\fIindex\fP\fB])\fP may be used to select a
-given letter of the string. 0 is the first character, and -1 the last. This
-allows the used of `hashed' spool directories; for example,
-
-.nf
-  mailbox: bsd:/var/spool/mail/$(user[0])/$(user)
-.Sp
-.fi
-
-If several mailbox locations and types are specified, \fBtpop3d\fP will try
-each in turn, stopping when it opens a mailbox or encounters an error other
-than the mailbox not being present. This means that if your users have both
-maildir and bsd mailboxes, you can use something like
-
-.nf
-  mailbox: maildir:$(home)/Maildir bsd:/var/spool/mail/$(user)
-.Sp
-.fi
-
-to support both.
-
-Some authentication drivers will set the mailbox explicitly, overriding this
-option. Those that do not also have a specific option, of the form
-\fBauth-foo-mailbox:\fP which overrides the global setting.
-
-.SS PAM authentication options
-
-.TP
-\fBauth-pam-enable\fP: (\fByes\fP|\fBtrue\fP)
-Enable authentication using Pluggable Authentication Modules.
-.TP
-\fBauth-pam-facility\fP: \fIfacility\fP
-Sets the PAM facility name used by \fBtpop3d\fP to \fIfacility\fP. Defaults to
-\fBtpop3d\fP.
-
-.TP
-\fBauth-pam-mail-group\fP: (\fIgroup-name\fP | \fIgid\fP)
-The group name or gid under which access to the mailspool will take place. The
-default for this option is the primary group of the authenticated user, which
-will probably not work. You will normally want to set this to `mail'.
-
-.SS Password authentication options
-
-These are only available if you compiled \fBtpop3d\fP with \fBauth_passwd\fP
-support.
-
-.TP
-\fBauth-passwd-enable\fP: (\fByes\fP|\fBtrue\fP)
-Enable authentication using /etc/passwd (and /etc/shadow, if this option was
-selected at compile time).
-.TP
-\fBauth-passwd-mail-group\fP: (\fIgroup-name\fP | \fIgid\fP)
-The group name or gid under which access to the mailspool will take place. The
-default for this option is the primary group of the authenticated user, which
-will probably not work. You will normally want to set this to `mail'.
-
-.SS MySQL authentication options
-
-These are only available if you compiled tpop3d with \fBauth_mysql\fP support.
-
-.TP
-\fBauth-mysql-enable\fP: (\fByes\fP | \fBtrue\fP)
-Enable MySQL authentication.
-.TP
-\fBauth-mysql-mail-group\fP: (\fIgroup-name\fP | \fIgid\fP)
-The group name or gid under which access to the mailspool will take place. The
-default for this option is the primary group of the UNIX user associated with
-the virtual domain.
-.TP
-\fBauth-mysql-hostname\fI: \fIhostname\fP
-Host on which to connect to MySQL, by default \fBlocalhost\fP.
-.TP
-\fBauth-mysql-database\fP: \fIdatabase\fP
-MySQL database to use for authentication.
-.TP
-\fBauth-mysql-username\fP: \fIusername\fP
-MySQL username used to access the database.
-.TP
-\fBauth-mysql-password\fP: \fIpassword\fP
-Password of MySQL user.
-.PP
-Since mailbox names are stored in the database, the \fBauth-mysql-mailbox:\fP
-setting is ignored.
-
-.SS A note on MySQL authentication
-
-The MySQL authentication scheme is intended to be used with the
-vmail-sql virtual domains configuration described at 
-\fIhttp://www.ex-parrot.com/~chris/vmail-sql/\fP.
-
-However, it is extremely simple to adjust it to use another database schema,
-should this be required. The code is all contained in auth_mysql.c in the
-distribution.
-
-Note that the username and password supplied in the configuration file
-are privileged information, in the sense that they would allow an
-arbitrary person to obtain information from the database if they have
-access to the machine on which it resides. \fPtpop3d\fP clears this data from
-memory when the MySQL authentication code is initialised (though note
-that if you leave the \fBauth-mysql-...\fP directives in place but remove the
-\fBauth-mysql-enable: yes\fP line, then this will not occur). The corollary to
-this is that the \fBtpop3d.conf\fP file should not be readable by arbitrary
-users.
-
-.SS External program (`other') authentication options
-
-These are only available if you compiled \fBtpop3d\fP with support for
-\fBauth_other\fP.
-
-.TP
-\fBauth-other-enable\fP: (\fByes\fP | \fBtrue\fP)
-Enable external program authentication.
-.TP
-\fBauth-other-program\fP: \fIpath\fP
-Program to use for external authentication; this must be an absolute path and
-should process requests as described below.
-.TP
-\fBauth-other-user\fP: (\fIuser-name\fP | \fIuid\fP)
-.TP
-\fBauth-other-group\fP: (\fIgroup-name\fP | \fIgid\fP)
-The user and group under which to run the authentication program.
-
-.TP
-\fBauth-other-timeout\fP: \fItime\fP
-The timeout in seconds for authentication; may be a fractional value, by
-default 0.75.
-
-.SS A note on external program authentication
-
-The intention of \fBauth_other\fP is to allow administrators to implement
-custom virtual-domains or other authentication schemes, without having to
-write C code to implement them. The distribution contains a perl module,
-\fBTPOP3D::AuthDriver\fP, which makes it extremely easy to implement a new
-authentication scheme, and various example scripts. One of the advantages of
-this is that if you want to implement an authenticator which uses a relational
-database other than MySQL, then you can use the support in perl's \fBDBI\fP
-library.
-
-An external authentication program reads data `packets' structured in the
-following format on its standard input:
-
-.nf
-  \fIkey\fP\\0\fIvalue\fP\\0 ... \\0
-.Sp
-.fi
-
-Defined \fIkey\fPs are:
-.TP
-\fBmethod\fP = (\fBAPOP\fP | \fBPASS\fP)
-Authentication mechanism being attempted.
-.TP
-\fBuser\fP = \fIusername\fP
-The username being sent with an APOP or USER command.
-.TP
-\fBtimestamp\fP = \fItimestamp string\fP
-(APOP only.) The `timestamp' string sent by the server to this client.
-.TP
-\fBdigest\fP = \fIhex digest\fP
-(APOP only.) Hex representation of the MD5 digest sent by the client with an APOP command.
-.TP
-\fBpassword\fP = \fIpassword\fP
-(PASS only.) The password sent with a PASS command.
-.PP
-In response, the program should write to standard output `packets' in the
-format described above. Defined \fIkey\fPs are:
-.TP
-\fBresult\fP = (\fBYES\fP | \fBNO\fP)
-Was authentication successful?
-.TP
-\fBlogmsg\fP = \fIstring\fP
-(Optional.) Specifies a message to be written to the system log.
-.PP
-The following apply only if authentication is successful; all but \fBuid\fP
-and \fBgid\fP are optional:
-.TP
-\fBuid\fP = (\fIuser-name\fP | \fIuid\fP)
-.TP
-\fBgid\fP = (\fIgroup-name\fP | \fIgid\fP)
-The user and group with which to access the mailspool. Note that the user must
-have a valid home directory.
-.TP
-\fBmailbox\fP = \fIpath\fP
-Path of this user's mailbox.
-.TP
-\fBmboxtype\fP = \fImailbox driver\fP
-The type of the mailbox.
-.PP
-If the mailbox is not specified, then the normal mechanism (via configuration
-directives \fBmailbox:\fP and \fBauth-other-mailbox:\fP) is used.
-
-Note that \fBtpop3d\fP requires external authentication programs to respond in
-a timely fashion, since authentication blocks the main daemon; if no response
-is received within the timeout period specified, then the program will be
-killed with \fBSIGTERM\fP; if it fails to expire, \fBSIGKILL\fP will then be
-sent. An authentication program should catch \fBSIGTERM\fP to do any essential
-cleaning up.
-
-.SS Perl authentication options
-
-These are only available if you compiled \fBtpop3d\fP with support for
-\fBauth_perl\fP.
-
-.TP
-\fBauth-perl-enable\fP: (\fByes\fP | \fBtrue\fP)
-Enable authentication via an embedded perl interpreter.
-.TP
-\fBauth-perl-start\fP: \fIperl code\fP
-Specify a line of perl code to be executed at startup; in most cases, this
-should be something like
-.nf
-  auth-perl-start: do '/etc/tpop3d/tpop3d.pl';
-.Sp
-.fi
-.Tp
-\fBauth-perl-finish\fP: \fIperl code\fP
-Specify a line fo perl code to be executed when the authentication driver is
-shut down.
-.TP
-\fBauth-perl-apop\fP: \fIsubroutine name\fP
-Specify the name of a perl subroutine which will be called when a request for
-APOP authentication is received.
-.TP
-\fBauth-perl-pass\fP: \fIsubroutine name\fP
-Specify the name of a perl subroutine which will be called when a request for
-USER/PASS authentication is received.
-
-.SS A note on perl authentication
-
-The perl subroutines named in the configuration file should take as their
-single argument a reference to a hash; this will contain keys and values as
-listed for \fBauth_other\fP above. The subroutine should also return a
-reference to a hash, indicating results as for \fBauth_other\fP. In addition,
-it may call \fBTPOP3D::print_log\fP with a single scalar argument to write a
-message via \fBtpop3d\fP's logging facility.
-
 .SH BUGS
 
 Locking of mailspools under Unix is problematic, mostly because of past
@@ -391,6 +103,7 @@ connections. A future version may support asynchronous authentication drivers.
 
 .SH SEE ALSO
 
+.BR tpop3d.conf (5),
 .BR exim (8),
 .BR inetd (8),
 .BR syslog (3),
