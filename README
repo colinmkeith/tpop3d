@@ -28,7 +28,9 @@ mechanisms:
     auth-perl           embedded perl subroutines
 
 The latter four options provide virtual domain support; the first two are
-designed to authenticate local (Unix) users.
+designed to authenticate local (Unix) users. The auth-mysql, auth-other
+and auth-perl drivers also contain support for event-driven POP-before-SMTP
+relaying; see README.POP-before-SMTP for more details.
 
 The following mailbox formats are supported:
 

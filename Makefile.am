@@ -48,7 +48,8 @@ EXTRA_DIST = bootstrap \
              TPOP3D-AuthDriver/MANIFEST TPOP3D-AuthDriver/Makefile.PL \
              TPOP3D-AuthDriver/test.pl \
              darwin/tpop3d.conf.example \
-             darwin/TPOP3D/StartupParameters.plist darwin/TPOP3D/TPOP3D
+             darwin/TPOP3D/StartupParameters.plist darwin/TPOP3D/TPOP3D \
+             config/check_lib2.m4
              
 MAINTERCLEANFILES = Makefile.in aclocal.m4 configure configuration.h.in \
                     stamp-h.in

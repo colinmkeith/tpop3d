@@ -1,4 +1,4 @@
-mhanges for tpop3d
+Changes for tpop3d
 $Id$
 
 1.4.1
@@ -39,7 +39,8 @@ Made logging of failed authentication attempts more informative, following a
 suggestion by Jens Liebchen.
 
 Configure no longer sets a default mailspool directory, as this could lead to
-confusing behaviour and is deprecated anyway.
+confusing behaviour and is deprecated anyway. Support for TCP Wrappers in the
+configure script was fixed.
 
 Some minor bugs were fixed thanks to the efforts of Chris Elsworth, Ben
 Schumacher and Odhiambo Washington.

@@ -385,7 +385,20 @@ fi
 
 if test x"$enable_tcp_wrappers" = x"yes"
 then
-    AC_CHECK_LIB(wrap, main, [], AC_MSG_ERROR([[TCP Wrappers support enabled, but can't find libwrap]]) )
+    dnl nasty incantation stolen from openssh's configure script
+    AC_CHECK_LIB(nsl, yp_match)
+    LIBS="-lwrap $LIBS"
+    AC_MSG_CHECKING(for libwrap)
+    AC_TRY_LINK([
+            #include <tcpd.h>
+            int deny_severity = 0, allow_severity = 0;
+        ], [
+            hosts_access(0);
+        ], [
+            AC_MSG_RESULT(yes)
+        ], [
+            AC_MSG_ERROR([TCP Wrappers support enabled, but can't link against libwrap])
+        ])
 fi
 
 dnl Checks for header files.
