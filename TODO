@@ -8,7 +8,8 @@ elsewhere. This is likely to happen only on a case-by-case basis, since I
 don't have access to that many machines to play with and my time is limited.
 
 In addition, the mess of mailspool locking should be investigated and better
-documented for the various platforms on which tpop3d does run.
+documented for the various platforms on which tpop3d runs.
+
 
 * More authentication schemes
 
