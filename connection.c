@@ -381,9 +381,30 @@ void pop3command_delete(pop3command p) {
  * Send a +OK... / -ERR... response to a message. Returns 1 on success or 0 on
  * failure. */
 int connection_sendresponse(connection c, const int success, const char *s) {
-    if (connection_send(c, success ? "+OK " : "-ERR ", success ? 4 : 5)
-            && connection_send(c, s, strlen(s))
-            && connection_send(c, "\r\n", 2)) {
+    /*
+     * For efficiency's sake, we should send this bit-by-bit, avoiding another
+     * buffer copy. But unfortunately, there are POP3 clients in the world
+     * so stupid that they assume a whole response will arrive in a single TCP
+     * segment. Particular examples include POP3 virus-scanning proxies, such
+     * as Norman ASA's, which was evidently written by somebody very lazy.
+     * 
+     * Obviously there's no way to guarantee how the packets in a TCP stream
+     * are disposed, in general, but we can increase the probability of success
+     * by trying to ensure here that our response is contained in a single
+     * write call. It still might get split up by the ioabs layer, but we have
+     * to take our chances....
+     */
+    static char *buf;
+    static size_t buflen;
+    size_t l;
+    
+    l = (success ? 6 : 7) + strlen(s);
+
+    if (!buf || buflen < l + 1)
+        buf = xmalloc(buflen = l + 1);
+    
+    sprintf(buf, "%s %s\r\n", success ? "+OK" : "-ERR", s);
+    if (connection_send(c, buf, l)) {
         if (verbose)
             log_print(LOG_DEBUG, _("connection_sendresponse: client %s: sent `%s %s'"), c->idstr, success ? "+OK" : "-ERR", s);
         return 1;
