@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.3  2000/10/02 18:21:25  chris
+ * Now supports modifying mailspools.
+ *
  * Revision 1.2  2000/09/27 23:57:15  chris
  * Various changes.
  *
@@ -23,11 +26,99 @@ static const char rcsid[] = "$Id$";
 
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/types.h>
 
 #include "connection.h"
 #include "mailspool.h"
 #include "md5.h"
+
+/* File locking:
+ * This is extremely simple, and therefore broken. In particular, it won't
+ * work over NFS. Of course, IMO you'd be mad to want to put your mailspools
+ * on an NFS-mounted filesystem anyway, but people do. To make this NFS-safe,
+ * the obvious thing to do would be to steal the code from Exim which does it
+ * (and is a contender for the prize in "most complicated code for something
+ * which ought to be simple").
+ * 
+ * Both fcntl and .lock locking is done.
+ *
+ * Note also that we lock the whole mailspool for reading and writing. This is
+ * pretty crap, but it makes it easier to make the program fast. In principle,
+ * we could just lock the existing section of the file, so that the MTA could
+ * deliver new messages on to the end of it, and then stat it when we were
+ * about to apply changes in the UPDATE state, to see whether it had grown.
+ */
+
+/* file_lock:
+ * Lock a mailspool file. Returns 1 on success or 0 on failure.
+ */
+int file_lock(const int fd, const char *name) {
+    struct flock fl = {0};
+    char *lockfile = (char*)malloc(strlen(name) + 6);
+    struct stat st;
+    int fd2;
+
+    fl.l_type   = F_WRLCK;
+    fl.l_whence = SEEK_SET;
+    fl.l_start  = 0;
+    fl.l_len    = 0;
+    
+    if (!lockfile) return 0;
+    sprintf(lockfile, "%s.lock", name);
+
+    if (fcntl(fd, F_SETLK, &fl) == -1) {
+        free(lockfile);
+        return 0;
+    }
+
+    fl.l_type = F_UNLCK;
+syslog(LOG_INFO, "uid = %d gid = %d", getuid(), getgid());
+    /* Make lockfile; this is pretty naive, but that doesn't particularly
+     * matter as we will not be running as root at this stage.
+     */
+    fd2 = open(lockfile, O_EXCL|O_CREAT|O_WRONLY); /* XXX NFS unsafe */
+    free(lockfile);
+    if (fd2 == -1) {
+        syslog(LOG_ERR, "file_lock(%s): unable to create lockfile: %m", name);
+        fcntl(fd, F_SETLK, &fl);
+        return 0;
+    }
+    close(fd2);
+    return 1;
+}
+
+/* file_unlock:
+ * Unlock a mailspool file. Returns 1 on success or 0 on failure.
+ */
+int file_unlock(const int fd, const char *name) {
+    struct flock fl = {0};
+    char *lockfile = (char*)malloc(strlen(name) + 6);
+    int ret = 1;
+
+    fl.l_type   = F_UNLCK;
+    fl.l_whence = SEEK_SET;
+    fl.l_start  = 0;
+    fl.l_len    = 0;
+ 
+    if (!lockfile) return 0;
+    sprintf(lockfile, "%s.lock", name);
+
+    if (unlink(lockfile) == -1) {
+        free(lockfile);
+        syslog(LOG_ERR, "file_unlock(%s): unlink: %m", name);
+        ret = 0;
+    }
+
+    free(lockfile);
+
+    if (fcntl(fd, F_SETLK, &fl) == -1) {
+        syslog(LOG_ERR, "file_unlock(%s): fcntl: %m", name);
+        ret = 0;
+    }
+
+    return ret;
+}
 
 /* mailspool_new_from_file:
  * Open a file, lock it, and form an index of the messages in it.
@@ -36,6 +127,8 @@ mailspool mailspool_new_from_file(const char *filename) {
     mailspool M;
     struct stat st;
     int i;
+    struct timeval tv1, tv2;
+    double f;
     
     M = (mailspool)malloc(sizeof(struct _mailspool));
     if (!M) return NULL;
@@ -62,13 +155,13 @@ mailspool mailspool_new_from_file(const char *filename) {
      * machines.
      */
     for (i = 0; i < MAILSPOOL_LOCK_TRIES; ++i) {
-        M->fd = open(M->name, O_RDONLY);
+        M->fd = open(M->name, O_RDWR);
         if (M->fd == -1) {
             syslog(LOG_ERR, "mailspool_new_from_file: %m");
             goto fail;
         }
-        
-        if (flock(M->fd, LOCK_EX | LOCK_NB) == 0) break;
+     
+        if (file_lock(M->fd, M->name)) break;
 
         sleep(MAILSPOOL_LOCK_WAIT);
         close(M->fd);
@@ -80,10 +173,18 @@ mailspool mailspool_new_from_file(const char *filename) {
         goto fail;
     }
 
+    gettimeofday(&tv1, NULL);
+    
     /* Build index of mailspool. */
     M->index = mailspool_build_index(M);
     if (!M->index) goto fail;
 
+    gettimeofday(&tv2, NULL);
+    f = (float)tv2.tv_sec + (1e-6 * tv2.tv_usec);
+    f -= (float)tv1.tv_sec + (1e-6 * tv1.tv_usec);
+
+    syslog(LOG_DEBUG, "mailspool_new_from_file: indexed mailspool %s (%d bytes) in %0.3lfs", filename, M->st.st_size, f);
+    
     return M;
 
 fail:
@@ -122,12 +223,10 @@ static char *memstr(const char *haystack, size_t h_len, const char *needle, size
  * mailspools use only '\n' to indicate EOL.
  */
 #define PAGESIZE        getpagesize()
-#define NUMPAGES	8
-#define BLOCKSIZE	(NUMPAGES * PAGESIZE)
 
 vector mailspool_build_index(mailspool M) {
     char *filemem, *p, *q;
-    size_t offset = 0, len;
+    size_t len, len2;
     item *t;
     int i = 0;
 
@@ -136,66 +235,31 @@ vector mailspool_build_index(mailspool M) {
     M->index = vector_new();
     if (!M->index) return NULL;
 
-    filemem = mmap(0, len = BLOCKSIZE, PROT_READ, MAP_PRIVATE, M->fd, offset);
+    len = len2 = M->st.st_size;
+    len += PAGESIZE - (len % PAGESIZE);
+    filemem = mmap(0, len, PROT_READ, MAP_PRIVATE, M->fd, 0);
     if (filemem == MAP_FAILED) {
-        vector_delete_free(M->index);
         syslog(LOG_ERR, "mailspool_build_index(%s): mmap: %m", M->name);
+        vector_delete_free(M->index);
         close(M->fd);
         return NULL;
     }
     p = filemem - 2;
 
+    /* Extract all From lines from file */
     do {
-        size_t x, y;
-        
-	/* Extract all From lines from block */
-	do {
-	    p += 2;
-	    q = (char*)memchr(p, '\n', len - (p - filemem));
-	    if (q) {
-                size_t o, l;
-		o = offset + (p - filemem);
-                l = q - p;
-                
-                vector_push_back(M->index, item_ptr(indexpoint_new(o, l, 0, p)));
-                
-		p = memstr(q, len - (q - filemem), "\n\nFrom ", 7);
-	    }
-	} while (p && q);
+        p += 2;
+        q = (char*)memchr(p, '\n', len - (p - filemem));
+        if (q) {
+            size_t o, l;
+            o = p - filemem;
+            l = q - p;
 
-        y = BLOCKSIZE - PAGESIZE;
-        
-	if (q) x = q - filemem;
-	else   x = p - filemem - 1;
+            vector_push_back(M->index, item_ptr(indexpoint_new(o, l, 0, p)));
 
-	/* Find next block containing a complete From line */
-	do {
-	    if (munmap(filemem, len) == -1) {
-                vector_delete_free(M->index);
-                syslog(LOG_ERR, "mailspool_build_index(%s): munmap: %m", M->name);
-                close(M->fd);
-                return NULL;
-            }
-	    offset += y;
-	    if (x > y)
-		x -= y;
-	    else
-		x = 0;
-            
-	    y = PAGESIZE;
-	    filemem = mmap(0, len = BLOCKSIZE, PROT_READ, MAP_PRIVATE, M->fd, offset);
-	    if (filemem == MAP_FAILED) {
-                vector_delete_free(M->index);
-                syslog(LOG_ERR, "mailspool_build_index(%s): munmap: %m", M->name);
-                close(M->fd);
-                return NULL;
-            } else {
-		p = memstr(filemem + x, len - x, "\n\nFrom ", 7);
-		if (p)
-		    q = (char*)memchr(p + 2, '\n', len - (p + 2 - filemem));
-	    }
-	} while (offset < M->st.st_size && (!p || !q));
-    } while (offset < M->st.st_size);
+            p = memstr(q, len2 - (q - filemem), "\n\nFrom ", 7);
+        }
+    } while (p);
 
     munmap(filemem, len);
 
@@ -208,7 +272,7 @@ vector mailspool_build_index(mailspool M) {
 }
 
 /* indexpoint_new:
- * Make an indexpoint, doing a hash of the data.
+ * Make an indexpoint, doing a hash of the data (the "From " line).
  */
 indexpoint indexpoint_new(const size_t offset, const size_t length, const size_t msglength, const void *data) {
     indexpoint x;
@@ -231,12 +295,31 @@ indexpoint indexpoint_new(const size_t offset, const size_t length, const size_t
     return x;
 }
 
+/* mailspool_delete:
+ * Delete a mailspool object (but don't actually delete messages in the
+ * mailspool... the terminology is from C++ so it doesn't have to be logical).
+ */
+void mailspool_delete(mailspool m) {
+    if (!m) return;
+
+    if (m->index) vector_delete_free(m->index);
+
+    if (m->name && m->fd != -1) {
+        file_unlock(m->fd, m->name);
+        close(m->fd);
+    }
+
+    if (m->name) free(m->name);
+    
+    free(m);
+}
+
 /* mailspool_send_message:
  * Send the header and n lines of the body of message number i from the
  * mailspool, escaping lines which begin . as required by RFC1939. Returns 1
  * on success or 0 on failure. The whole message is sent if n == -1.
  *
- * Assumes that mailspools use only '\n' to indicate EOL.
+ * XXX Assumes that mailspools use only '\n' to indicate EOL.
  */
 int mailspool_send_message(const mailspool M, int sck, const int i, int n) {
     char *filemem;
@@ -310,12 +393,130 @@ int mailspool_send_message(const mailspool M, int sck, const int i, int n) {
 }
 
 /* mailspool_apply_changes:
- * Apply a set of changes to a mailspool, by copying the relevant sections
- * into a temporary file in the mail spool directory, unlinking the existing
- * file and then moving the temporary file onto the old file name. Returns 1
- * on success or 0 on failure.
+ * Apply deletions to a mailspool by mapping it and copying it in blocks.
+ * Returns 1 on succes or 0 on failure.
+ *
+ * This is messy. Apart from the special cases of all messages to be deleted,
+ * and no messages to be deleted, we need to cope with an arbitrary set of
+ * messages being marked. Rather than using a temporary file and copying the
+ * entire mailspool minus the marked messages, then unlinking the old one and
+ * renaming the new one in its place, we mmap(2) the whole file and do some
+ * memmove(3) magic to make the changes.
+ *
+ * Explanation: Clear sections represent sections not to be deleted, hatched
+ * sections are parts which will be.
+ *
+ * I, J and K represent messages in the mailspool index.
+ *
+ *          +---+
+ *          |   |
+ *          |   |
+ *    d --> +---+ <-- I beginning of
+ *          |///|     section to be deleted
+ *          |///|
+ * d1 -->   |///|
+ *          |///|
+ *    s --> +---+ <-- J end of section
+ *          |   |
+ *          |   |
+ *          +---+ <-- K beginning of      <-- I1
+ *          |///|     next section to be
+ *          |///|     deleted
+ * s1 -->   +---+                         <-- J1
+ *          |   |
+ *          |   |
+ *          |   |
+ *          +---+                         <-- K1
+ *          |///|
+ *           ...
+ *      
+ * At this point, we can copy (K->offset - J->offset) bytes from J->offset
+ * (s) to I->offset in the file (d).
+ *
+ * Now, we find the next set of ranges (I1, J1, K1 on diagram), and can
+ * perform the next copy. s1 is J1->offset in the file, but d1 is
+ * d + (K->offset - J->offset), to take account of the hole we made.
+ * 
+ * A special case occurs where the section to be deleted is at the end of the
+ * file, at which point we can just ftruncate(2).
  */
-int mailspool_apply_changes(mailspool m) {
+int mailspool_apply_changes(mailspool M) {
+    char *filemem, *s, *d;
+    size_t len;
+    item *I, *J, *K, *End;
 
+    if (!M || M->fd == -1) return 0;
+
+    if (M->numdeleted == 0)
+        /* No messages deleted, do nothing. */
+        return 1;
+    else if (M->numdeleted == M->index->n_used) {
+        /* All messages deleted, so just truncate file at zero. */
+        if (ftruncate(M->fd, 0) == -1) {
+            syslog(LOG_ERR, "mailspool_apply_changes(%s): ftruncate: %m", M->name);
+            return 0;
+        } else return 1;
+    }
+
+    /* We need to do something more complicated, so map the mailspool. */
+    len = M->st.st_size;
+    len += PAGESIZE - (len % PAGESIZE);
+    filemem = mmap(0, len, PROT_WRITE | PROT_READ, MAP_SHARED, M->fd, 0);
+    if (filemem == MAP_FAILED) {
+        syslog(LOG_ERR, "mailspool_apply_changes(%s): mmap: %m", M->name);
+        close(M->fd);
+        return 0;
+    }
+
+    I = M->index->ary;
+    End = M->index->ary + M->index->n_used;
+    d = filemem;
+
+    /* Find the first message to be deleted. */
+    while (I < End && !((indexpoint)I->v)->deleted) ++I;
+    if (I == End) {
+        if (munmap(filemem, len) == -1) syslog(LOG_ERR, "mailspool_send_message: munmap: %m");
+        syslog(LOG_ERR, "mailspool_apply_changes(%s): inconsistency in mailspool data", M->name);
+        return 0;
+    }
+    d = filemem + ((indexpoint)I->v)->offset;
+    
+    do {
+        /* Find the first non-deleted message after this block. */
+        J = I;
+        while (J < End && ((indexpoint)J->v)->deleted) ++J;
+        if (J == End) break;
+        else {
+            /* Find the end of this chunk. */
+            size_t copylen = 0;
+            s = filemem + ((indexpoint)J->v)->offset;
+            K = J;
+            while (K < End && !((indexpoint)K->v)->deleted) copylen += ((indexpoint)(K++)->v)->msglength;
+
+            /* Not every machine has a working memmove(3) (allows overlapping
+             * memory areas). If yours doesn't, you should get a better one ;)
+             */
+            syslog(LOG_ERR, "filemem %p s %p d %p copylen %d", filemem, s, d, copylen);
+            memmove(d, s, copylen);
+            d += copylen;
+        }
+
+        I = K;
+    } while (I < End);
+
+    /* Truncate the very end. */
+    if (ftruncate(M->fd, d - filemem) == -1) {
+        syslog(LOG_ERR, "mailspool_apply_changes(%s): ftruncate: %m", M->name);
+        if (munmap(filemem, len) == -1) syslog(LOG_ERR, "mailspool_send_message: munmap: %m");
+        return 0;
+    }
+    
+    /* Done, unmap the file. */
+    if (munmap(filemem, len) == -1) {
+        syslog(LOG_ERR, "mailspool_send_message: munmap: %m");
+        return 0;
+    }
+
+    return 1;
 }
 
