@@ -29,12 +29,9 @@ static const char rcsid[] = "$Id$";
 #include "stringmap.h"
 #include "util.h"
 
-char *mem;
-
 /* auth_pam_conversation:
  * PAM conversation function, used to transmit the password supplied by the
- * user to the PAM modules for authentication.
- */
+ * user to the PAM modules for authentication. */
 int auth_pam_conversation(int num_msg, const struct pam_message **msg, struct pam_response **resp, void *appdata_ptr) {
     const struct pam_message **m;
     struct pam_response *r;
@@ -47,7 +44,7 @@ int auth_pam_conversation(int num_msg, const struct pam_message **msg, struct pa
     /* Assume that any prompt is asking for a password */
     for (m = msg, r = *resp; m < msg + num_msg; ++m, ++r) {
         if ((*m)->msg_style == PAM_PROMPT_ECHO_OFF) {
-            r->resp = mem = strdup((char*)appdata_ptr);
+            r->resp = strdup((char*)appdata_ptr);
             r->resp_retcode = 0;
         }
     }
