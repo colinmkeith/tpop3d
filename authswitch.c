@@ -103,6 +103,26 @@ int *auth_drivers_running;
 #define NUM_AUTH_DRIVERS    (sizeof(auth_drivers) / sizeof(struct authdrv))
 #define auth_drivers_end    auth_drivers + NUM_AUTH_DRIVERS
 
+/* username_string:
+ * Return a string describing the name of a user. */
+char *username_string(const char *user, const char *local_part, const char *domain) {
+    static char *buf;
+    static size_t nbuf;
+    size_t l;
+    if (local_part && domain) {
+        if (nbuf < (l = strlen(user) + strlen(local_part) + strlen(domain) + 6))
+            buf = xrealloc(buf, nbuf = l);
+        sprintf(buf, "[%s; %s@%s]", user, local_part, domain);
+    } else if (domain) {
+        if (nbuf < (l = strlen(user) + strlen(domain) + 6))
+            buf = xrealloc(buf, nbuf = l);
+        sprintf(buf, "[%s; @%s]", user, domain);
+    } else
+        return user;
+    return buf;
+}
+
+
 /* authswitch_describe:
  * Describe available authentication drivers. */
 void authswitch_describe(FILE *fp) {
@@ -216,7 +236,7 @@ authcontext authcontext_new_user_pass(const char *user, const char *local_part, 
         } else
             l = NULL;
     }
-
+printf("l = %s, d = %s\n", l, d);
     for (aa = auth_drivers, aar = auth_drivers_running; aa < auth_drivers_end; ++aa, ++aar)
         if (*aar && aa->auth_new_user_pass && (a = aa->auth_new_user_pass(user, l, d, pass, host))) {
             a->auth = xstrdup(aa->name);

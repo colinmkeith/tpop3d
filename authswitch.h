@@ -62,6 +62,8 @@ struct authdrv {
     char *description;
 };
 
+char *username_string(const char *user, const char *local_part, const char *domain);
+
 void authswitch_describe(FILE *fp);
 
 int authswitch_init(void);
