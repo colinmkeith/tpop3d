@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.12  2000/10/31 23:17:29  chris
+ * More paranoia.
+ *
  * Revision 1.11  2000/10/31 20:37:22  chris
  * Various changes.
  *
@@ -538,6 +541,7 @@ int main(int argc, char **argv) {
 #undef malloc
 #undef free
 
+#if 0
 char *mystrdup(char *f, int l, char *s) {
     char *p = malloc(strlen(s) + 1);
     strcpy(p, s);
@@ -556,6 +560,4 @@ void myfree(char *f, int l, void *p) {
     free(p);
     fprintf(stderr, "[%d] %s:%d: free(%p)\n", getpid(), f, l, p);
 }
-
-
-
+#endif 
