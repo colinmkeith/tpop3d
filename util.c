@@ -28,8 +28,7 @@ static const char rcsid[] = "$Id$";
 #include "util.h"
 
 /* xwrite:
- * Write some data, taking account of short writes and signals.
- */
+ * Write some data, taking account of short writes and signals. */
 ssize_t xwrite(int fd, const void *buf, size_t count) {
     size_t c = count;
     const char *b = (const char*)buf;
@@ -44,8 +43,7 @@ ssize_t xwrite(int fd, const void *buf, size_t count) {
 }
 
 /* daemon:
- * Become a daemon. From `The Unix Programming FAQ', Andrew Gierth et al.
- */
+ * Become a daemon. From `The Unix Programming FAQ', Andrew Gierth et al. */
 int daemon(int nochdir, int noclose) {
     switch (fork()) {
         case 0:  break;
@@ -171,8 +169,7 @@ write_failure:
 
 /* parse_uid:
  * Get a user id from a user name or number. Sets u and returns 1 on success,
- * or returns 0 on failure.
- */
+ * or returns 0 on failure. */
 int parse_uid(const char *user, uid_t *u) {
     char *v;
     long l;
@@ -195,8 +192,7 @@ int parse_uid(const char *user, uid_t *u) {
 
 /* parse_gid:
  * Get a group id from a group name or number. Sets g and returns 1 on
- * success, or returns 0 on failure.
- */
+ * success, or returns 0 on failure. */
 gid_t parse_gid(const char *group, gid_t *g) {
     char *v;
     long l;
@@ -217,8 +213,7 @@ gid_t parse_gid(const char *group, gid_t *g) {
 }
 
 /* hex_digest:
- * Make a hex version of a digest.
- */
+ * Make a hex version of a digest. */
 char *hex_digest(const unsigned char *u) {
     static char hex[33] = {0};
     const unsigned char *p;
@@ -231,8 +226,7 @@ char *hex_digest(const unsigned char *u) {
 
 /* unhex_digest:
  * Turn a hex representation of a digest into binary data. Returns 1 on
- * success or 0 on failure.
- */
+ * success or 0 on failure. */
 int unhex_digest(const char *from, unsigned char *to) {
     const char *p;
     unsigned char *q;
@@ -253,6 +247,7 @@ int unhex_digest(const char *from, unsigned char *to) {
     return 1;
 }
 
+#ifndef MTRACE_DEBUGGING
 /* xmalloc:
  * Malloc, and abort if malloc fails. */
 void *xmalloc(size_t n) {
@@ -294,6 +289,7 @@ char *xstrdup(const char *s) {
     strcpy(t, s);
     return t;
 }
+#endif  /* !MTRACE_DEBUGGING */
 
 /* md5_digest:
  * Make an MD5 digest of some data. */

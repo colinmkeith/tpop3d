@@ -217,8 +217,11 @@ stringmap auth_perl_callfn(const char *perlfn, const int nvars, ...) {
             STRLEN len2;
             stringmap_insert(s, key, item_ptr(xstrdup(SvPV(val, len2))));
         }
+        SvREFCNT_dec(hashref_out);
     }
 
+    SvREFCNT_dec(hashref_in);
+    
     FREETMPS;
     LEAVE;
 
