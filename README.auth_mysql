@@ -3,8 +3,9 @@ $Id$
 
 The auth_mysql authentication driver was developed for use with the vmail-sql
 database schema for virtual domains, though it is easy to adjust for a
-different one. If you don't intend to use vmail-sql (or are impatient to find
-out how it works), these notes should help:
+different one by specifying SQL query templates in the tpop3d configuration
+file. If you don't intend to use vmail-sql (or are impatient to find out how
+it works), these notes should help:
 
 tpop3d communicates with the database using the standard libmysqlclient
 interface. The database name, username and password are set in the
@@ -38,7 +39,7 @@ using the standard mechanisms. Within the domain, there exist a number of
 `popboxes', i.e., mail spools; these are described by rows in the popbox table.
 
 Each domain has a path associated with it. In our configuration, this is
-something like /var/spool/mail/SERVERS/$domain. Under this path, mailspools
+something like /var/spool/mail/SERVERS/$(domain). Under this path, mailspools
 reside in names given by mbox_name in the popbox table. This is probably more
 general than is necessary, since there is no reason to have mbox_name not
 equal to the local_part. 
@@ -51,25 +52,28 @@ similar):
 
 2. Perform a SELECT statement of the form
 
-   SELECT domain.path, popbox.mbox_name, popbox.password_hash, domain.unix_user
+   SELECT CONCAT(domain.path, '/', popbox.mbox_name),
+          popbox.password_hash, domain.unix_user, 'mailspool'
       FROM popbox, domain
-      WHERE popbox.local_part = $local_part
-      AND popbox.domain_name = $domain
+      WHERE popbox.local_part = $(local_part)
+      AND popbox.domain_name = $(domain)
       AND popbox.domain_name = domain.domain_name
 
-   where $local_part and $domain represent the local-part and domain name
+   where $(local_part) and $(domain) represent the local-part and domain name
    which the user has given. (Note that if the configuration option
    append-domain is switched on, the domain name may be inferred from the IP
    address to which the connection was made, rather than one explicitly
    specified in the form USER fred@example.com. See tpop3d.conf(5) for more
-   information on this.)
+   information on this.) The trailing field, `mailspool' is the mailbox type
+   to use. Alternative schemes may have mailbox types specified in the
+   database.
 
 3. If the statement returned no rows, then the user does not exist; if it
    returned more than one row, then there is a database inconsistency (this is
    a `can't happen' condition). Otherwise, we have a row with which to
    authenticate the user.
 
-4. Obtain the password hash, which must be the third column returned by the
+4. Obtain the password hash, which must be the second column returned by the
    above query. Look at the first part of it, and use this to determine the
    format of the password hash:
 
@@ -94,17 +98,21 @@ similar):
    succeed, log a message.
 
 5. If authentication has succeeded, we need to figure out which user and group
-   to use, and the location of the user's mail spool. The latter is formed by
-   catenating domain.path and popbox.mbox_name; the Unix user is
-   domain.unix_user, and the group is either that user's primary group (i.e.,
-   the one specified in /etc/passwd or equivalent), or, if specified, the
-   value of the auth-mysql-mail-group configuration directive. These results
-   are stored in an authcontext structure, which is returned to the main
-   program.
+   to use. The Unix user is domain.unix_user, and the group is either that
+   user's primary group (i.e., the one specified in /etc/passwd or
+   equivalent), or, if specified, the value of the auth-mysql-mail-group
+   configuration directive. These results are stored in an authcontext
+   structure, which is returned to the main program.
 
 Most people who want to modify auth_mysql seem to want to change the names of
-database columns. This is trivial and should not present any difficulties. If
-you want to make more sophisticated changes to the schema, for instance to
+database columns. From version 1.3.5, it is possible to do this at run-time
+using the auth-mysql-pass-query and auth-mysql-apop-query configuration
+directives as discussed in the tpop3d.conf man page. The remainder of this
+document is, therefore, of primarily historical interest, and is not accurate
+for the current tpop3d implementation:
+
+
+If you want to make more sophisticated changes to the schema, for instance to
 remove the redundancy between mbox_name and local_part or to remove the
 per-domain mailspool path, then you could always use something like
 

@@ -16,6 +16,7 @@ static const char rcsid[] = "$Id$";
 #endif /* HAVE_CONFIG_H */
 
 #include <stdlib.h>
+#include <string.h>
 
 char *cfgdirectives[] = {
     /* global directives */
@@ -48,6 +49,8 @@ char *cfgdirectives[] = {
     "auth-mysql-database",
     "auth-mysql-hostname",
     "auth-mysql-mail-group",
+    "auth-mysql-pass-query",
+    "auth-mysql-apop-query",
 #endif /* AUTH_MYSQL */
 
 #ifdef AUTH_OTHER

@@ -49,7 +49,19 @@ stringmap read_config_file(const char *f) {
     while (fgets(line, MAX_CONFIG_LINE, fp)) {
         char *key, *value, *r;
 
+        for (r = line + strlen(line) - 1; r > line && *r == '\n'; *(r--) = 0);
+
+        /* Get continuation lines. Ugly. */
+        while (*(line + strlen(line) - 1) == '\\') {
+            printf("line = %s\n", line);
+            if (!fgets(line + strlen(line) - 1, MAX_CONFIG_LINE - strlen(line), fp))
+                break;
+            for (r = line + strlen(line) - 1; r > line && *r == '\n'; *(r--) = 0);
+        }
+
+        /* Strip comment. */
         key = strpbrk(line, "#\n");
+
         if (key) *key = 0;
         /*    foo  : bar baz quux
          * key^    ^value

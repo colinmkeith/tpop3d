@@ -14,6 +14,8 @@ tpop3d.conf \- configuration file for \fBtpop3d\fP(8)
 .nf
 # comment
 \fIkey\fP: \fIvalue\fP
+\fIkey\fP: \fIvalue\fP          \\
+    \fIcontinuation of value\fP
   ...
 .fi
 .Sp
@@ -194,6 +196,12 @@ MySQL username used to access the database.
 .TP
 \fBauth-mysql-password\fP: \fIpassword\fP
 Password of MySQL user.
+.TP
+\fBauth-mysql-pass-query\fP: \fIsubstitution string\fP
+Query template to use for USER/PASS authentication.
+.TP
+\fBauth-mysql-apop-query\fP: \fIsubstitution string\fP
+Query template to use for APOP authentication.
 .PP
 Since mailbox names are stored in the database, the \fBauth-mysql-mailbox:\fP
 setting is ignored.
@@ -201,12 +209,32 @@ setting is ignored.
 .SS A note on MySQL authentication
 
 The MySQL authentication scheme is intended to be used with the
-vmail-sql virtual domains configuration described at 
-\fIhttp://www.ex-parrot.com/~chris/vmail-sql/\fP.
+vmail-sql virtual domains configuration described at
+\fIhttp://www.ex-parrot.com/~chris/vmail-sql/\fP, and by default the queries
+it uses work with that schema.
 
-However, it is extremely simple to adjust it to use another database schema,
-should this be required. The code is all contained in auth_mysql.c in the
-distribution, and there are notes about modifying it in README.auth_mysql.
+However, it is also possible to use the \fBauth-mysql-pass-query\fP and
+\fBauth-mysql-apop-query\fP directives to specify the SQL syntax for a
+query to use against any database schema. These should specify queries which
+return the mailbox file location, password hash, Unix user and mailbox type,
+in that order. The variables \fB$(local_part)\fP and \fB$(domain)\fP are
+substituted into the string, in the same way as for the mailbox path
+specifications described above. The nature of password hashes is described
+more fully in README.auth_mysql in the distribution. As an example, if you
+have a table called users which contains fields login, domain, cryptpw and the
+Maildir mailboxes for the users are under
+/path/to/$(domain)/$(local_part), then you could use
+.nf
+  auth-mysql-pass-query:                      \\
+      SELECT CONCAT('/path/to/', '$(domain)', \\
+                    '/', '$(local_part)'),    \\
+             CONCAT('{crypt}, cryptpw),       \\
+             'mail', 'maildir'                \\
+        FROM users                            \\
+       WHERE login = '$(local_part)'          \\
+         AND domain = '$(domain)'
+.fi
+.Sp
 
 Note that the username and password supplied in the configuration file
 are privileged information, in the sense that they would allow an

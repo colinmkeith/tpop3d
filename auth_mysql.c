@@ -63,6 +63,28 @@ static const char rcsid[] = "$Id$";
 static unsigned char itoa64[] = /* 0 ... 63 => ascii - 64 */
         "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
+/* Default query templates. The returned fields are:
+ *  [0] location of mailbox
+ *  [1] password hash
+ *  [2] unix user
+ *  [3] mailbox type
+ */
+char *user_pass_query_template =
+    "SELECT concat(domain.path, '/', popbox.mbox_name), popbox.password_hash, domain.unix_user, 'mailspool' "
+      "FROM popbox, domain "
+     "WHERE popbox.local_part = '$(local_part)' "
+       "AND popbox.domain_name = '$(domain)' "
+       "AND popbox.domain_name = domain.domain_name";
+       
+char *apop_query_template =
+    "SELECT concat(domain.path, '/', popbox.mbox_name), popbox.password_hash, domain.unix_user, 'mailspool' "
+      "FROM popbox, domain "
+     "WHERE popbox.local_part = '$(local_part)' "
+       "AND popbox.domain_name = '$(domain)' "
+       "AND popbox.domain_name = domain.domain_name";
+
+static char *substitute_query_params(const char *temp, const char *local_part, const char *domain);
+
 /* to64:
  * Convert a string into a different base.
  */
@@ -212,7 +234,7 @@ int auth_mysql_init() {
 
     if ((I = stringmap_find(config, "auth-mysql-password"))) password = (char*)I->v;
     else {
-        print_log(LOG_WARN, _("auth_mysql_init: no auth-mysql-password directive in config; using blank password"));
+        print_log(LOG_WARNING, _("auth_mysql_init: no auth-mysql-password directive in config; using blank password"));
         password = "";
     }
 
@@ -224,6 +246,9 @@ int auth_mysql_init() {
 
     if ((I = stringmap_find(config, "auth-mysql-hostname"))) hostname = (char*)I->v;
     else hostname = localhost;
+
+    if ((I = stringmap_find(config, "auth-mysql-pass-query"))) user_pass_query_template = (char*)I->v;
+    if ((I = stringmap_find(config, "auth-mysql-apop-query"))) apop_query_template = (char*)I->v;
 
     mysql = mysql_init(NULL);
     if (!mysql) {
@@ -249,29 +274,19 @@ fail:
     return ret;
 }
 
+extern int verbose; /* in main.c */
+
 /* auth_mysql_new_apop:
- * Attempt to authenticate a user via APOP, using a SELECT statement of the
- * form
- *   SELECT domain.path, popbox.mbox_name, popbox.pwhash, domain.unix_user
- *           FROM popbox, domain
- *          WHERE popbox.local_part = $local_part
- *            AND popbox.domain_name = $domain
- *            AND popbox.domain_name = domain.domain_name
+ * Attempt to authenticate a user via APOP, using the template SELECT query in
+ * the config file or the default defined above otherwise.
  */
-const char apop_query_template[] =
-    "SELECT domain.path, popbox.mbox_name, popbox.password_hash, domain.unix_user "
-      "FROM popbox, domain "
-     "WHERE popbox.local_part = '%s' "
-       "AND popbox.domain_name = '%s' "
-       "AND popbox.domain_name = domain.domain_name";
 authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const unsigned char *digest, const char *host /* unused */) {
-    char *query = NULL, *x = NULL, *y = NULL;
+    char *query = NULL;
     authcontext a = NULL;
     char *local_part = NULL;
     const char *domain;
     item *I;
     int use_gid = 0;
-    size_t l;
     gid_t gid;
 
     if (!mysql) return NULL;
@@ -299,15 +314,12 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
         return NULL;
     }
 
-    query = (char*)malloc(l = (sizeof(apop_query_template) + strlen(name) * 2 + 1));
-    x = (char*)malloc(strlen(local_part) * 2 + 1);
-    y = (char*)malloc(strlen(domain) * 2 + 1);
-    if (!query || !x || !y) goto fail;
+    /* Obtain the actual query to use. */
+    query = substitute_query_params(apop_query_template, local_part, domain);
+    if (!query) goto fail;
 
-    mysql_escape_string(x, local_part, strlen(local_part));
-    mysql_escape_string(y, domain, strlen(domain));
-
-    snprintf(query, l, apop_query_template, x, y);
+    if (verbose)
+        print_log(LOG_DEBUG, "auth_mysql_new_apop: SQL query: %s", query);
 
     if (mysql_query(mysql, query) == 0) {
         MYSQL_RES *result = mysql_store_result(mysql);
@@ -315,6 +327,11 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
 
         if (!result) {
             print_log(LOG_ERR, "auth_mysql_new_apop: mysql_store_result: %s", mysql_error(mysql));
+            goto fail;
+        }
+
+        if (mysql_field_count(result) != 4) {
+            print_log(LOG_ERR, "auth_mysql_new_apop: %d fields returned by query, should be 4: mailbox location, password hash, unix user, mailbox type", mysql_field_count(result));
             goto fail;
         }
 
@@ -326,7 +343,6 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
                 unsigned long *lengths;
                 struct passwd *pw;
                 unsigned char this_digest[16];
-                char *mailbox;
                 MD5_CTX ctx;
                 uid_t uid;
 
@@ -334,7 +350,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
                 if (!row || !(lengths = mysql_fetch_lengths(result))) break;
 
                 /* Verify that this user has a plaintext password. */
-                if (strncmp(row[2], "{plaintext}", 11) != 0) {
+                if (strncmp(row[1], "{plaintext}", 11) != 0) {
                     print_log(LOG_WARNING, _("auth_mysql_new_apop: attempted APOP login by %s@%s, who does not have a plaintext password"), local_part, domain);
                     break;
                 }
@@ -342,7 +358,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
                 /* Calculate our idea of the digest */
                 MD5Init(&ctx);
                 MD5Update(&ctx, (unsigned char*)timestamp, strlen(timestamp));
-                MD5Update(&ctx, (unsigned char*)row[2] + 11, lengths[2] - 11);
+                MD5Update(&ctx, (unsigned char*)row[1] + 11, lengths[1] - 11);
                 MD5Final(this_digest, &ctx);
 
                 /* User was lying */
@@ -352,7 +368,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
                 }
 
                 /* User was not lying (about her password) */
-                if (!parse_uid((const char*)row[3], &uid)) {
+                if (!parse_uid((const char*)row[2], &uid)) {
                     print_log(LOG_ERR, _("auth_mysql_new_apop: unix user `%s' for %s@%s does not make sense"), row[3], local_part, domain);
                     break;
                 }
@@ -367,11 +383,8 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
                 /* We will let the program figure out which sort of mailbox
                  * to use later.
                  */
-                mailbox = (char*)malloc(lengths[0] + lengths[1] + 2);
-                sprintf(mailbox, "%s/%s", row[0], row[1]);
                 a = authcontext_new(pw->pw_uid, use_gid ? gid : pw->pw_gid,
-                                    NULL, mailbox, NULL, domain); /* note default mailbox type */
-                free(mailbox);
+                                    NULL, row[0], row[3], domain);
 
                 break;
             }
@@ -389,8 +402,6 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
 
 fail:
     if (local_part) free(local_part);
-    if (x) free(x);
-    if (y) free(y);
     if (query) free(query);
 
     return a;
@@ -405,21 +416,14 @@ fail:
  *            AND popbox.domain_name = $domain
  *            AND popbox.domain_name = domain.domain_name
  */
-char user_pass_query_template[] =
-    "SELECT domain.path, popbox.mbox_name, popbox.password_hash, domain.unix_user "
-      "FROM popbox, domain "
-     "WHERE popbox.local_part = '%s' "
-       "AND popbox.domain_name = '%s' "
-       "AND popbox.domain_name = domain.domain_name";
 authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const char *host /* unused */) {
-    char *query = NULL, *x = NULL, *y = NULL;
+    char *query = NULL;
     authcontext a = NULL;
     char *local_part = NULL;
     const char *domain;
     char *p;
     unsigned char *q;
     item *I;
-    size_t l;
     int use_gid = 0;
     gid_t gid;
 
@@ -448,15 +452,12 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const c
         return NULL;
     }
 
-    query = (char*)malloc(l = (sizeof(user_pass_query_template) + strlen(user) * 2));
-    x = (char*)malloc(strlen(local_part) * 2 + 1);
-    y = (char*)malloc(strlen(domain) * 2 + 1);
-    if (!query || !x || !y) goto fail;
+    /* Obtain the actual query to use. */
+    query = substitute_query_params(user_pass_query_template, local_part, domain);
+    if (!query) goto fail;
 
-    mysql_escape_string(x, local_part, strlen(local_part));
-    mysql_escape_string(y, domain, strlen(domain));
-
-    snprintf(query, l, user_pass_query_template, x, y);
+    if (verbose)
+        print_log(LOG_DEBUG, "auth_mysql_new_user_pass: SQL query: %s", query);
 
     if (mysql_query(mysql, query) == 0) {
         MYSQL_RES *result = mysql_store_result(mysql);
@@ -467,6 +468,11 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const c
             goto fail;
         }
 
+        if (mysql_field_count(result) != 4) {
+            print_log(LOG_ERR, "auth_mysql_new_user_pass: %d fields returned by query, should be 4: mailbox location, password hash, unix user, mailbox type", mysql_field_count(result));
+            goto fail;
+        }
+
         switch (i = mysql_num_rows(result)) {
         case 0:
             break;
@@ -474,7 +480,6 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const c
                 MYSQL_ROW row = mysql_fetch_row(result);
                 unsigned long *lengths;
                 char *pwhash;
-                char *mailbox;
                 struct passwd *pw;
                 int authok = 0;
                 uid_t uid;
@@ -483,7 +488,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const c
                 if (!row || !(lengths = mysql_fetch_lengths(result))) break;
 
                 /* Verify the password. There are several possibilities here. */
-                pwhash = (char*)row[2];
+                pwhash = (char*)row[1];
 
                 if (strncmp(pwhash, "{crypt}", 7) == 0) {
                     /* Password hashed by system crypt function. */
@@ -517,7 +522,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const c
                     break;
                 }
 
-                if (!parse_uid((const char*)row[3], &uid)) {
+                if (!parse_uid((const char*)row[2], &uid)) {
                     print_log(LOG_ERR, _("auth_mysql_new_user_pass: unix user `%s' for %s@%s does not make sense"), row[3], local_part, domain);
                     break;
                 }
@@ -529,12 +534,8 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const c
                     break;
                 }
 
-                mailbox = (char*)malloc(l = (lengths[0] + lengths[1] + 2));
-                snprintf(mailbox, l, "%s/%s", row[0], row[1]);
                 a = authcontext_new(pw->pw_uid, use_gid ? gid : pw->pw_gid,
-                                    NULL, mailbox, NULL, domain); /* note default mailbox type. */
-                free(mailbox);
-
+                                    NULL, row[0], row[3], domain);
                 break;
             }
 
@@ -550,8 +551,6 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const c
 
 fail:
     if (local_part) free(local_part);
-    if (x) free(x);
-    if (y) free(y);
     if (query) free(query);
 
     return a;
@@ -562,6 +561,35 @@ fail:
  */
 void auth_mysql_close() {
     if (mysql) mysql_close(mysql);
+}
+
+/* substitute_query_params
+ * Given a query template, a localpart and a domain, return a copy of the
+ * template with the fields filled in.
+ */
+static char *substitute_query_params(const char *template, const char *local_part, const char *domain) {
+    char *query, *l, *d;
+    struct sverr err;
+
+    /* Form escaped copies of the user and domain. */
+    if (!(l = (char*)malloc(strlen(local_part) * 2 + 1)))
+	return NULL;
+    mysql_escape_string(l, local_part, strlen(local_part));
+
+    if (!(d = (char*)malloc(strlen(domain) * 2 + 1))) {
+	free(l);
+	return NULL;
+    }
+    mysql_escape_string(d, domain, strlen(domain));
+
+    /* Do the substitution. */
+    query = substitute_variables(template, &err, 2, "local_part", l, "domain", d);
+    if (!query)
+        print_log(LOG_ERR, _("substitute_query_params: %s near `%.16s'"), err.msg, template + err.offset);
+    
+    free(l);
+    free(d);
+    return query;
 }
 
 #endif /* AUTH_MYSQL */

@@ -20,6 +20,8 @@ on Mac OS X.
 Allan Joergensen-- for helping me find and fix a bug with the code which was
 causing problems on Linux for S/390.
 
+Mike Bremford-- for contributing the SQL templating code for auth-mysql.
+
 And numerous others, for putting up with foolish questions about Unix
 mailspool handling or (more often) indignant rants about Unix in general and
 the sorry state of file locking in particular.

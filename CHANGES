@@ -7,6 +7,10 @@ A bug in the log printing code which caused trouble on some architectures was
 fixed. Also, authenticators are now passed the IP address of the connected
 client, which makes writing POP-before-SMTP authenticators easier.
 
+Added facility for specifying the SQL queries used by auth-mysql at runtime,
+thanks to Mike Bremford. In addition, it is now possible to specify the types
+of mailboxes used by auth-mysql.
+
 1.3.4
 
 Minor changes, and addition of metadata caching for BSD mailspools; in
