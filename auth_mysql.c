@@ -267,7 +267,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *local_part, const 
 
                 /* User was not lying (about her password) */
                 if (!parse_uid((const char*)row[2], &uid)) {
-                    log_print(LOG_ERR, _("auth_mysql_new_apop: unix user `%s' for %s does not make sense"), row[3], who);
+                    log_print(LOG_ERR, _("auth_mysql_new_apop: unix user `%s' for %s does not make sense"), row[2], who);
                     break;
                 }
 
@@ -367,7 +367,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *local_part, c
                 }
 
                 if (!parse_uid((const char*)row[2], &uid)) {
-                    log_print(LOG_ERR, _("auth_mysql_new_user_pass: unix user `%s' for %s does not make sense"), row[3], who);
+                    log_print(LOG_ERR, _("auth_mysql_new_user_pass: unix user `%s' for %s does not make sense"), row[2], who);
                     break;
                 }
 
