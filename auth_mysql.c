@@ -570,7 +570,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const c
                     /* Straight MD5 password. But this might be either in hex
                      * or base64 encoding. */
                     if (*pwhash == '{')
-                        pwhash += 4;
+                        pwhash += 5;
 
                     if (strlen(pwhash) == 32) {
                         /* Hex. */
