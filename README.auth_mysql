@@ -53,7 +53,7 @@ similar):
 2. Perform a SELECT statement of the form
 
    SELECT CONCAT(domain.path, '/', popbox.mbox_name),
-          popbox.password_hash, domain.unix_user, 'mailspool'
+          popbox.password_hash, domain.unix_user, 'bsd'
       FROM popbox, domain
       WHERE popbox.local_part = $(local_part)
       AND popbox.domain_name = $(domain)
@@ -64,9 +64,8 @@ similar):
    append-domain is switched on, the domain name may be inferred from the IP
    address to which the connection was made, rather than one explicitly
    specified in the form USER fred@example.com. See tpop3d.conf(5) for more
-   information on this.) The trailing field, `mailspool' is the mailbox type
-   to use. Alternative schemes may have mailbox types specified in the
-   database.
+   information on this.) The trailing field, `bsd' is the mailbox type to use.
+   Alternative schemes may have mailbox types specified in the database.
 
 3. If the statement returned no rows, then the user does not exist; if it
    returned more than one row, then there is a database inconsistency (this is
