@@ -298,8 +298,11 @@ pop3command connection_parsecommand(connection c) {
     char *p;
     pop3command pc = NULL;
 
-    if (!(line = buffer_consume_to_mark(c->rdb, "\r\n", 2, line, &llen))
-        && !(line = buffer_consume_to_mark(c->rdb, "\n", 1, line, &llen)))  /* cope with bad clients... */
+    /* Some clients send \r\n, some send \n, others send a mixture. In the
+     * latter case we must be careful not to interpret command1\ncommand2\r\n
+     * as a single command. So always use \n as the line ending and strip off
+     * any trailing \r. */
+    if (!(line = buffer_consume_to_mark(c->rdb, "\n", 1, line, &llen)))
         return NULL;
 
     /* remove trailing eol */

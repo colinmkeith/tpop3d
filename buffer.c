@@ -108,6 +108,8 @@ char *buffer_consume_to_mark(buffer B, const char *mark, const size_t mlen, char
     
     if ((a = buffer_available(B)) < mlen) return NULL;
 
+    /* Oh dear. Should special-case the mlen == 1 case, since it's the only
+     * one we use.... */
     for (k = 0; k < 256; ++k) skip[k] = mlen;
     for (k = 0; k < mlen - 1; ++k) skip[(unsigned char)mark[k]] = mlen - k - 1;
 

@@ -50,8 +50,7 @@ static const char rcsid[] = "$Id$";
 #ifdef WITH_FCNTL_LOCKING
 /* fcntl_lock:
  * Attempt to lock a file using fcntl(2) locking. Returns 0 or success, or -1
- * on error.
- */
+ * on error. */
 int fcntl_lock(int fd) {
     struct flock fl = {0};
 
@@ -66,8 +65,7 @@ int fcntl_lock(int fd) {
 
 /* fcntl_unlock:
  * Attempt to unlock a file using fcntl(2) locking. Returns 0 on success, or
- * -1 on error.
- */
+ * -1 on error. */
 int fcntl_unlock(int fd) {
     struct flock fl = {0};
 
@@ -84,8 +82,7 @@ int fcntl_unlock(int fd) {
 #if defined(WITH_FLOCK_LOCKING) || (defined(WITH_CCLIENT_LOCKING) && !defined(CCLIENT_USES_FCNTL))
 /* flock_lock:
  * Attempt to lock a file using flock(2) locking. Returns 0 on success, or -1
- * on failure.
- */
+ * on failure. */
 int flock_lock(int fd) {
     return flock(fd, LOCK_EX | LOCK_NB);
 }
@@ -234,8 +231,7 @@ fail:
 /* cclient_steal_lock:
  * Attempt to steal a c-client lock (if any) applied to the file. Returns 0 on
  * success, or -1 on failure. This is fairly comedy, but it is good enough to
- * get PINE to get out of the way when necessary.
- */
+ * get PINE to get out of the way when necessary. */
 int cclient_steal_lock(int fd) {
     struct stat st;
     char cclient_lockfile[64], other_pid[128] = {0};
@@ -250,8 +246,7 @@ int cclient_steal_lock(int fd) {
      *
      * XXX exim lstats the /tmp/... file to ensure that it is not a symbolic
      * link. Since we don't actually write to the file, it is probably not
-     * necessary to make this check.
-     */
+     * necessary to make this check. */
     fd_cc = open(cclient_lockfile, O_RDWR);
     if (fd_cc == -1) {
         if (errno == ENOENT) /* File did not exist; this is OK. */
@@ -263,8 +258,7 @@ int cclient_steal_lock(int fd) {
 
     /* On most systems, the c-client library uses flock(2) to lock files. Some
      * systems do not have flock(2) (Solaris <cough>), or patch PINE to use
-     * fcntl(2) locking (RedHat <cough>).
-     */
+     * fcntl(2) locking (RedHat <cough>). */
 #ifdef CCLIENT_USES_FCNTL
     if (fcntl_lock(fd_cc) == -1) {
 #else
