@@ -56,8 +56,6 @@ man_MANS = tpop3d.8
 
 SUBDIRS = init.d config
 
-EXTRA_DIST = scripts TPOP3D-AuthDriver
-
 tpop3d.cat: tpop3d.8
 	(echo -e ".pl 1100i" ; cat tpop3d.8 ; echo ".pl \n(nlu+10") | groff -Tascii -man > tpop3d.cat
 
@@ -68,7 +66,11 @@ EXTRA_DIST = bootstrap \
              CREDITS \
              PORTABILITY \
              $(man_MANS) \
-             tpop3d.cat
+             tpop3d.cat \
+             scripts/dotapopfile scripts/nasty \
+             TPOP3D-AuthDriver/AuthDriver.pm TPOP3D-AuthDriver/Changes \
+             TPOP3D-AuthDriver/MANIFEST TPOP3D-AuthDriver/Makefile.PL TPOP3D-AuthDriver/test.pl
+             
 
 MAINTERCLEANFILES = Makefile.in aclocal.m4 configure configuration.h.in \
                     stamp-h.in

@@ -197,4 +197,11 @@ tpop3d for your system.
   in init.d/initscript_wait-for-mysqld.patch to the script; this tests for the
   existence of the unix socket which MySQL clients use to communicate with
   MySQL. This patch was contributed by Roberto Braga.
-  
+
+
+* External authentication programs
+
+  There are sample external authentication programs in scripts/; the perl
+  module used by some of them is in TPOP3D-AuthDriver/ and can be installed by
+  the standard perl Makefile.PL; make; make install procedure.
+
