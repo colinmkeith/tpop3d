@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.6  2000/10/09 17:38:21  chris
+ * Now handles a proper range of signals.
+ *
  * Revision 1.5  2000/10/08 16:53:53  chris
  * Signal handler will always remove lockfile on quit.
  *
@@ -304,8 +307,8 @@ void child_signal_handler(const int i) {
  * Set the relevant signals to be ignored/handled.
  */
 void set_signals() {
-    int ignore_signals[] = {SIGPIPE, SIGINT, SIGALRM, 0};
-    int die_signals[]    = {SIGSEGV, SIGABRT, SIGBUS, SIGFPE, 0};
+    int ignore_signals[] = {SIGPIPE, SIGINT, SIGHUP, SIGALRM, 0};
+    int die_signals[]    = {SIGTERM, SIGQUIT, SIGSEGV, SIGABRT, SIGBUS, SIGFPE, SIGPWR, 0};
     int *i;
     struct sigaction sa;
 
