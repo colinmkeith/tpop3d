@@ -17,7 +17,7 @@ use MD5;
 
 @ISA = qw(TPOP3D::AuthDriver);
 
-# Override generic APOP implementation
+# Override generic APOP implementation.
 sub apop ($$) {
     my ($self, $req) = @_;
     my $res = { 'result' => 'NO', 'logmsg' => "no such user $req->{user}" };
@@ -68,7 +68,7 @@ package main;
 
 my $auth = new DotApopFile();
 
-# subroutine for auth_perl compatibility.
+# Subroutine for auth-perl compatibility.
 sub apopauth ($) {
     return $auth->apop($_[0]);
 }

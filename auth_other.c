@@ -98,6 +98,10 @@ void dump(unsigned char *b, size_t len) {
     xfree(str);
 }
 
+static void tvsub(struct timeval *t1, const struct timeval *t2);
+static void tvadd(struct timeval *t1, const struct timeval *t2);
+static int tvcmp(const struct timeval *t1, const struct timeval *t2);
+
 /* tvadd:
  * t1 += t2 on timevals. */
 static void tvadd(struct timeval *t1, const struct timeval *t2) {
@@ -534,7 +538,7 @@ authcontext auth_other_new_user_pass(const char *user, const char *pass, const c
 
     if (!authchild_pid) auth_other_start_child();
 
-    if (!auth_other_send_request(4, "method", "PASS", "user", user, "pass", pass, "clienthost", host, "random", words[rand() % 6])
+    if (!auth_other_send_request(4, "method", "PASS", "user", user, "pass", pass, "clienthost", host)
         || !(S = auth_other_recv_response()))
         return NULL;
     
@@ -579,5 +583,24 @@ fail:
 #undef MISSING
 #undef INVALID
 }
+
+/* auth_other_onlogin:
+ * Pass details of a successful login to the authentication program. */
+void auth_other_onlogin(const authcontext A, const char *host) {
+    stringmap S;
+    item *I;
+
+    if (!authchild_pid) auth_other_start_child();
+
+    if (!auth_other_send_request(4, "method", "ONLOGIN", "local_part", A->user, "domain", A->domain, "clienthost", host)
+        || !(S = auth_other_recv_response()))
+        return;
+    
+    I = stringmap_find(S, "logmsg");
+    if (I) log_print(LOG_INFO, "auth_other_new_user_pass: child: %s", (char*)I->v);
+        
+    stringmap_delete_free(S);
+}
+
 
 #endif /* AUTH_OTHER */

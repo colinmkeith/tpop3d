@@ -265,7 +265,7 @@ The \fBauth-mysql-onlogin-query\fP specifies an SQL statement (most likely
 an INSERT or UPDATE) which is executed after a successful login. This is
 intended to allow you to insert a record into a database table used to
 permit relaying in a `POP-before-SMTP' scheme. For this query, the additional
-value \fB$(host)\fP indicates the connected client host, as a numeric IP
+value \fB$(clienthost)\fP indicates the connected client host, as a numeric IP
 address. This statement will be executed for any successful login, not only
 \fBauth-mysql\fP logins.
 
@@ -323,16 +323,14 @@ following format on its standard input:
 
 Defined \fIkey\fPs are:
 .TP
-\fBmethod\fP = (\fBAPOP\fP | \fBPASS\fP | \fBONLOGIN\fP)
-Authentication mechanism being attempted; \fBONLOGIN\fP is used to pass
-information on a successful login to the authentication driver, and is
-intended to be used to implement POP-before-SMTP relaying.
+\fBmethod\fP = (\fBAPOP\fP | \fBPASS\fP)
+Authentication mechanism being attempted.
 .TP
 \fBuser\fP = \fIusername\fP
 The username being sent with an APOP or USER command.
 .TP
-\fBclienthost\fP = (\fIhostname\fP | \fIIP number\fP)
-The host from which the client is connecting to the POP server.
+\fBclienthost\fP = \fIIP number\fP
+The host from which the client is connected to the POP server.
 .TP
 \fBtimestamp\fP = \fItimestamp string\fP
 (APOP only.) The `timestamp' string sent by the server to this client.
@@ -363,18 +361,34 @@ The user and group with which to access the mailspool. Note that the user must
 have a valid home directory.
 .TP
 \fBdomain\fP = \fIdomain\fP
-(Optional.) The domain in which the user has been authenticated.
+The domain in which the user has been authenticated.
 .TP
 \fBmailbox\fP = \fIpath\fP
-(Optional.) Path of this user's mailbox.
+Path of this user's mailbox.
 .TP
 \fBmboxtype\fP = \fImailbox driver\fP
-(Optional.) The type of the mailbox.
+The type of the mailbox.
 .PP
 If the mailbox is not specified, then the normal mechanism (via configuration
 directives \fBmailbox:\fP and \fBauth-other-mailbox:\fP) is used.
 
-The only valid responses to an \fBONLOGIN\fP request are an empty set or one
+Your authentication program will also receive packets describing any successful
+login. These may be used to implement POP-before-SMTP relaying. Such packets
+have the form
+.TP
+\fBmethod\fP = \fBONLOGIN\fP
+Indicating that the packet describes a login.
+.TP
+\fBlocal_part\fP = \fIlocal-part\fP
+.TP
+\fBdomain\fP = \fIdomain\fP
+The local-part and domain of the authenticated user.
+.TP
+\fBclienthost\fP = \fIIP number\fP
+The host from which the client is connected to the POP server.
+.PP
+
+The only valid responses to an \fBONLOGIN\fP request are an empty packet or one
 containing only a \fBlogmsg\fP directive.
 
 Note that \fBtpop3d\fP requires external authentication programs to respond in
@@ -445,10 +459,21 @@ relaying; the return value from this subroutine is ignored.
 .IR http://www.ex-parrot.com/~chris/vmail-sql/ ,
 .br
 .IR http://www.mysql.com/ ,
+.br
+.IR http://lists.beasts.org/pipermail/tpop3d-discuss/ .
 
 .SH AUTHOR
 Chris Lightfoot <chris@ex-parrot.com>. Portions by Mark Longair and Paul
 Makepeace.
+
+If you have a query about \fBtpop3d\fP, \fIplease do not send me personal
+email\fP. Instead, please send it to the \fBtpop3d\fP mailing list, to which
+you can subscribe by sending an email with the subject `subscribe' to
+.br
+<tpop3d-discuss-request@lists.beasts.org>. There is a mailing list archive
+at
+.br
+.IR http://lists.beasts.org/pipermail/tpop3d-discuss/ .
 
 .SH VERSION
 $Id$

@@ -26,13 +26,13 @@ tpop3d \- small, fast, extensible POP3 server
 ]
 .SH DESCRIPTION
 \fBtpop3d\fP is a server which implements the RFC1939 POP3 protocol, including
-UIDL support. Most options are set via a configuration file, typically
-\fB/etc/tpop3d.conf\fP. \fBtpop3d\fP is a daemon which waits in the background
-and accepts incoming connections. It cannot be operated from
-\fBinetd\fP(8).
+UIDL support. \fBtpop3d\fP supports virtual domain authentication via a number
+of mechanisms, POP-before-SMTP relaying, TCP wrappers, Maildir mailboxes and
+various other useful features.  It is a daemon which waits in the background
+and accepts incoming connections. It cannot be operated from \fBinetd\fP(8).
 
 \fBtpop3d\fP logs most diagnostics via \fBsyslog\fP(3), using facility
-\fBmail\fP.
+\fBmail\fP or another which is defined in its configuration file.
 
 Detailed control over the operation of \fBtpop3d\fP is exercised by editing its
 configuration file, by default \fB/etc/tpop3d.conf\fP. See the manual entry for
@@ -44,10 +44,10 @@ configuration file, by default \fB/etc/tpop3d.conf\fP. See the manual entry for
 .B -h
 Print a summary of usage and the compile-time options of this \fBtpop3d\fP.
 .TP
-.BI -f file
+\fB-f\fP \fIfile\fP
 Read configuration from \fIfile\fP, instead of from \fB/etc/tpop3d.conf\fP.
 .TP
-.BI -p file
+\fB-p\fP \fIfile\fP
 Write the PID of the server process to \fIfile\fP. By default, no PID file is
 written.
 .TP
@@ -119,10 +119,21 @@ client addresses may also block the main daemon.
 .IR http://www.ex-parrot.com/~chris/vmail-sql/ ,
 .br
 .IR http://www.mysql.com/ ,
+.br
+.IR http://lists.beasts.org/pipermail/tpop3d-discuss/ .
 
 .SH AUTHOR
 Chris Lightfoot <chris@ex-parrot.com>. Portions by Mark Longair and Paul
 Makepeace.
+
+If you have a query about \fBtpop3d\fP, \fIplease do not send me personal
+email\fP. Instead, please send it to the \fBtpop3d\fP mailing list, to which
+you can subscribe by sending an email with the subject `subscribe' to
+.br
+<tpop3d-discuss-request@lists.beasts.org>. There is a mailing list archive
+at
+.br
+.IR http://lists.beasts.org/pipermail/tpop3d-discuss/ .
 
 .SH VERSION
 

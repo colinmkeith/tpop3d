@@ -23,6 +23,7 @@ static const char rcsid[] = "$Id$";
 #include <syslog.h>
 #include <unistd.h>
 
+#include "config.h"
 #include "auth_perl.h"
 #include "stringmap.h"
 #include "util.h"
@@ -341,8 +342,8 @@ fail:
 }
 
 /* auth_perl_onlogin:
- * Attempt to authenticate a user using USER/PASS, via a perl subroutine. */
-authcontext auth_perl_onlogin(const authcontext A, const char *clienthost) {
+ * Pass details of a successful login to a perl subroutine. */
+void auth_perl_onlogin(const authcontext A, const char *host) {
     stringmap S;
     item *I;
     authcontext a = NULL;
@@ -353,7 +354,6 @@ authcontext auth_perl_onlogin(const authcontext A, const char *clienthost) {
     if ((I = stringmap_find(S, "logmsg")))
         log_print(LOG_INFO, "auth_perl_onlogin: (perl code): %s", (char*)I->v);
 
-fail:
     stringmap_delete_free(S);
 }
 

@@ -53,35 +53,35 @@ static const char rcsid[] = "$Id$";
 struct authdrv auth_drivers[] = {
 #ifdef AUTH_PAM
         /* This is the PAM driver, which should be used wherever possible. */
-        {NULL, NULL, auth_pam_new_user_pass, NULL, NULL,
+        {NULL, NULL, auth_pam_new_user_pass, NULL, NULL, NULL,
             "pam",
             _X("Uses Pluggable Authentication Modules")},
 #endif /* AUTH_PAM */
             
 #ifdef AUTH_PASSWD
         /* This is the old-style unix authentication driver. */
-        {NULL, NULL, auth_passwd_new_user_pass, NULL, NULL,
+        {NULL, NULL, auth_passwd_new_user_pass, NULL, NULL, NULL,
             "passwd",
             _X("Uses /etc/passwd or /etc/shadow")},
 #endif /* AUTH_PASSWD */
             
 #ifdef AUTH_MYSQL
         /* This is for vmail-sql and similar schemes */
-        {auth_mysql_init, auth_mysql_new_apop, auth_mysql_new_user_pass, auth_mysql_postfork, auth_mysql_close,
+        {auth_mysql_init, auth_mysql_new_apop, auth_mysql_new_user_pass, auth_mysql_onlogin, auth_mysql_postfork, auth_mysql_close,
             "mysql",
             _X("Uses a MySQL database")},
 #endif /* AUTH_MYSQL */
 
 #ifdef AUTH_OTHER
         /* This talks to an external program. */
-        {auth_other_init, auth_other_new_apop, auth_other_new_user_pass, auth_other_postfork, auth_other_close,
+        {auth_other_init, auth_other_new_apop, auth_other_new_user_pass, auth_other_onlogin, auth_other_postfork, auth_other_close,
             "other",
             _X("Uses an external program")},
 #endif /* AUTH_OTHER */
 
 #ifdef AUTH_PERL
         /* This calls into perl subroutines. */
-        {auth_perl_init, auth_perl_new_apop, auth_perl_new_user_pass, auth_perl_postfork, auth_perl_close,
+        {auth_perl_init, auth_perl_new_apop, auth_perl_new_user_pass, auth_perl_onlogin, auth_perl_postfork, auth_perl_close,
             "perl",
             _X("Uses perl code")},
 #endif /* AUTH_PERL */
@@ -137,8 +137,7 @@ int authswitch_init() {
 }
 
 /* authcontext_new_apop:
- * Attempts to authenticate the apop data with each driver in turn.
- */
+ * Attempts to authenticate the apop data with each driver in turn. */
 authcontext authcontext_new_apop(const char *name, const char *timestamp, const unsigned char *digest, const char *domain, const char *host) {
     authcontext a = NULL;
     const struct authdrv *aa;
@@ -157,8 +156,7 @@ authcontext authcontext_new_apop(const char *name, const char *timestamp, const 
 }
 
 /* authcontext_new_user_pass:
- * Attempts to authenticate user and pass with each driver in turn.
- */
+ * Attempts to authenticate user and pass with each driver in turn. */
 authcontext authcontext_new_user_pass(const char *user, const char *pass, const char *domain, const char *host) {
     authcontext a = NULL;
     const struct authdrv *aa;
@@ -174,6 +172,18 @@ authcontext authcontext_new_user_pass(const char *user, const char *pass, const 
         }
 
     return NULL;
+}
+
+/* authswitch_onlogin:
+ * Pass news of a successful login to any authentication drivers which are
+ * interested in hearing about it. */
+void authswitch_onlogin(const authcontext A, const char *host) {
+    const struct authdrv *aa;
+    int *aar;
+
+    for (aa = auth_drivers, aar = auth_drivers_running; aa < auth_drivers_end; ++aa, ++aar)
+        if (*aar && aa->auth_onlogin)
+            aa->auth_onlogin(A, host);
 }
 
 /* authswitch_postfork:

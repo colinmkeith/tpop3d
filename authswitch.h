@@ -39,6 +39,9 @@ struct authdrv {
      * password and the client host. */
     authcontext (*auth_new_user_pass)(const char *user, const char *password, const char *host);
 
+    /* Function to call after any successful authentication. */
+    void        (*auth_onlogin)(const authcontext A, const char *clienthost);
+
     /* Clear up any resources associated with this driver prior to a fork. */
     void        (*auth_postfork)(void);
 
@@ -57,6 +60,8 @@ void authswitch_describe(FILE *fp);
 int authswitch_init();
 authcontext authcontext_new_apop(const char *name, const char *timestamp, const unsigned char *digest, const char *domain, const char *host);
 authcontext authcontext_new_user_pass(const char *user, const char *pass, const char *domain, const char *host);
+
+void authswitch_onlogin(const authcontext A, const char *host);
 void authswitch_postfork();
 void authswitch_close();
 

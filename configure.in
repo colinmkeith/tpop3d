@@ -336,7 +336,7 @@ fi
 # MySQL client libraries.
 if test x"$enable_auth_mysql" = x"yes"
 then
-    AC_CHECK_LIB(mysqlclient, main, [], AC_MSG_ERROR([[vmail-sql authentication enabled, but can't find libmysqlclient]]) )
+    AC_CHECK_LIB(mysqlclient, main, [], AC_MSG_ERROR([[auth-mysql enabled, but can't find libmysqlclient]]) )
 fi
 
 # Where is nanosleep?

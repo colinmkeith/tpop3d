@@ -1,0 +1,66 @@
+#!/usr/bin/perl -w
+#
+# relaydbm:
+# Insert the address of a connected client into a DBM database, along with
+# the time at which the connection was made, for POP-before-SMTP relaying.
+#
+# This is an example to suggest how you might want to go about implementing
+# something of this sort. Obviously a counterpart program is needed to clean
+# old entries out of the database.
+#
+# Copyright (c) 2002 Chris Lightfoot. All rights reserved.
+# Email: chris@ex-parrot.com; WWW: http://www.ex-parrot.com/~chris/
+#
+
+my $rcsid = '$Id$';
+
+package RelayDBM;
+use TPOP3D::AuthDriver;
+use IO::File;
+use GDBM_File;
+
+$client_ip_db = "/var/run/relayers";
+
+@ISA = qw(TPOP3D::AuthDriver);
+
+# Override generic onlogin implementation.
+sub onlogin ($$) {
+    my ($self, $req) = @_;
+    my %table;
+    my $file;
+
+    # We want to lock the file, so we need a file handle with which to open
+    # it. If we don't open the file, we proceed anyway.
+    $file = new IO::File($client_ip_db, O_WRONLY|O_APPEND);
+    if ($file) {
+        $file->flock(LOCK_EX) or return { logmsg => "flock($client_ip_db): $!" };
+    }
+
+    tie(%table, 'GDBM_File', $client_ip_db, &GDBM_WRCREAT, 0600)
+        or return { logmsg => "tie($client_ip_db): $!" };
+    $table{$req->{clienthost}} = time;
+    untie(%table);
+
+    if ($file) {
+        $file->flock(LOCK_UN);
+        $file->close();
+    }
+
+    return { logmsg => "saved $req->{clienthost} in $client_ip_db" };
+}
+
+package main;
+
+my $auth = new RelayDBM;
+
+# Subroutine for auth-perl compatibility.
+sub onlogin ($) {
+    return $auth->onlogin(@_);
+}
+
+if (defined($ENV{TPOP3D_CONTEXT}) and $ENV{TPOP3D_CONTEXT} eq 'auth_other') {
+    $auth->run();
+    exit 0;
+}
+
+1;

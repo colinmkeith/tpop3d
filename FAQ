@@ -3,6 +3,10 @@ $Id$
 
 1. How can I do POP-before-SMTP relaying with tpop3d?
 
+   From version 1.4.1, support for POP-before-SMTP relaying is built into
+   tpop3d itself, so the following is of mainly historical interest. For more
+   information, see tpop3d.conf(5) and README.POP-before-SMTP.
+
    The game here is to have some table which your MTA consults to determine
    whether a client may relay through this server. Successful POP connections
    cause the connected host to be allowed to relay for a few minutes, so that
@@ -50,9 +54,6 @@ $Id$
    or auth-other authenticator which did the dirty work for cases of successful
    authentication. Of course, this means that you have to implement the
    authentication yourself, too, which is slightly wasteful.
-
-   If there's enough demand, I may add configurable hooks for this sort of
-   thing.
 
 
 2. I want to use auth-mysql, but my database schema doesn't look like

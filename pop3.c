@@ -212,7 +212,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 c->state = transaction;
                 return fork_and_setuid; /* Code in main.c sends response in case of error. */
             } else {
-                connection_action act;
+                enum connection_action act;
 
                 ++c->n_auth_tries;
                 if (c->n_auth_tries == MAX_AUTH_TRIES) {
@@ -229,7 +229,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
 #else
                     connection_sendresponse(c, 0, _("Authentication failed."));
 #endif
-                    log_print(LOG_ERR, _("connection_do: client `%s': username `%s': %d authentication failures"), c->idstr, c->n_auth_tries);
+                    log_print(LOG_ERR, _("connection_do: client `%s': username `%s': %d authentication failures"), c->idstr, c->user, c->n_auth_tries);
                     act = do_nothing;
                 }
 

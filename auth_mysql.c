@@ -36,6 +36,7 @@ static const char rcsid[] = "$Id$";
 
 #include "auth_mysql.h"
 #include "authswitch.h"
+#include "config.h"
 #include "md5.h"
 #include "stringmap.h"
 #include "util.h"
@@ -361,7 +362,6 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
     authcontext a = NULL;
     char *local_part = NULL;
     const char *domain;
-    item *I;
 
     if (!mysql || !apop_query_template) return NULL;
 
@@ -479,7 +479,6 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const c
     authcontext a = NULL;
     char *local_part = NULL;
     const char *domain;
-    item *I;
 
     if (!mysql || !user_pass_query_template) return NULL;
 
@@ -639,27 +638,30 @@ void auth_mysql_onlogin(const authcontext A, const char *host) {
 
     if (mysql_ping(mysql) == -1) {
         log_print(LOG_ERR, "auth_mysql_onlogin: mysql_ping: %s", mysql_error(mysql));
-        return NULL;
+        return;
     }
 
     query = substitute_query_params(onlogin_query_template, A->user, A->domain, host);
-    if (!query) goto fail;
+    if (!query)
+        return;
 
     if (verbose)
-        log_print(LOG_DEBUG, "auth_mysql_onlogin: SQL query: %s", query);
+        log_print(LOG_DEBUG, _("auth_mysql_onlogin: SQL query: %s"), query);
 
     if (mysql_query(mysql, query) == 0) {
         MYSQL_RES *result;
         /* It's possible that the user put a query in which returned some rows.
          * This is bogus but there's not a lot we can do; to avoid leaking
-         * memory or confusing the database, we obtain and free a result. */
+         * memory or confusing the database, we obtain and free a result, and
+         * log a warning. */
         result = mysql_store_result(mysql);
-        if (result) mysql_free_result(result);
+        if (result) {
+            log_print(LOG_WARNING, _("auth_mysql_onlogin: supplied SQL query returned %d rows, which is dubious"), mysql_num_rows(result));
+            mysql_free_result(result);
+        }
     } else
-        log_print(LOG_ERR, "auth_mysql_new_user_pass: mysql_query: %s", mysql_error(mysql));
+        log_print(LOG_ERR, "auth_mysql_onlogin: mysql_query: %s", mysql_error(mysql));
 
-
-fail:
     xfree(query);
 }
 

@@ -145,6 +145,7 @@ sub process_packet ($$) {
     
     $res = $self->apop(\%hash) if ($hash{method} eq 'APOP');
     $res = $self->pass(\%hash) if ($hash{method} eq 'PASS');
+    $res = $self->onlogin(\%hash) if ($hash{method} eq 'ONLOGIN');
 
     if (!defined($res)) {
         # OK, we didn't handle it; perhaps we are chained to another handler?
@@ -205,7 +206,7 @@ server, including
     client's supplied digest, in hex
 
   clienthost
-    hostname or IP number of the client host
+    IP number of the client host
 
 
 It should return a reference to a hash containing the following keys:
@@ -277,7 +278,7 @@ server, including
     client's supplied password
 
   clienthost
-    hostname or IP number of the client host
+    IP number of the client host
 
 It should return a reference to a hash, as described for the C<apop> method
 above. You should override this to perform USER/PASS authentication, if you
@@ -290,6 +291,32 @@ sub pass ($$) {
     return { 'result' => 'NO' };    # default
 }
 
+=item onlogin REQUEST
+
+I<Instance method.>
+This method is called by run() when a packet describing a successful login is
+received. REQUEST is a reference to a hash of the parameters supplied by the
+server, including
+
+  local_part
+    client's supplied username or local-part
+
+  domain
+    domain in which client is authenticated
+
+  clienthost
+    IP number of the client host
+
+It should return either an empty hash reference, or one containing only the
+logmsg member.
+
+=cut
+
+sub onlogin ($$) {
+    my ($self, $req) = @_;
+    return { };
+}
+
 1;
 
 __END__
@@ -298,7 +325,7 @@ __END__
 
 =head1 COPYING
 
-Copyright (c) 2001 Chris Lightfoot, <chris@ex-parrot.com>
+Copyright (c) 2001-2 Chris Lightfoot, <chris@ex-parrot.com>
 F<http://www.ex-parrot.com/~chris/tpop3d/>
 
 This program is free software; you can redistribute and/or modify it under the

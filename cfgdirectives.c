@@ -52,6 +52,7 @@ char *cfgdirectives[] = {
     "auth-mysql-mail-group",
     "auth-mysql-pass-query",
     "auth-mysql-apop-query",
+    "auth-mysql-onlogin-query",
 #endif /* AUTH_MYSQL */
 
 #ifdef AUTH_OTHER
@@ -68,6 +69,7 @@ char *cfgdirectives[] = {
     "auth-perl-finish",
     "auth-perl-apop",
     "auth-perl-pass",
+    "auth-perl-onlogin",
 #endif /* AUTH_PERL */
  
 #if defined(MBOX_BSD) && defined(MBOX_BSD_SAVE_INDICES)

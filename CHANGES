@@ -3,6 +3,8 @@ $Id$
 
 1.4.1
 
+Hooks for POP-before-SMTP relaying support were implemented.
+
 The facility as which tpop3d logs messages may now be changed from the
 configuration file.
 

@@ -273,10 +273,6 @@ void fork_child(connection c) {
                 _exit(0);
             }
 
-            /* Began session; log something useful in case of POP-before-SMTP
-             * relaying. */
-            log_print(LOG_INFO, _("fork_child: %s: successfully authenticated with %s"), c->idstr, c->a->auth);
-
             break;
 
         case -1:
@@ -290,7 +286,14 @@ void fork_child(connection c) {
         default:
             /* Parent. Dispose of our copy of this connection. */
             post_fork = 0;  /* Now SIGHUP will work again. */
-            
+ 
+            /* Began session. We log a message in a known format, and call
+             * into the authentication drivers in case they want to do
+             * something with the information for POP-before-SMTP relaying. */
+            log_print(LOG_INFO, _("fork_child: %s: successfully authenticated with %s"), c->idstr, c->a->auth);
+            authswitch_onlogin(c->a, inet_ntoa(c->sin.sin_addr));
+           
+            /* Dispose of our copy of the connection. */
             close(c->s);
             c->s = -1; /* Don't shutdown the socket */
             remove_connection(c);
