@@ -8,13 +8,13 @@
  *
  */
 
-static const char rcsid[] = "$Id$";
-
 #ifdef HAVE_CONFIG_H
 #include "configuration.h"
 #endif /* HAVE_CONFIG_H */
 
 #ifdef AUTH_PERL
+
+static const char rcsid[] = "$Id$";
 
 #include <sys/types.h>
 

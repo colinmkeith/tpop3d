@@ -198,8 +198,23 @@ void fork_child(connection *C, listitem *i) {
 
             /* Get in to the `transaction' state, opening the mailbox. */
             if (connection_start_transaction(c)) {
-                char s[1024];
-                snprintf(s, 1024, _("Welcome aboard! You have %d messages."), c->m->index->n_used);
+                char s[512], *p;
+                strcpy(s, _("Welcome aboard!"))
+                strcat(s, " ");
+                p = s + strlen(s);
+                switch (c->m->index->n_used) {
+                    case 0:
+                        strcpy(p, _("You have no messages at all."));
+                        break;
+
+                    case 1:
+                        strcat(p, _("You have exactly one message."));
+                        break;
+
+                    default:
+                        sprintf(p, _("You have %d messages."), c->m->index->n_used);
+                        break;
+                }
                 connection_sendresponse(c, 1, s);
                 this_child_connection = c;
             } else {
@@ -371,8 +386,11 @@ void net_loop() {
 #endif /* AUTH_OTHER */
     }
 
-    /* Termination request received; we should close all connections in an orderly fashion. */
-    if (restart) print_log(LOG_INFO, _("net_loop: restarting on signal %d"), foad);
+    /* Termination request received; we should close all connections in an
+     * orderly fashion.
+     */
+    if (restart) print_log(LOG_INFO, _("net_loop: restarting on signal %d"),
+            foad);
     else print_log(LOG_INFO, _("net_loop: terminating on signal %d"), foad);
 
     if (connections) {
