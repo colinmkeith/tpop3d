@@ -56,6 +56,13 @@ to review the authentication schemes available; at present, these are
 
         Not enabled in the distribution makefile.
 
+A sample init.d script, usable for Linux systems and probably easily modified
+for others, is in the init.d/ subdirectory. If you find that your system comes
+up sufficiently quickly that tpop3d fails to connect to MySQL on startup, you
+may want to apply the patch in init.d/initscript_wait-for-mysqld.patch to the
+script; this tests for the existence of the unix socket which MySQL clients use
+to communicate with MySQL. This patch was contributed by Roberto Braga.
+
 
 A note on developing new authentication schemes
 

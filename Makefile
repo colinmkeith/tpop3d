@@ -142,7 +142,8 @@ TXTS =  README          \
         mysql_crypt.patch   \
         tpop3d.8        \
         tpop3d.cat      \
-        init.d/tpop3d
+        init.d/tpop3d   \
+        init.d/initscript_wait-for-mysqld.patch
 
 SUBDIRS = init.d
 

@@ -1,20 +1,16 @@
---- tpop3d	Fri Feb 16 11:47:45 2001
-+++ tpop3d-mysql	Fri Feb 16 11:49:04 2001
-@@ -1,4 +1,4 @@
+--- tpop3d	Fri Feb 16 11:58:24 2001
++++ tpop3d-wait-for-mysql	Fri Feb 16 11:59:55 2001
+@@ -1,3 +1,3 @@
 -#!/bin/sh
 +#!/bin/bash
  #
  # tpop3d:
- # Init script for starting/stopping tpop3d.
-@@ -22,25 +22,53 @@
+@@ -16,4 +16,20 @@
+ # virtual-domain users to log in from anywhere they like.
  #
- # Copyright (c) 2001 Chris Lightfoot. All rights reserved.
- #
--# $Id$
-+# $Id$
-+# 
++#
 +# Modified by Roberto Braga v 1.1.1 2001/02/16
-+#   The script has been modified in order to give enought time to Mysqld to 
++#   The script has been modified in order to give enough time to Mysqld to 
 +#   create the sock file. I have this necessity because tpop3d verifies the 
 +#   connection before starting and my system goes up quickly.
 +#   This script tests the presence of mysql.sock file for 10 times with 1  
@@ -26,9 +22,11 @@
 +#   A T T E N T I O N !!  
 +#   
 +#   USE THIS SCRIPT ONLY if you use a localhost connection with Mysqld
- #
- 
- # Check that networking is up.
++#
++#
+ # chkconfig: 345 86 14
+ # description: tpop3d is a small, fast, extensible POP3 server
+@@ -29,7 +45,5 @@
  [ "${NETWORKING}" = "no" ] && exit 0
  
 -DAEMON=/software/sbin/tpop3d
@@ -37,8 +35,7 @@
 +[ -f /usr/tpop3d/tpop3d ] || exit 0
  
  # See how we were called.
- case "$1" in
-   start)
+@@ -38,8 +52,24 @@
          # Start daemons.
          echo -n "Starting tpop3d: "
 -        $DAEMON -f /etc/tpop3d.conf
@@ -52,7 +49,7 @@
 +          if [ -e /var/lib/mysql/mysql.sock ] ; then
 +            #se Mysql è su allora parte anche tpop3d
 +            /usr/tpop3d/tpop3d -f /usr/tpop3d/tpop3d.conf
-+            echo "tpop3d started 
++            echo "tpop3d started "
 +            touch /var/lock/subsys/tpop3d
 +            #/usr/tpop3d/tpop3d -f /usr/tpop3d/tpop3d-secure.conf
 +            #echo "tpop3d-secure started"
@@ -67,13 +64,10 @@
 +        /usr/tpop3d/tpop3d -f /usr/tpop3d/tpop3d.conf
          touch /var/lock/subsys/tpop3d
          ;;
-   stop)
-@@ -48,7 +76,7 @@
-         echo -n "Shutting down tpop3d: "
+@@ -49,5 +79,5 @@
          if [ -e /var/lock/subsys/tpop3d ] ; then
                  # we use pidof here; this is linux-specific
 -                kill -TERM `pidof tpop3d`
 +                killall tpop3d
                  echo tpop3d
                  rm -f /var/lock/subsys/tpop3d
-         fi
