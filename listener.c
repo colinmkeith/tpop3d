@@ -84,7 +84,7 @@ listener listener_new(const struct sockaddr_in *addr, const char *domain
         char errbuf[128] = {0};
         if ((err = regcomp(&L->re, regex, REG_EXTENDED | REG_ICASE))) {
             regerror(err, &L->re, errbuf, sizeof errbuf);
-            log_print(LOG_WARNING, "listener_new: %s: /%s/: %s", inet_ntoa(addr->sin_addr), errbuf);
+            log_print(LOG_WARNING, "listener_new: %s: /%s/: %s", inet_ntoa(addr->sin_addr), L->re, errbuf);
         } else if (L->re.re_nsub != 1) {
             log_print(LOG_WARNING, _("listener_new: /%s/: regular expression should have exactly one bracketed subexpression"), regex);
             regfree(&L->re);

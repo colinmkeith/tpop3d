@@ -31,7 +31,7 @@ typedef struct _listener {
 #endif
 #ifdef TPOP3D_TLS
     struct {
-        tls_mode tls_mode;
+        tls_mode mode;
         SSL_CTX *ctx;
     } tls;
 #endif

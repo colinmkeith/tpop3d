@@ -546,6 +546,187 @@ void usage(FILE *fp) {
                 ));
 }
 
+/* parse_listeners STMT
+ * Parse STMT as a list of specifications for addresses on which to listen,
+ * creating listener objects as we go. Returns the number of listeners
+ * successfully created.
+ *
+ * The syntax for a listener spec is
+ *
+ *  addr[:port][(domain)|/regex/][;tls=(immediate|stls),<certificate-file>[,private-key-file]
+ *
+ */
+int parse_listeners(const char *stmt) {
+    tokens t;
+    char **ll;
+    int N = 0;
+    
+    t = tokens_new(stmt, " \t");
+
+    for (ll = t->toks; ll < t->toks + t->num; ++ll) {
+        listener L;
+        int i;
+        char *s, *p;
+        struct sockaddr_in sin = {0};
+        char *host = NULL, *port = NULL, *domain = NULL;
+#ifdef TPOP3D_TLS
+        enum tls_mode tls = none;
+        char *cert = NULL, *pkey = NULL;
+#endif
+#ifdef MASS_HOSTING
+        char *regex = NULL;
+#endif
+
+        s = *ll;
+        
+        /* Address. */
+        i = strcspn(s, ":(/;");
+        host = xstrndup(s, i);
+
+        p = s + i;
+        
+        if (*p == ':') {
+            /* Port. */
+            ++p;
+            i = strcspn(p, "(/;");
+            port = xstrndup(p, i);
+            p += i;
+        }
+        
+        if (*p == '/') {
+            /* Regular expression matching domain. */
+#ifdef MASS_HOSTING
+            ++p;
+            i = strcspn(p, "/");
+            if (p[i] != '/') {
+                log_print(LOG_ERR, _("parse_listeners: `%s': missing trailing `/'"), s);
+                goto skip;
+            }
+            regex = xstrndup(p, i);
+            p += i + 1;
+#else
+            log_print(LOG_ERR, _("parse_listeners: `%s': this tpop3d does not support mass-hosting regular expressions"), s);
+            goto skip;
+#endif
+        } else if (*p == '(') {
+            /* Explicit domain. */
+            i = strcspn(p, ")");
+            if (p[i] != ')') {
+                log_print(LOG_ERR, _("parse_listeners: `%s': missing `)'"), s);
+                goto skip;
+            }
+            domain = xstrndup(p, i);
+            p += i + 1;
+        }
+
+
+        if (strncmp(p, ";tls=", 5) == 0) {
+#ifdef TPOP3D_TLS
+            /* TLS mode */
+            p += 5;
+            if (strncmp(p, "immediate", 9) == 0)
+                tls = immediate;
+            else if (strncmp(p, "stls", 4) == 0)
+                tls = stls;
+            else {
+                log_print(LOG_ERR, _("parse_listeners: `%s': unknown TLS mode `%.*s'"), s, strcspn(p, ","), p);
+                goto skip;
+            }
+
+            /* Certificate file */
+            if (!(p = strchr(p, ',')) || !*(++p)) {
+                log_print(LOG_ERR, _("parse_listeners: `%s': no TLS certificate specified"), s);
+                goto skip;
+            }
+
+            i = strcspn(p, ",");
+            cert = xstrndup(p, i);
+            
+            /* Optional separate private-key file */
+            if (p[i]) {
+                ++p;
+                if (!*p) {
+                    log_print(LOG_ERR, _("parse_listeners: `%s': TLS private key file is blank"), s);
+                    goto skip;
+                }
+                pkey = xstrdup(p);
+            }
+#else
+            log_print(LOG_ERR, _("parse_listeners: `%s': this tpop3d does not support TLS"), s);
+            goto skip;
+#endif
+        } else if (*p) {
+            log_print(LOG_ERR, _("parse_listeners: `%s': trailing garbage"), s);
+            goto skip;
+        }
+
+        /* Yay! Got everything we need.... */
+
+        /* Turn address and port in to numerical values. */
+        if (port) {
+            sin.sin_port = atoi(port);
+            if (!sin.sin_port) {
+                struct servent *se;
+                se = getservbyname(port, "tcp");
+                if (!se) {
+                    log_print(LOG_ERR, _("parse_listeners: `%s': invalid port `%s'"), s, port);
+                    continue;
+                } else sin.sin_port = se->s_port;
+            } else sin.sin_port = htons(sin.sin_port);
+        } else sin.sin_port = htons(110); /* pop-3 */
+
+        /* Address. */
+        if (!inet_aton(host, &(sin.sin_addr))) {
+            struct hostent *he;
+            he = gethostbyname(host);
+            if (!he) {
+                log_print(LOG_ERR, _("parse_listeners: `%s': invalid listen address `%s'"), s, host);
+                continue;
+            } else memcpy(&sin.sin_addr, he->h_addr, sizeof sin.sin_addr);
+        }
+
+        
+        if ((L = listener_new(&sin, domain
+#ifdef MASS_HOSTING
+                                , regex
+#endif
+#ifdef TPOP3D_TLS
+                                , tls, cert, pkey
+#endif
+                            ))) {
+            char msg[1024];     /* XXX */
+            vector_push_back(listeners, item_ptr(L));
+            ++N;
+            /* Log a helpful message. */
+            sprintf(msg, _("listening on address %s:%d"), inet_ntoa(L->sin.sin_addr), htons(L->sin.sin_port));
+#ifdef MASS_HOSTING
+            if (L->have_re)
+                sprintf(msg + strlen(msg), ", regex /%s/", L->regex);
+#endif
+#ifdef TPOP3D_TLS
+            if (L->tls.mode != none)
+                sprintf(msg + strlen(msg), "; TLS mode %s", L->tls.mode == immediate ? "immediate" : "STLS");
+#endif
+            log_print(LOG_INFO, _("parse_listeners: %s"), msg);
+        }
+        
+skip:
+        xfree(host);
+        xfree(port);
+#ifdef TPOP3D_TLS
+        xfree(cert);
+        xfree(pkey);
+#endif
+#ifdef MASS_HOSTING
+        xfree(regex);
+#endif
+    }
+
+    tokens_delete(t);
+
+    return N;
+}
+
 /* main:
  * Read config file, set up authentication and proceed to main loop. */
 char optstring[] = "+hdvf:p:"
@@ -690,95 +871,8 @@ retry_pid_file:
      * The syntax for these is <addr>[:port][(domain)]. */
     s = config_get_string("listen-address");
     listeners = vector_new();
-    if (s) {
-        tokens t;
-        char **J;
-
-        t = tokens_new(s, " \t");
-
-        for (J = t->toks; J < t->toks + t->num; ++J) {
-            struct sockaddr_in sin = {0};
-            listener L;
-            char *s = *J, *r = NULL, *domain = NULL, *regex = NULL;
-
-            sin.sin_family = AF_INET;
-
-            /* With MASS_HOSTING, the user may specify a regular expression to
-             * use against the return from gethostbyaddr on getsockaddr. */
-#ifdef MASS_HOSTING
-            if ((r = strchr(s, '/'))) {
-                if (*(s + strlen(s) - 1) != '/') {
-                    log_print(LOG_ERR, _("%s: syntax for listen address `%s' is incorrect"), configfile, s);
-                    continue;
-                }
-                
-                *r++ = 0;
-                *(r + strlen(r) - 1) = 0;
-                regex = r;
-            } else
-#endif /* MASS_HOSTING */
-                
-            /* ... or an explicit domain. Note that we must check in this
-             * order since the regular expression ought to contain ( ). */
-            {
-                /* Specified domain. */
-                r = strchr(s, '(');
-                if (r) {
-                    if (*(s + strlen(s) - 1) != ')') {
-                        log_print(LOG_ERR, _("%s: syntax for listen address `%s' is incorrect"), configfile, s);
-                        continue;
-                    }
-
-                    *r++ = 0;
-                    *(r + strlen(r) - 1) = 0;
-                    domain = r;
-                }
-            }
-
-            
-            /* Port. */
-            r = strchr(s, ':');
-            if (r) {
-                *r++ = 0;
-                sin.sin_port = atoi(r);
-                if (!sin.sin_port) {
-                    struct servent *se;
-                    se = getservbyname(r, "tcp");
-                    if (!se) {
-                        log_print(LOG_ERR, _("%s: specified listen address `%s' has invalid port `%s'"), configfile, s, r);
-                        continue;
-                    } else sin.sin_port = se->s_port;
-                } else sin.sin_port = htons(sin.sin_port);
-            } else sin.sin_port = htons(110); /* pop-3 */
-            
-            /* Address. */
-            if (!inet_aton(s, &(sin.sin_addr))) {
-                struct hostent *he;
-                he = gethostbyname(s);
-                if (!he) {
-                    log_print(LOG_ERR, _("%s: gethostbyname: specified listen address `%s' is invalid"), configfile, s);
-                    continue;
-                } else memcpy(&(sin.sin_addr), he->h_addr, sizeof(struct in_addr));
-            }
-
-#ifdef MASS_HOSTING
-            L = listener_new(&sin, domain, regex);
-#else
-            L = listener_new(&sin, domain);
-#endif
-            if (L) {
-                vector_push_back(listeners, item_ptr(L));
-#ifdef MASS_HOSTING
-                if (L->have_re)
-                    log_print(LOG_INFO, _("listening on address %s, port %d, regex /%s/"), inet_ntoa(L->sin.sin_addr), htons(L->sin.sin_port), L->regex);
-                else
-#endif
-                log_print(LOG_INFO, _("listening on address %s, port %d, domain %s"), inet_ntoa(L->sin.sin_addr), htons(L->sin.sin_port), (L->domain ? L->domain : _("(none)")));
-            }
-        }
-
-        tokens_delete(t);
-    }
+    if (s) 
+        parse_listeners(s);
 
     if (listeners->n_used == 0) {
         log_print(LOG_ERR, _("%s: no listen addresses obtained; exiting"), configfile);

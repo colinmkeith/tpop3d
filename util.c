@@ -209,6 +209,17 @@ char *xstrdup(const char *s) {
 }
 #endif  /* !MTRACE_DEBUGGING */
 
+/* xstrndup STRING COUNT
+ * Allocate a new buffer and copy in to it the first COUNT bytes of STRING,
+ * terminating it with a null. */
+char *xstrndup(const char *s, const size_t count) {
+    char *S;
+    S = xmalloc(count + 1);
+    memcpy(S, s, count);
+    S[count] = 0;
+    return S;
+}
+
 /* md5_digest:
  * Make an MD5 digest of some data. */
 void md5_digest(const void *v, const size_t n, unsigned char *md5) {

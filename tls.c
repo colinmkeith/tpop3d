@@ -34,18 +34,18 @@ static int tls_getpass(char *buf, int size, int rwflag, void *userdata) {
     return strlen(buf);
 }
 
-/* tls_init:
+/* tls_init
  * Global TLS initialisation. */
 int tls_init(void) {
     SSL_load_error_strings();
     SSL_library_init();
 }
 
-/* tls_create_context:
- * Create a new SSL_CTX using the passed certificate and private key files. If
- * the private key file is NULL, then we attempt to read the private key from
- * the certificate file. Returns a valid SSL context on success or NULL on
- * failure. */
+/* tls_create_context CERTFILE PKEYFILE
+ * Create a new SSL_CTX, reading the certificate and private key from CERTFILE
+ * and PKEYFILE. If PKEYFILE is NULL, then we attempt to read the private key
+ * from the certificate file. Returns a valid SSL context on success or NULL
+ * on failure. */
 SSL_CTX *tls_create_context(const char *certfile, const char *pkeyfile) {
     int ret;
     SSL_CTX *ctx;
@@ -79,6 +79,9 @@ SSL_CTX *tls_create_context(const char *certfile, const char *pkeyfile) {
         SSL_CTX_free(ctx);
         return NULL;
     }
+
+    /* Set various useful options on the context. */
+    SSL_CTX_set_mode(ctx, SSL_MODE_ENABLE_PARTIAL_WRITE | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
 
     return ctx;
 }
