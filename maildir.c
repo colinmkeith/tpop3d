@@ -15,22 +15,92 @@
 
 static const char rcsid[] = "$Id$";
 
-#include <sys/types.h>     /* u_int_* for dirent.h */
-#include <dirent.h>        /* DIR, etc */
-#include <syslog.h>        /* LOG_* */
-#include <unistd.h>        /* chdir() */
-#include <string.h>
-#include <stdlib.h>
-#include <sys/fcntl.h>     /* O_RDONLY */
-#include <sys/time.h>
-#include <stdio.h>         /* rename() */
-#include <errno.h>
-#include <unistd.h>
+#include <sys/types.h>
 
+#include <dirent.h>
+#include <errno.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <syslog.h>
+#include <unistd.h>
+#include <utime.h>
+
+#include <sys/fcntl.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+
+#include "config.h"
 #include "connection.h"
 #include "mailbox.h"
 #include "util.h"
 #include "vector.h"
+
+/*
+ * Although maildir is a locking-free mailstore, we optionally support the
+ * exclusive locking of maildirs so that we can implement the RFC1939
+ * semantics where POP3 sessions are exclusive. To do this we create a lock
+ * directory called .poplock in the root of the maildir. This is convenient
+ * because mkdir(2) is atomic, even on NFS.
+ *
+ */
+
+/* MAILDIR_LOCK_LIFETIME
+ * How long a maildir lock lasts if it is never unlocked. */
+#define MAILDIR_LOCK_LIFETIME   1800
+
+/* maildir_lock DIRECTORY
+ * Attempt to atomically create a .poplock lock directory in DIRECTORY. Returns
+ * 1 on success or 0 on failure. If such a directory exists and is older than
+ * MAILDIR_LOCK_LIFETIME, we will update the time in it, claiming the lock
+ * ourselves. */
+int maildir_lock(const char *dirname) {
+    char *lockdirname = NULL;
+    int ret = 0;
+
+    lockdirname = xmalloc(strlen(dirname) + sizeof("/.poplock"));
+    sprintf(lockdirname, "%s/.poplock", dirname);
+    if (mkdir(lockdirname, 0777) == -1) {
+        if (errno == EEXIST) {
+            /* 
+             * Already locked. Now we have a problem, because we can't
+             * atomically discover the creation time of the directory and
+             * update it. For the moment, just do this the nonatomic way and
+             * hope for the best. It's not too serious since we now react
+             * properly in the case that the message has been deleted by
+             * another user.
+             */
+            struct stat st;
+            if (stat(lockdirname, &st) == -1)
+                log_print(LOG_ERR, _("maildir_lock: %s: could not stat .poplock directory: %m"), dirname);
+            else if (st.st_atime < time(NULL) - MAILDIR_LOCK_LIFETIME) {
+                /* XXX Race condition here. */
+                if (utime(lockdirname, NULL) == -1)
+                    log_print(LOG_ERR, _("maildir_lock: %s: could not update access time on .poplock directory: %m"), dirname);
+                else {
+                    log_print(LOG_WARNING, _("maildir_lock: %s: grabbed stale (age %d:%02d) lock"), dirname, (int)(time(NULL) - st.st_atime) / 60, (int)(time(NULL) - st.st_atime) % 60);
+                    ret = 1;
+                }
+            }
+        } else
+            log_print(LOG_ERR, _("maildir_lock: %s: could not create .poplock directory: %m"), dirname);
+    } else
+        ret = 1;
+
+    if (lockdirname)
+        xfree(lockdirname);
+    return ret;
+}
+
+/* maildir_unlock DIRECTORY
+ * Remove any .poplock lock directory in DIRECTORY. */
+void maildir_unlock(const char *dirname) {
+    char *lockdirname;
+    lockdirname = xmalloc(strlen(dirname) + sizeof("/.poplock"));
+    sprintf(lockdirname, "%s/.poplock", dirname);
+    rmdir(lockdirname); /* Nothing we can do if this fails. */
+}
+
 
 /* maildir_make_indexpoint:
  * Make an indexpoint to put in a maildir. */
@@ -59,8 +129,8 @@ static void maildir_make_indexpoint(struct indexpoint *m, const char *filename, 
     m->mtime = mtime;
 }
 
-/* maildir_build_index:
- * Build an index of a maildir. subdir is one of cur, tmp or new; time is the
+/* maildir_build_index MAILDIR SUBDIR TIME
+ * Build an index of the MAILDIR; SUBDIRis one of cur, tmp or new; TIME is the
  * time at which the operation started, used to ignore messages delivered
  * during processes. Returns 0 on success, -1 otherwise. */
 int maildir_build_index(mailbox M, const char *subdir, time_t time) {
@@ -107,15 +177,15 @@ int maildir_build_index(mailbox M, const char *subdir, time_t time) {
     return 0;
 }
 
-/* maildir_sort_callback:
+/* maildir_sort_callback A B
  * qsort(3) callback for ordering messages in a maildir. */
 int maildir_sort_callback(const void *a, const void *b) {
     const struct indexpoint *A = a, *B = b;
     return A->mtime - B->mtime;
 }
 
-/* maildir_new:
- * Create a mailbox object from a maildir. */
+/* maildir_new DIRECTORY
+ * Create a mailbox object from the named DIRECTORY. */
 mailbox maildir_new(const char *dirname) {
     mailbox M, failM = NULL;
     struct timeval tv1, tv2;
@@ -123,7 +193,7 @@ mailbox maildir_new(const char *dirname) {
  
     alloc_struct(_mailbox, M);
     
-    M->delete = mailbox_delete;                 /* generic destructor */
+    M->delete = maildir_delete;                 /* generic destructor */
     M->apply_changes = maildir_apply_changes;
     M->sendmessage = maildir_sendmessage;
 
@@ -137,6 +207,12 @@ mailbox maildir_new(const char *dirname) {
         goto fail;
     } else
         M->name = xstrdup(dirname);
+
+    /* Optionally, try to lock the maildir. */
+    if (config_get_bool("maildir-exclusive-lock") && !maildir_lock(M->name)) {
+        log_print(LOG_INFO, _("maildir_new: %s: couldn't lock maildir"), dirname);
+        goto fail;
+    }
     
     gettimeofday(&tv1, NULL);
     
@@ -162,32 +238,128 @@ fail:
     return failM;
 }
 
-/* maildir_sendmessage:
- * Send the header and n lines of the body of message number i from the
- * maildir, escaping lines which begin . as required by RFC1939. Returns 1
- * on success or 0 on failure. The whole message is sent if n == -1.
- *
- * XXX Assumes that maildirs use only '\n' to indicate EOL. */
+/* maildir_delete MAILDIR
+ * Destructor for MAILDIR; this does nothing maildir-specific unless maildir
+ * locking is enabled, in which case we must unlock it. */
+void maildir_delete(mailbox M) {
+    if (config_get_bool("maildir-exclusive-lock"))
+        maildir_unlock(M->name);
+    mailbox_delete(M);
+}
+
+/* maildir_open_message_file MESSAGE
+ * Return a file descriptor on the file associated with MESSAGE. If it has
+ * changed name since then, we try to find the file and update MESSAGE. If we
+ * can't find the MESSAGE, return -1. */
+static int open_message_file(struct indexpoint *m) {
+    int fd;
+    DIR *d;
+    struct dirent *de;
+    size_t msgnamelen;
+    
+    fd = open(m->filename, O_RDONLY);
+    if (fd != -1)
+        return fd;
+    
+    /* 
+     * Where's that message?
+     */
+    
+    /* Possibility 1: message was in new/, and is now in cur/ with a :2,S
+     * suffix. */
+    if (strncmp(m->filename, "new/", 4)) {
+        char *name;
+        name = xmalloc(strlen(m->filename) + sizeof(":2,S"));
+        sprintf(name, "cur/%s:2,S", m->filename + 4);
+        if ((fd = open(name, O_RDONLY)) != -1) {
+            /* We win! */
+            xfree(m->filename);
+            m->filename = name;
+            return fd;
+        } else if (errno != ENOENT) {
+            /* Bad news. */
+            log_print(LOG_ERR, "maildir_open_message_file: %s: %m", name);
+            xfree(name);
+            return -1;
+        }
+    }
+
+    /* Possibility 2: message is now in cur with some random suffix. This is
+     * really bad, because we need to rescan the whole maildir. But this
+     * shouldn't happen very often. */
+
+    /* Figure out the name of the message. */
+    msgnamelen = strcspn(m->filename + 4, ":");
+    
+    if (!(d = opendir("cur"))) {
+        log_print(LOG_ERR, "maildir_open_message_file: cur: %m");
+        return -1;
+    }
+
+    while ((de = readdir(d))) {
+        /* Compare base name of this message against the new message. */
+        if (strncmp(de->d_name, m->filename + 4, msgnamelen) == 0
+            && (de->d_name[msgnamelen] == ':' || de->d_name[msgnamelen] == 0)) {
+            char *name;
+            name = xmalloc(strlen(de->d_name) + sizeof("cur/"));
+            sprintf(name, "cur/%s", de->d_name);
+            if ((fd = open(name, O_RDONLY)) != -1) {
+                closedir(d);
+                xfree(m->filename);
+                m->filename = name;
+                return fd;
+            } else {
+                /* Either something's gone wrong or the message has just been
+                 * moved or deleted. Just give up at this point. */
+                closedir(d);
+                xfree(name);
+                return -1;
+            }
+        }
+    }
+
+    log_print(LOG_ERR, _("maildir_open_message_file: %s: can't find message"), m->filename);
+
+    /* Message must have been deleted. */
+    return -1;
+}
+
+/* maildir_sendmessage MAILDIR CONNECTION MSGNUM LINES
+ * Send a +OK response and the header and the given number of LINES of the body
+ * of message number MSGNUM from MAILDIR escaping lines which begin . as
+ * required by RFC1939, or, if it cannot, a -ERR error response.  Returns 1 on
+ * is -1. Sends a +OK / -ERR message in front of the message itself. Note that
+ * the maildir specification says that messages use only `\n' to indicate EOL,
+ * though some extended formats don't. We assume that the specification is
+ * obeyed. It's possible that the message will have moved or been deleted under
+ * us, in which case we make some effort to find the new version. */
 int maildir_sendmessage(const mailbox M, connection c, const int i, int n) {
     struct indexpoint *m;
     int fd, status;
     
-    if (!M) return 0;
-    if (i < 0 || i >= M->num) return 0;
-    m = M->index +i;
-    fd = open(m->filename, O_RDONLY);
-    if (fd == -1) {
-        log_print(LOG_ERR, "maildir_sendmessage: open(%s): %m", m->filename);
-        return 0;
+    if (!M || i < 0 || i >= M->num) {
+        /* Shouldn't happen. */
+        connection_sendresponse(c, 0, _("Unable to send that message"));
+        return -1;
     }
-    log_print(LOG_INFO, "maildir_sendmessage: sending message %d (%s) size %d bytes", i+1, m->filename, m->msglength);
+    
+    m = M->index +i;
+    
+    if ((fd = open_message_file(m)) == -1) {
+        connection_sendresponse(c, 0, _("Can't send that message; it may have been deleted by a concurrent session"));
+        log_print(LOG_ERR, "maildir_sendmessage: unable to send message %d", i + 1);
+        return -1;
+    }
+    
+    log_print(LOG_INFO, _("maildir_sendmessage: sending message %d (%s) size %d bytes"), i + 1, m->filename, m->msglength);
+
     status = connection_sendmessage(c, fd, 0 /* offset */, 0 /* skip */, m->msglength, n);
     close(fd);
 
     return status;
 }
 
-/* maildir_apply_changes:
+/* maildir_apply_changes MAILDIR
  * Apply deletions to a maildir. */
 int maildir_apply_changes(mailbox M) {
     struct indexpoint *m;

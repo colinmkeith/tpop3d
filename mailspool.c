@@ -346,9 +346,14 @@ int mailspool_build_index(mailbox M, char *filemem) {
 int mailspool_sendmessage(const mailbox M, connection c, const int i, int n) {
     struct indexpoint *x;
 
-    if (!M) return 0;
-    if (i < 0 || i >= M->num) return 0;
+    if (!M || i < 0 || i >= M->num) {
+        /* Shouldn't happen. */
+        connection_sendresponse(c, 0, _("Unable to send that message"));
+        return -1;
+    }
+
     x = M->index + i;
+    
     /* XXX I think that this should send msglength - 1; that is, it's sending
      * the first \n of the `\n\nFrom '. */
     return connection_sendmessage(c, M->fd, x->offset, x->length + 1, x->msglength, n);

@@ -56,10 +56,14 @@ $Id$
 * Optionally, don't log to syslog
 
 
+* Better control over logging verbosity
+
+
 * POP3 extended response codes (RFC2449)
 
 
 * setproctitle
 
 
-* Allow case-insensitive process names.
+* Allow case-insensitive user names.
+

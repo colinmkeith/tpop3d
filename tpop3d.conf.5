@@ -228,6 +228,12 @@ the specified cache file for a given mailspool; therefore, it is recommended
 that the mailspool index files be stored in a directory to which users would
 not customarily have access, for instance /var/spool/tpop3d.
 .TP
+\fBmaildir-exclusive-lock\fP: (\fByes\fP|\fBtrue\fP)
+Indicates that \fBtpop3d\fP should attempt to lock maildir mailboxes for
+exclusive access, so that it more closely follows the behaviour described in
+RFC1939. Even if not specified, \fBtpop3d\fP behaves intelligently when a
+message in a maildir is moved or deleted, so this option is not necessary.
+.TP
 .nf
 \fBtcp-wrappers-name\fP: \fIname\fP
 .fi

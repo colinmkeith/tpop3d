@@ -4,29 +4,47 @@ $Id$
 1.5.1
 
 tpop3d now supports the WHOSON protocol (http://whoson.sourceforge.net/) for
-POP-before-SMTP relaying, thanks to Arkadiusz Miskiewicz. Added support for
-`mass virtual hosting', where the domain name used for a connection is based
-upon the name associated with the address to which a client connects. Made a
-small change to the documentation to make it clearer. tpop3d now obeys
-configure's --sysconfdir option. Improved the performance of the mailspool
-parser. Fixed a problem in the command parsing code which could cause problems
-with Eudora's command pipelining; thanks to Shin Zukeran for this fix. Fixed a
-minor problem in the PAM code, thanks to Christian Nordmann, and also added
-facility to use auth-pam for authenticating users who have no UNIX account
-based on his patch. Fixed a bug which could cause a crash if there were NULL
-values in a database being used by auth-mysql. Added scripts/tpop3dtraffic,
-which extracts the identity of the heaviest POP3 users from logfiles. Added a
-permit-empty-passwords option, default no, largely to protect LDAP users who
-left LDAP anonymous authentication switched on.... The I/O layer was rewritten
-to use non-blocking I/O throughout. Support for TLS was added. Connections are
-now frozen briefly after a failed authentication using code adapted from a
-contribution by Yann Grossel, who also contributed support for MySQL server
-failover for auth-mysql; a consequence of this is that MySQL usernames and
-passwords are no longer cleared from memory by tpop3d. tpop3d will now remove a
-stale lock files for mailspools. Various code tidyings-up. Incorporated a
-patch from Jonathan Oddy to fix a pipelining problem with bad clients. Added
-a nasty (but optional) hack to auth-pam to work around memory leaks in buggy
-PAM implementations.
+POP-before-SMTP relaying, thanks to Arkadiusz Miskiewicz.
+
+Added support for `mass virtual hosting', where the domain name used for a
+connection is based upon the name associated with the address to which a client
+connects.
+
+Improved the clarity of the documentation slightly. tpop3d now obeys
+configure's --sysconfdir option.
+
+Improved the performance of the mailspool parser. Also, tpop3d will now remove
+a stale lock files for mailspools.
+
+Added an option to lock maildirs when accessing them, and fixed the maildir
+code to cope with cases where a message file is moved or deleted during a
+session.
+
+Fixed a problem in the command parsing code which could cause problems with
+Eudora's command pipelining; thanks to Shin Zukeran for this fix. Also
+incorporated a patch from Jonathan Oddy to fix a pipelining problem with bad
+clients.
+
+Fixed a minor problem in the PAM code, thanks to Christian Nordmann, and also
+added facility to use auth-pam for authenticating users who have no UNIX
+account, based on his patch. Added a nasty (but optional) hack to auth-pam to
+work around memory leaks in buggy PAM implementations.
+
+Added scripts/tpop3dtraffic, which extracts the identity of the heaviest POP3
+users from logfiles.
+
+Added a permit-empty-passwords option, default no, largely to protect LDAP
+users who left LDAP anonymous authentication switched on....
+
+The I/O layer was rewritten to use non-blocking I/O throughout. Support for TLS
+was added. Connections are now frozen briefly after a failed authentication
+using code adapted from a contribution by Yann Grossel, who also contributed
+support for MySQL server failover for auth-mysql; a consequence of this is that
+MySQL usernames and passwords are no longer cleared from memory by tpop3d.
+Also fixed a bug which could cause a crash if there were NULL values in a
+database being used by auth-mysql.
+
+Various code tidyings-up.
 
 1.4.2
 

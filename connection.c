@@ -399,13 +399,20 @@ int connection_sendline(connection c, const char *s) {
 }
 
 /* connection_sendmessage:
- * Send to the connected peer the header and up to n lines of the body of a
- * message which begins at offset msgoffset + skip in the file referenced by
- * fd, which is assumed to be a mappable object. Lines which begin . are
- * escaped as required by RFC1939, and each line is terminated with `\r\n'. If
- * n is -1, the whole message is sent. Returns the number of bytes written on
- * success or -1 on failure. Assumes the message on disk uses only `\n' to
- * indicate EOL. */
+ * Send to the connected peer a +OK response followed by the header and up to n
+ * lines of the body of a message which begins at offset msgoffset + skip in
+ * the file referenced by fd, which is assumed to be a mappable object. Lines
+ * which begin . are escaped as required by RFC1939, and each line is
+ * terminated with `\r\n'. If n is -1, the whole message is sent.
+ *
+ * RFC1939 doesn't define what a server which encounters an error half-way
+ * through sending a message. In any case it's clear that we mustn't send the
+ * final ., since that would result in the user obtaining a truncated message.
+ * So we return -1 if the message could not be sent but a -ERR response was
+ * transmitted to the client, -2 if sending failed after a +OK response was
+ * sent, or the number of bytes written on success.
+ *
+ * Assumes the message on disk uses only `\n' to indicate EOL. */
 int connection_sendmessage(connection c, int fd, size_t msgoffset, size_t skip, size_t msglength, int n) {
     char *filemem;
     char *p, *q, *r;
@@ -419,9 +426,12 @@ int connection_sendmessage(connection c, int fd, size_t msgoffset, size_t skip, 
     filemem = mmap(0, length, PROT_READ, MAP_PRIVATE, fd, offset);
     if (filemem == MAP_FAILED) {
         log_print(LOG_ERR, "connection_sendmessage: mmap: %m");
-        return -1;
+        connection_sendresponse(c, 0, _("Cannot send message"));
+        return -1; /* Failure before +OK sent. */
     }
 
+    connection_sendresponse(c, 1, _("Message follows"));
+    
     /* Find the beginning of the message headers */
     p = filemem + (msgoffset % PAGESIZE);
     r = p + msglength;
@@ -452,7 +462,7 @@ int connection_sendmessage(connection c, int fd, size_t msgoffset, size_t skip, 
     if (!connection_send(c, "\r\n", 2)) {
         log_print(LOG_ERR, _("connection_sendmessage: send failure"));
         munmap(filemem, length);
-        return -1;
+        return -2;
     }
     
     /* Now send the message itself */
@@ -479,14 +489,15 @@ int connection_sendmessage(connection c, int fd, size_t msgoffset, size_t skip, 
         log_print(LOG_ERR, "connection_sendmessage: munmap: %m");
     
     errno = 0;
+
     if (!connection_send(c, ".\r\n", 3)) {
         log_print(LOG_ERR, _("connection_sendmessage: send failure"));
-        return -1;
+        return -2;
     } else return nwritten + 3;
 
 write_failure:
     log_print(LOG_ERR, _("connection_sendmessage: send failure"));
     munmap(filemem, length);
-    return -1;
+    return -2;
 }
 

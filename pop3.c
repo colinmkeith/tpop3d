@@ -288,21 +288,22 @@ static enum connection_action do_retr(connection c, const int msg_num) {
             connection_sendresponse(c, 0, _("That message is no more."));
         else {
             int n;
-
+            
             if (verbose)
-                log_print(LOG_DEBUG, _("connection_do: client %s: sending message %d (%d bytes)"),
+                log_print(LOG_DEBUG, _("do_retr: client %s: sending message %d (%d bytes)"),
                         c->idstr, msg_num + 1, (int)curmsg->msglength);
-            if (!(connection_sendresponse(c, 1, _("Message follows:"))))
+        
+            if ((n = c->m->sendmessage(c->m, c, msg_num, -1)) == -2)
                 return close_connection;
-            if ((n = c->m->sendmessage(c->m, c, msg_num, -1)) == -1) {
-                connection_sendresponse(c, 0, _("Oops"));
-                return close_connection;
-            }
-
+            
             /* That might have taken a long time. */
             c->idlesince = time(NULL);
-            if (verbose)
-                log_print(LOG_DEBUG, _("connection_do: client %s: sent message %d"), c->idstr, msg_num + 1);
+            if (verbose) {
+                if (n >= 0)
+                    log_print(LOG_DEBUG, _("do_retr: client %s: sent message %d"), c->idstr, msg_num + 1);
+                else
+                    log_print(LOG_DEBUG, _("do_retr: client %s: failed to send message %d"), c->idstr, msg_num + 1);
+            }
         }
     } else
         connection_sendresponse(c, 0, _("Which message do you want to see?"));
@@ -322,21 +323,23 @@ static enum connection_action do_top(connection c, const int msg_num, const int 
     else if (curmsg->deleted)
         connection_sendresponse(c, 0, _("That message is no more."));
     else {
+        int n;
+        
         if (verbose)
-            log_print(LOG_DEBUG, _("connection_do: client %s: sending headers and up to %d lines of message %d (< %d bytes)"),
+            log_print(LOG_DEBUG, _("do_top: client %s: sending headers and up to %d lines of message %d (< %d bytes)"),
                     c->idstr, nlines, msg_num + 1, (int)curmsg->msglength);
-        if (!(connection_sendresponse(c, 1, _("Message follows:"))))
+        
+        if ((n = c->m->sendmessage(c->m, c, msg_num, nlines)) == -2)
             return close_connection;
-
-        if (c->m->sendmessage(c->m, c, msg_num, nlines) == -1) {
-            connection_sendresponse(c, 0, _("Oops."));
-            return close_connection;
-        }
 
         /* That might have taken a long time. */
         c->idlesince = time(NULL);
-        if (verbose)
-            log_print(LOG_DEBUG, _("connection_do: client %s: sent headers and up to %d lines of message %d"), c->idstr, nlines, msg_num + 1);
+        if (verbose) {
+            if (n >= 0)
+                log_print(LOG_DEBUG, _("do_top: client %s: sent headers and up to %d lines of message %d"), c->idstr, nlines, msg_num + 1);
+            else
+                log_print(LOG_DEBUG, _("do_top: client %s: failed to send message %d"), c->idstr, msg_num + 1);
+        }
     }
     
     return do_nothing;

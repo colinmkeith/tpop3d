@@ -31,6 +31,26 @@ char *cfgdirectives[] = {
     "mailbox",
     "no-detach",
     "permit-empty-passwords",
+ 
+#if defined(MBOX_BSD) && defined(MBOX_BSD_SAVE_INDICES)
+    "mailspool-index",
+#endif
+    
+#ifdef USE_TCP_WRAPPERS
+    "tcp-wrappers-name",
+#endif
+
+#ifdef USE_DRAC
+    "drac-server",
+#endif
+
+#ifdef USE_WHOSON
+    "whoson-enable",
+#endif
+    
+#ifdef MBOX_MAILDIR
+    "maildir-exclusive-lock",
+#endif
 
 #ifdef USE_TLS
     "tls-bug-workarounds",
@@ -104,23 +124,7 @@ char *cfgdirectives[] = {
     "auth-flatfile-mail-group",
     "auth-flatfile-passwd-file",
 #endif /* AUTH_FLATFILE */
- 
-#if defined(MBOX_BSD) && defined(MBOX_BSD_SAVE_INDICES)
-    "mailspool-index",
-#endif
-    
-#ifdef USE_TCP_WRAPPERS
-    "tcp-wrappers-name",
-#endif
 
-#ifdef USE_DRAC
-    "drac-server",
-#endif
-
-#ifdef USE_WHOSON
-    "whoson-enable",
-#endif
-    
     /* final entry must be NULL */
     NULL};
 
