@@ -28,6 +28,8 @@ Ben Schumacher-- for bug fixes and useful commentary.
 
 Jason Clifford-- for an enhancement of the PAM code.
 
+Matthew Reimer-- for the $(serverhost) patch.
+
 Michael Klatsky and Marc Lewis-- for helping to fix bugs in the LDAP code.
 
 Angel Marin-- for the auth-flatfile authenticator.

@@ -340,11 +340,14 @@ query to use against any database schema. These should specify queries which
 return the mailbox file location, password hash, Unix user and mailbox type,
 in that order. The variables \fB$(user)\fP, \fB$(local_part)\fP and
 \fB$(domain)\fP are escaped and substituted into the string, in the same way
-as for the mailbox path specifications described above. The nature of password
-hashes is described more fully in README.auth_mysql in the distribution. If
-you do not wish to use either of USER/PASS or APOP authentication, specify the
-value \fBnone\fP for the relevant configuration directive; otherwise, the
-default (vmail-sql) query will be used.
+as for the mailbox path specifications described above. In addition, the
+numerical IP address to which the client connected is substituted for
+\fB$(serverhost)\fP.
+
+The nature of password hashes is described more fully in README.auth_mysql in
+the distribution. If you do not wish to use either of USER/PASS or APOP
+authentication, specify the value \fBnone\fP for the relevant configuration
+directive; otherwise, the default (vmail-sql) query will be used.
 
 As an example, if you have a table called users which contains fields login,
 domain, cryptpw and the Maildir mailboxes for the users are under
@@ -536,6 +539,9 @@ email address.
 .TP
 \fBclienthost\fP = \fIIP number\fP
 The host from which the client is connected to the POP server.
+.TP
+\fBserverhost\fP = \fIIP number\fP
+The address to which the client connected on the POP server.
 .TP
 \fBtimestamp\fP = \fItimestamp string\fP
 (APOP only.) The `timestamp' string sent by the server to this client.

@@ -286,7 +286,7 @@ void fork_child(connection c) {
              * into the authentication drivers in case they want to do
              * something with the information for POP-before-SMTP relaying. */
             log_print(LOG_INFO, _("fork_child: %s: successfully authenticated with %s"), c->idstr, c->a->auth);
-            authswitch_onlogin(c->a, inet_ntoa(c->sin.sin_addr));
+            authswitch_onlogin(c->a, c->remote_ip, c->local_ip);
            
             /* Dispose of our copy of the connection. */
             close(c->s);

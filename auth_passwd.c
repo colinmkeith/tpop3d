@@ -43,7 +43,7 @@ static const char rcsid[] = "$Id$";
  * Attempt to authenticate user and pass using /etc/passwd or /etc/shadow,
  * as configured at compile-time. This is not a virtual-domains authenticator,
  * so it only uses user. */
-authcontext auth_passwd_new_user_pass(const char *user, const char *local_part, const char *domain, const char *pass, const char *host /* unused */) {
+authcontext auth_passwd_new_user_pass(const char *user, const char *local_part, const char *domain, const char *pass, const char *clienthost /* unused */, const char *serverhost) {
     struct passwd *pw;
 #ifdef AUTH_PASSWD_SHADOW
     struct spwd *spw;

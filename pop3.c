@@ -129,7 +129,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     return do_nothing;
                 }
 
-                c->a = authcontext_new_apop(name, NULL, c->domain, c->timestamp, digest, inet_ntoa(c->sin.sin_addr));
+                c->a = authcontext_new_apop(name, NULL, c->domain, c->timestamp, digest, c->remote_ip, c->local_ip);
  
                 /* Maybe retry authentication with an added or removed domain
                  * name. */
@@ -139,13 +139,13 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     n = strcspn(name, DOMAIN_SEPARATORS);
                     if (append_domain && c->domain && n == len)
                         /* OK, if we have a domain name, try appending that. */
-                        c->a = authcontext_new_apop(name, name, c->domain, c->timestamp, digest, inet_ntoa(c->sin.sin_addr));
+                        c->a = authcontext_new_apop(name, name, c->domain, c->timestamp, digest, c->remote_ip, c->local_ip);
                     else if (strip_domain && n != len) {
                         /* Try stripping off the supplied domain name. */
                         char *u;
                         u = xstrdup(name);
                         u[n] = 0;
-                        c->a = authcontext_new_apop(u, NULL, NULL, c->timestamp, digest, inet_ntoa(c->sin.sin_addr));
+                        c->a = authcontext_new_apop(u, NULL, NULL, c->timestamp, digest, c->remote_ip, c->local_ip);
                         xfree(u);
                     }
                 }
@@ -204,7 +204,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
 
         /* Do we now have enough information to authenticate using USER/PASS? */
         if (!c->a && c->user && c->pass) {
-            c->a = authcontext_new_user_pass(c->user, NULL, c->domain, c->pass, inet_ntoa(c->sin.sin_addr));
+            c->a = authcontext_new_user_pass(c->user, NULL, c->domain, c->pass, c->remote_ip, c->local_ip);
             
             /* Maybe retry authentication with an added or removed domain name. */
             if (!c->a && (append_domain || strip_domain)) {
@@ -213,13 +213,13 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 n = strcspn(c->user, DOMAIN_SEPARATORS);
                 if (append_domain && c->domain && n == len)
                     /* OK, if we have a domain name, try appending that. */
-                    c->a = authcontext_new_user_pass(c->user, c->user, c->domain, c->pass, inet_ntoa(c->sin.sin_addr));
+                    c->a = authcontext_new_user_pass(c->user, c->user, c->domain, c->pass, c->remote_ip, c->local_ip);
                 else if (strip_domain && n != len) {
                     /* Try stripping off the supplied domain name. */
                     char *u;
                     u = xstrdup(c->user);
                     u[n] = 0;
-                    c->a = authcontext_new_user_pass(u, NULL, NULL, c->pass, inet_ntoa(c->sin.sin_addr));
+                    c->a = authcontext_new_user_pass(u, NULL, NULL, c->pass, c->remote_ip, c->local_ip);
                     xfree(u);
                 }
             }

@@ -55,7 +55,7 @@ int auth_pam_conversation(int num_msg, const struct pam_message **msg, struct pa
 /* auth_pam_new_user_pass:
  * Attempt to authenticate user and pass using PAM. This is not a
  * virtual-domains authenticator, so it only looks at user. */
-authcontext auth_pam_new_user_pass(const char *user, const char *local_part, const char *domain, const char *pass, const char *host /* unused */) {
+authcontext auth_pam_new_user_pass(const char *user, const char *local_part, const char *domain, const char *pass, const char *clienthost /* unused */, const char *serverhost) {
     pam_handle_t *pamh = NULL;
     struct passwd pw, *pw2;
     int r, n = PAM_SUCCESS;
@@ -101,7 +101,7 @@ authcontext auth_pam_new_user_pass(const char *user, const char *local_part, con
     
     /* We want to be able to test against the client IP; make the remote host
      * information available to the PAM stack. */
-    r = pam_set_item(pamh, PAM_RHOST, host);
+    r = pam_set_item(pamh, PAM_RHOST, clienthost);
     
     if (r != PAM_SUCCESS) {
         log_print(LOG_ERR, "auth_pam_new_user_pass: pam_start: %s", pam_strerror(pamh, r));

@@ -232,7 +232,7 @@ stringmap auth_perl_callfn(const char *perlfn, const int nvars, ...) {
 /* auth_perl_new_apop:
  * Attempt to authenticate a user using APOP, via a perl subroutine. Much like
  * auth_other_new_apop. */
-authcontext auth_perl_new_apop(const char *name, const char *local_part, const char *domain, const char *timestamp, const unsigned char *digest, const char *host) {
+authcontext auth_perl_new_apop(const char *name, const char *local_part, const char *domain, const char *timestamp, const unsigned char *digest, const char *clienthost, const char *serverhost) {
 #define MISSING(k)     do { log_print(LOG_ERR, _("auth_perl_new_apop: missing key `%s' in response"), (k)); goto fail; } while(0)
 #define INVALID(k, v)  do { log_print(LOG_ERR, _("auth_perl_new_apop: invalid value `%s' for key `%s' in response"), (v), (k)); goto fail; } while(0)
     char digeststr[33];
@@ -249,9 +249,9 @@ authcontext auth_perl_new_apop(const char *name, const char *local_part, const c
         sprintf(p, "%02x", (unsigned int)*q);
 
     if (local_part && domain) {
-        if (!(S = auth_perl_callfn(apop_sub, 7, "method", "APOP", "user", name, "local_part", local_part, "domain", domain, "timestamp", timestamp, "digest", digeststr, "clienthost", host)))
+        if (!(S = auth_perl_callfn(apop_sub, 8, "method", "APOP", "user", name, "local_part", local_part, "domain", domain, "timestamp", timestamp, "digest", digeststr, "clienthost", clienthost, "serverhost", serverhost)))
             return NULL;
-    } else if (!(S = auth_perl_callfn(apop_sub, 5, "method", "APOP", "user", name, "timestamp", timestamp, "digest", digeststr, "clienthost", host)))
+    } else if (!(S = auth_perl_callfn(apop_sub, 6, "method", "APOP", "user", name, "timestamp", timestamp, "digest", digeststr, "clienthost", clienthost, "serverhost", serverhost)))
         return NULL;
 
     I = stringmap_find(S, "logmsg");
@@ -298,7 +298,7 @@ fail:
 
 /* auth_perl_new_user_pass:
  * Attempt to authenticate a user using USER/PASS, via a perl subroutine. */
-authcontext auth_perl_new_user_pass(const char *user, const char *local_part, const char *domain, const char *pass, const char *host) {
+authcontext auth_perl_new_user_pass(const char *user, const char *local_part, const char *domain, const char *pass, const char *clienthost, const char *serverhost) {
 #define MISSING(k)     do { log_print(LOG_ERR, _("auth_perl_new_user_pass: missing key `%s' in response"), (k)); goto fail; } while(0)
 #define INVALID(k, v)  do { log_print(LOG_ERR, _("auth_perl_new_user_pass: invalid value `%s' for key `%s' in response"), (v), (k)); goto fail; } while(0)
     stringmap S;
@@ -309,9 +309,9 @@ authcontext auth_perl_new_user_pass(const char *user, const char *local_part, co
         return NULL;
 
     if (local_part && domain) {
-        if (!(S = auth_perl_callfn(pass_sub, 6, "method", "PASS", "user", user, "local_part", local_part, "domain", domain, "pass", pass, "clienthost", host)))
+        if (!(S = auth_perl_callfn(pass_sub, 7, "method", "PASS", "user", user, "local_part", local_part, "domain", domain, "pass", pass, "clienthost", clienthost, "serverhost", serverhost)))
             return NULL;
-    } else if (!(S = auth_perl_callfn(pass_sub, 4, "method", "PASS", "user", user, "pass", pass, "clienthost", host)))
+    } else if (!(S = auth_perl_callfn(pass_sub, 5, "method", "PASS", "user", user, "pass", pass, "clienthost", clienthost, "serverhost", serverhost)))
         return NULL;
     
     if ((I = stringmap_find(S, "logmsg")))
@@ -357,11 +357,11 @@ fail:
 
 /* auth_perl_onlogin:
  * Pass details of a successful login to a perl subroutine. */
-void auth_perl_onlogin(const authcontext A, const char *host) {
+void auth_perl_onlogin(const authcontext A, const char *clienthost, const char *serverhost) {
     stringmap S;
     item *I;
 
-    if (!onlogin_sub || !(S = auth_perl_callfn(onlogin_sub, 5, "method", "ONLOGIN", "user", A->user, "local_part", A->local_part, "domain", A->domain, "clienthost", host)))
+    if (!onlogin_sub || !(S = auth_perl_callfn(onlogin_sub, 6, "method", "ONLOGIN", "user", A->user, "local_part", A->local_part, "domain", A->domain, "clienthost", clienthost, "serverhost", serverhost)))
         return;
     
     if ((I = stringmap_find(S, "logmsg")))

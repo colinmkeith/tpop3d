@@ -40,14 +40,14 @@ struct authdrv {
     
     /* Attempt to build authcontext from APOP; parameters are name, original
      * timestamp, supplied digest and the client host. */
-    authcontext (*auth_new_apop)(const char *user, const char *local_part, const char *domain, const char *timestamp, const unsigned char *digest, const char *host);
+    authcontext (*auth_new_apop)(const char *user, const char *local_part, const char *domain, const char *timestamp, const unsigned char *digest, const char *clienthost, const char *serverhost);
     
     /* Attempt to build authcontext from USER and PASS; parameters are name,
      * password and the client host. */
-    authcontext (*auth_new_user_pass)(const char *user, const char *local_part, const char *domain, const char *password, const char *host);
+    authcontext (*auth_new_user_pass)(const char *user, const char *local_part, const char *domain, const char *password, const char *clienthost, const char *serverhost);
 
     /* Function to call after any successful authentication. */
-    void        (*auth_onlogin)(const authcontext A, const char *clienthost);
+    void        (*auth_onlogin)(const authcontext A, const char *clienthost, const char *serverhost);
 
     /* Clear up any resources associated with this driver prior to a fork. */
     void        (*auth_postfork)(void);
@@ -67,10 +67,10 @@ char *username_string(const char *user, const char *local_part, const char *doma
 void authswitch_describe(FILE *fp);
 
 int authswitch_init(void);
-authcontext authcontext_new_apop(const char *name, const char *local_part, const char *domain, const char *timestamp, const unsigned char *digest, const char *host);
-authcontext authcontext_new_user_pass(const char *user, const char *local_part, const char *domain, const char *pass, const char *host);
+authcontext authcontext_new_apop(const char *name, const char *local_part, const char *domain, const char *timestamp, const unsigned char *digest, const char *clienthost, const char *serverhost);
+authcontext authcontext_new_user_pass(const char *user, const char *local_part, const char *domain, const char *pass, const char *clienthost, const char *serverhost);
 
-void authswitch_onlogin(const authcontext A, const char *host);
+void authswitch_onlogin(const authcontext A, const char *clienthost, const char *serverhost);
 void authswitch_postfork(void);
 void authswitch_close(void);
 

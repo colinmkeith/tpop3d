@@ -69,7 +69,7 @@ char *onlogin_query_template = NULL;
 int use_gid;
 gid_t mail_gid;
 
-static char *substitute_query_params(const char *temp, const char *user, const char *local_part, const char *domain, const char *clienthost);
+static char *substitute_query_params(const char *temp, const char *user, const char *local_part, const char *domain, const char *clienthost, const char *serverhost);
 
 /* MD5 crypt(3) routines. This is here so that you can migrate passwords from
  * the modern /etc/shadow crypt_md5 format used (optionally) by recent
@@ -353,7 +353,7 @@ extern int verbose; /* in main.c */
 /* auth_mysql_new_apop:
  * Attempt to authenticate a user via APOP, using the template SELECT query in
  * the config file or the default defined above otherwise. */
-authcontext auth_mysql_new_apop(const char *name, const char *local_part, const char *domain, const char *timestamp, const unsigned char *digest, const char *host /* unused */) {
+authcontext auth_mysql_new_apop(const char *name, const char *local_part, const char *domain, const char *timestamp, const unsigned char *digest, const char *clienthost /* unused */, const char *serverhost) {
     char *query = NULL;
     authcontext a = NULL;
     char *who;
@@ -368,7 +368,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *local_part, const 
     }
 
     /* Obtain the actual query to use. */
-    if (!(query = substitute_query_params(apop_query_template, name, local_part, domain, NULL)))
+    if (!(query = substitute_query_params(apop_query_template, name, local_part, domain, NULL, serverhost)))
         goto fail;
 
     if (verbose)
@@ -460,7 +460,7 @@ fail:
 /* auth_mysql_new_user_pass:
  * Attempt to authenticate a user via USER/PASS, using the template SELECT
  * query in the config file or the default defined above otherwise. */
-authcontext auth_mysql_new_user_pass(const char *user, const char *local_part, const char *domain, const char *pass, const char *host /* unused */) {
+authcontext auth_mysql_new_user_pass(const char *user, const char *local_part, const char *domain, const char *pass, const char *clienthost /* unused */, const char *serverhost) {
     char *query = NULL, *who;
     authcontext a = NULL;
 
@@ -474,7 +474,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *local_part, c
     }
 
     /* Obtain the actual query to use. */
-    if (!(query = substitute_query_params(user_pass_query_template, user, local_part, domain, NULL)))
+    if (!(query = substitute_query_params(user_pass_query_template, user, local_part, domain, NULL, serverhost)))
         goto fail;
 
     if (verbose)
@@ -606,7 +606,7 @@ fail:
  * If specified, perform a query (action) after a successful login. The
  * variables substituted in the template are $(local_part), $(domain) and
  * $(clienthost), the username, domain, and connecting client host. */
-void auth_mysql_onlogin(const authcontext A, const char *host) {
+void auth_mysql_onlogin(const authcontext A, const char *clienthost, const char *serverhost) {
     char *query;
 
     if (!mysql || !onlogin_query_template) return;
@@ -616,7 +616,7 @@ void auth_mysql_onlogin(const authcontext A, const char *host) {
         return;
     }
 
-    query = substitute_query_params(onlogin_query_template, A->user, A->local_part, A->domain, host);
+    query = substitute_query_params(onlogin_query_template, A->user, A->local_part, A->domain, clienthost, serverhost);
     if (!query)
         return;
 
@@ -655,8 +655,8 @@ void auth_mysql_close() {
 /* substitute_query_params
  * Given a query template, a localpart and a domain, return a copy of the
  * template with the fields filled in. */
-static char *substitute_query_params(const char *template, const char *user, const char *local_part, const char *domain, const char *clienthost) {
-    char *query, *u = NULL, *l = NULL, *d = NULL;
+static char *substitute_query_params(const char *template, const char *user, const char *local_part, const char *domain, const char *clienthost, const char *serverhost) {
+    char *query, *u = NULL, *l = NULL, *d = NULL, *c = NULL, *s = NULL;
     struct sverr err;
 
     /* Form escaped copies of the user and domain. */
@@ -673,19 +673,24 @@ static char *substitute_query_params(const char *template, const char *user, con
         mysql_escape_string(d, domain, strlen(domain));
     }
 
-    /* Do the substitution. */
     if (clienthost) {
-        char *c;
         c = xmalloc(strlen(clienthost) * 2 + 1);
         mysql_escape_string(c, clienthost, strlen(clienthost));
-        query = substitute_variables(template, &err, 4, "user", u, "local_part", l, "domain", d, "clienthost", c);
-        xfree(c);
-    } else
-        query = substitute_variables(template, &err, 3, "user", u, "local_part", l, "domain", d);
+    }
+
+    if (serverhost) {
+        s = xmalloc(strlen(serverhost) * 2 + 1);
+        mysql_escape_string(s, serverhost, strlen(serverhost));
+    }
+
+    /* Do the substitution. */
+    query = substitute_variables(template, &err, 5, "user", u, "local_part", l, "domain", d, "clienthost", c, "serverhost", s);
 
     if (!query && err.code != sv_nullvalue)
         log_print(LOG_ERR, _("substitute_query_params: %s near `%.16s'"), err.msg, template + err.offset);
-    
+
+    xfree(s);
+    xfree(c);
     xfree(u);
     xfree(l);
     xfree(d);

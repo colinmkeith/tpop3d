@@ -31,6 +31,9 @@ enum pop3_state {authorisation, transaction, update};
 typedef struct _connection {
     int s;                  /* connected socket                 */
     struct sockaddr_in sin; /* name of peer                     */
+    char *remote_ip;        /* ASCII remote IP address          */
+    struct sockaddr_in sin_local; /* name of local side         */
+    char *local_ip;         /* ASCII local IP address           */
     char *idstr;            /* some identifying information     */
     size_t nrd, nwr;        /* number of bytes read/written     */
     

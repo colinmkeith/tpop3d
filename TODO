@@ -1,17 +1,6 @@
 Things To Do
 $Id$
 
-* More authentication schemes
-
-  Virtual-domain schemes which use /etc/passwd-style flat text files seem to be
-  popular, but I do not make use of anything like this. However, it would be
-  relatively easy to implement such a thing. (This can now be done with
-  auth-other or auth-perl, but it might be desirable to have it in the main
-  program.) I do not intend to implement support for additional databases,
-  since it seems better to use the existing code in the various perl DBD
-  modules from auth-perl.
-
-
 * A proper code audit
 
   tpop3d is, as far as I know, free of obvious security deficiencies. I do not
@@ -69,11 +58,19 @@ $Id$
   tpop3d; in particular, it is more compatible with POP-before-SMTP relaying.
   There is example code in the OpenSSL distribution which would serve as the
   starting point for an implementation. However, there are issues with
-  blocking and non-blocking calls.
+  blocking and non-blocking calls. The current plan is to have tpop3d fork
+  a process to handle TLS, while the main daemon carries on doing its stuff.
 
 
 * Obey --sysconfdir.
 
 
-* Memory leak in auth-ldap?
+* Mass-hosting option
+
+  At the moment, if tpop3d listens on 0.0.0.0, the append-domain option can
+  only be used with one specified domain. Although Matthew Reimer's addition
+  of the $(serverhost) variable to the authentication code permits a workaround
+  for this, it would be helpful for tpop3d to be able to infer the domain name
+  from the actual IP address to which a connection is made.
+
 

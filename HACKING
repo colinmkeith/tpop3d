@@ -93,8 +93,7 @@ mailbox drivers in mind.
     /* foo:
      * Calculate the foo value of the passed string. The arguments and return
      * value of the function should be explained here, unless they are
-     * blindingly obvious.
-     */
+     * blindingly obvious. */
     int foo (const char *bar) {
         /* ... */
     }

@@ -89,6 +89,7 @@ static char *make_timestamp(const char *domain) {
 /* connection_new:
  * Create a connection object from a socket. */
 connection connection_new(int s, const struct sockaddr_in *sin, const char *domain) {
+    int n;
     connection c = NULL;
 
     c = xcalloc(1, sizeof *c);
@@ -96,11 +97,23 @@ connection connection_new(int s, const struct sockaddr_in *sin, const char *doma
     c->s = s;
     memcpy(&(c->sin), sin, sizeof(struct sockaddr_in));
 
+    n = sizeof(c->sin_local);
+    if (getsockname(s, (struct sockaddr *)&(c->sin_local), &n) < 0) {
+      log_print(LOG_WARNING, _("connection_new: getsockname error %d"), errno);
+      goto fail;
+    }
+
+    c->remote_ip = xstrdup(inet_ntoa(c->sin.sin_addr));
+    c->local_ip = xstrdup(inet_ntoa(c->sin_local.sin_addr));
+
     if (domain) c->domain = xstrdup(domain);
 
-    c->idstr = xmalloc(strlen(inet_ntoa(sin->sin_addr)) + 1 + (domain ? strlen(domain) : 0) + 16);
-    if (domain) sprintf(c->idstr, "[%d]%s/%s", s, inet_ntoa(sin->sin_addr), domain);
-    else sprintf(c->idstr, "[%d]%s", s, inet_ntoa(sin->sin_addr));
+    if (!c->domain)
+      c->domain = xstrdup(c->local_ip);
+
+    c->idstr = xmalloc(strlen(c->remote_ip) + 1 + (c->domain ? strlen(c->domain) : 0) + 16);
+    if (c->domain) sprintf(c->idstr, "[%d]%s/%s", s, c->remote_ip, c->domain);
+    else sprintf(c->idstr, "[%d]%s", s, c->remote_ip);
 
     c->p = c->buffer = xmalloc(c->bufferlen = MAX_POP3_LINE);
     if (!c->buffer) goto fail;
@@ -138,6 +151,8 @@ void connection_delete(connection c) {
     if (c->m) (c->m)->delete(c->m);
 
     if (c->domain)    xfree(c->domain);
+    if (c->remote_ip) xfree(c->remote_ip);
+    if (c->local_ip)  xfree(c->local_ip);
     if (c->idstr)     xfree(c->idstr);
     if (c->buffer)    xfree(c->buffer);
     if (c->timestamp) xfree(c->timestamp);

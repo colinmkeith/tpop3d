@@ -273,7 +273,7 @@ static int try_ldap_bind(LDAP *ld, char *who, char *passwd) {
 /* auth_ldap_new_user_pass:
  * Attempt to authenticate user against the directory, using a two-step
  * search/bind process. */
-authcontext auth_ldap_new_user_pass(const char *username, const char *local_part, const char *domain, const char *pass, const char *host /* unused */) {
+authcontext auth_ldap_new_user_pass(const char *username, const char *local_part, const char *domain, const char *pass, const char *clienthost /* unused */, const char *serverhost /* unused */) {
     authcontext a = NULL;
     char *filter = NULL, *who;
     LDAPMessage *ldapres = NULL, *user_attr = NULL;

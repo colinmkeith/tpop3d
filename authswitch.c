@@ -189,7 +189,7 @@ int authswitch_init(void) {
 
 /* authcontext_new_apop:
  * Attempts to authenticate the apop data with each driver in turn. */
-authcontext authcontext_new_apop(const char *user, const char *local_part, const char *domain, const char *timestamp, const unsigned char *digest, const char *host) {
+authcontext authcontext_new_apop(const char *user, const char *local_part, const char *domain, const char *timestamp, const unsigned char *digest, const char *clienthost, const char *serverhost) {
     authcontext a = NULL;
     const struct authdrv *aa;
     int *aar;
@@ -219,7 +219,7 @@ authcontext authcontext_new_apop(const char *user, const char *local_part, const
     }
     
     for (aa = auth_drivers, aar = auth_drivers_running; aa < auth_drivers_end; ++aa, ++aar)
-        if (*aar && aa->auth_new_apop && (a = aa->auth_new_apop(user, l, d, timestamp, digest, host))) {
+        if (*aar && aa->auth_new_apop && (a = aa->auth_new_apop(user, l, d, timestamp, digest, clienthost, serverhost))) {
             a->auth = xstrdup(aa->name);
             a->user = xstrdup(user);
             if (!a->local_part && l)
@@ -237,7 +237,7 @@ authcontext authcontext_new_apop(const char *user, const char *local_part, const
 
 /* authcontext_new_user_pass:
  * Attempts to authenticate user and pass with each driver in turn. */
-authcontext authcontext_new_user_pass(const char *user, const char *local_part, const char *domain, const char *pass, const char *host) {
+authcontext authcontext_new_user_pass(const char *user, const char *local_part, const char *domain, const char *pass, const char *clienthost, const char *serverhost) {
     authcontext a = NULL;
     const struct authdrv *aa;
     int *aar;
@@ -261,7 +261,7 @@ authcontext authcontext_new_user_pass(const char *user, const char *local_part, 
     }
 
     for (aa = auth_drivers, aar = auth_drivers_running; aa < auth_drivers_end; ++aa, ++aar)
-        if (*aar && aa->auth_new_user_pass && (a = aa->auth_new_user_pass(user, l, d, pass, host))) {
+        if (*aar && aa->auth_new_user_pass && (a = aa->auth_new_user_pass(user, l, d, pass, clienthost, serverhost))) {
             a->auth = xstrdup(aa->name);
             a->user = xstrdup(user);
             if (!a->local_part) {
@@ -285,7 +285,7 @@ authcontext authcontext_new_user_pass(const char *user, const char *local_part, 
  * Pass news of a successful login to any authentication drivers which are
  * interested in hearing about it. host is the IP address in dotted-quad
  * form. */
-void authswitch_onlogin(const authcontext A, const char *host) {
+void authswitch_onlogin(const authcontext A, const char *clienthost, const char *serverhost) {
     const struct authdrv *aa;
     int *aar;
     
@@ -303,7 +303,7 @@ void authswitch_onlogin(const authcontext A, const char *host) {
 
     for (aa = auth_drivers, aar = auth_drivers_running; aa < auth_drivers_end; ++aa, ++aar)
         if (*aar && aa->auth_onlogin)
-            aa->auth_onlogin(A, host);
+            aa->auth_onlogin(A, clienthost, serverhost);
 }
 
 /* authswitch_postfork:
