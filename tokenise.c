@@ -8,6 +8,7 @@
 
 static const char rcsid[] = "$Id$";
 
+#define _REENTRANT      /* needed on some systems to get strtok_r */
 #include <stdlib.h>
 #include <string.h>
 

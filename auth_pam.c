@@ -97,6 +97,7 @@ authcontext auth_pam_new_user_pass(const char *user, const char *pass) {
         use_gid = 1;
     }
 
+    /* This will generate a warning on Solaris; I can't see an easy fix. */
     conv.conv = auth_pam_conversation;
     conv.appdata_ptr = (void*)pass;
     

@@ -92,6 +92,11 @@ $Id$
   point for an implementation.
 
 
+* TCP wrappers support
+
+  This is easy to do and may be helpful for some users.
+
+
 * Different mailbox types for auth-mysql
 
   At the moment, auth-mysql selects the `default' mailbox type, by passing

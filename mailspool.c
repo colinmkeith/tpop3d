@@ -258,7 +258,7 @@ int mailspool_build_index(mailbox M, char *filemem) {
     char *p, *q;
     size_t len, len2;
     int first = 0;
-/* ts("call"); */
+
     if (!M || M->fd == -1) return -1;
 
     len = len2 = M->st.st_size;
@@ -273,7 +273,7 @@ int mailspool_build_index(mailbox M, char *filemem) {
             return -1;
         }
     }
-/* ts("setup"); */
+
     if (M->num > 0) {
         /* Perhaps we are parsing the tail of the file, after reading a
          * partial index?
@@ -286,7 +286,7 @@ int mailspool_build_index(mailbox M, char *filemem) {
         /* Nope, never seen this one before. */
         p = filemem - 2;
 
-/* ts("first"); */
+
     
     /* Extract all From lines from file */
     do {
@@ -305,7 +305,7 @@ int mailspool_build_index(mailbox M, char *filemem) {
             p = memstr(q, len2 - (q - filemem), "\n\nFrom ", 7);
         } else break;
     } while (p && p < filemem + len2);
-/* ts("parse"); */
+
     if (first < M->num) {
         struct indexpoint *t;
         /* OK, we're done, figure out the lengths */
@@ -328,7 +328,7 @@ int mailspool_build_index(mailbox M, char *filemem) {
             MD5Final(t->hash, &ctx);
         }
     }
-/* ts("lengths"); */
+
 #ifdef IGNORE_CCLIENT_METADATA
     /* Optionally, check whether the first message in the mailspool is
      * internal data used by c-client; such messages contain the following
@@ -352,7 +352,7 @@ int mailspool_build_index(mailbox M, char *filemem) {
         }
     }
 #endif /* IGNORE_CCLIENT_METADATA */
-/* ts("cclient"); */
+
     munmap(filemem, len);
 /* ts("munmap");     */
     return 0;
@@ -696,16 +696,16 @@ int mailspool_load_index(mailbox m) {
     int num, r;
 
     if (!m || m->fd == -1) goto fail;
-/* ts("start"); */
+
     indexfile = mailspool_find_index(m);
     if (!indexfile) goto fail;
-/* ts("find"); */
+
     fp = fopen(indexfile, "rt");
     if (!fp) {
         print_log(LOG_WARNING, "mailspool_load_index(%s): %m", indexfile);
         goto fail;
     }
-/* ts("open"); */
+
     /* Security. The file must have the correct permissions, and be owned by
      * ourselves.
      */
@@ -718,13 +718,13 @@ int mailspool_load_index(mailbox m) {
                             m->st.st_uid, getuid(), m->st.st_mode & 0777);
         goto fail;
     }
-/* ts("secure"); */
+
     /* OK, found an index file; let's try loading some data out of it. */
     if (fread(sigbuf, 1, sizeof(sigbuf) - 1, fp) != sizeof(sigbuf) - 1 || memcmp(sigbuf, index_signature, sizeof(sigbuf) - 1) != 0) {
         print_log(LOG_WARNING, _("mailspool_load_index(%s): index exists, but is of wrong format; ignoring"), indexfile);
         goto fail;
     }
-/* ts("signature"); */
+
     /* Should now get a bunch of offset/hash lines. Stuff these into the
      * mailbox object. Also mmap the real mailspool so we can check these.
      */
@@ -738,7 +738,6 @@ int mailspool_load_index(mailbox m) {
         print_log(LOG_ERR, "mailspool_load_index(%s): mmap: %m", m->name);
         goto fail;
     }
-/* ts("mmap"); */
 
     while (fscanf(fp, "%8x %8x %8x %32[0-9a-f]", &offset, &length, &msglength, hexdigest) == 4) {
         struct indexpoint x;
@@ -766,7 +765,6 @@ int mailspool_load_index(mailbox m) {
         /* OK, this message seems to have been indexed correctly.... */
         mailbox_add_indexpoint(m, &x);
     }
-/* ts("readverify"); */
 
     if (!feof(fp)) {
         print_log(LOG_WARNING, _("mailspool_load_index(%s): index exists, but has some stale or corrupt data"), indexfile);
@@ -779,9 +777,9 @@ int mailspool_load_index(mailbox m) {
 
 fail:
     if (fp) fclose(fp);
-/* ts("fclose"); */
+
     if (indexfile) free(indexfile);
-/* ts("free");  */
+
     /* Whatever happens, have a go at indexing the rest of the file. */
     num = m->num;
     r = mailspool_build_index(m, filemem);

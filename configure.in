@@ -12,7 +12,7 @@ dnl
 AC_INIT(auth_mysql.c)
 AC_CONFIG_AUX_DIR(config)
 AM_CONFIG_HEADER(configuration.h)
-AM_INIT_AUTOMAKE(tpop3d, "1.3.4pre2")
+AM_INIT_AUTOMAKE(tpop3d, "1.3.4")
 
 AC_DEFINE_UNQUOTED(TPOP3D_VERSION, "$VERSION", [The tpop3d version number])
 
@@ -365,7 +365,7 @@ if test x"$enable_flock" = x"yes" || test x"$enable_cclient" = x"yes" && test x"
 then
     if test x"$ac_cv_header_sys_file_h" != x"yes"
     then
-        AC_MSG_ERROR( [flock locking enabled, but can't find sys/file.h] )
+        AC_MSG_ERROR( [flock locking enabled (perhaps for cclient), but can't find sys/file.h] )
     fi
 fi
 
@@ -403,9 +403,9 @@ then
 
 fi
 
-if test x"$enable_flock" = x"yes"
+if test x"$enable_flock" = x"yes" || test x"$enable_cclient" = x"yes" && test x"$enable_cclient_uses_fcntl" = x"no"
 then
-    AC_CHECK_FUNC(flock, [], AC_MSG_ERROR([flock locking enabled but flock doesn't seem available.]))
+    AC_CHECK_FUNC(flock, [], AC_MSG_ERROR([flock locking enabled (perhaps for cclient) but flock doesn't seem available.]))
 
 fi
 

@@ -46,9 +46,8 @@ stringmap read_config_file(const char *f) {
     S = stringmap_new();
     if (!S) goto fail;
 
-    while (!feof(fp)) {
+    while (fgets(line, MAX_CONFIG_LINE, fp)) {
         char *key, *value, *r;
-        fgets(line, MAX_CONFIG_LINE, fp);
 
         key = strpbrk(line, "#\n");
         if (key) *key = 0;

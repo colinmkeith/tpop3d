@@ -16,12 +16,17 @@
 #endif /* HAVE_CONFIG_H */
 
 #include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #ifndef TPOP3D_VERSION
 #   define TPOP3D_VERSION   "(unknown)"
 #endif
 
-#define PAGESIZE        getpagesize()
+#ifndef PAGESIZE
+#   define PAGESIZE        getpagesize()
+#endif
 
 #if 0
 /* Primitive memory-leak debugging. */
