@@ -3,10 +3,10 @@ tpop3d, copyright (c) 2000 Chris Lightfoot <chris@ex-parrot.com>
 
 $Id$
 
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
 
 
 Introduction
@@ -99,4 +99,12 @@ address to which a user connects. This is controlled via the append-domain
 configuration option (see the manual page for more information). Single- and
 multiple-IP virtual domain hosting can therefore be operated from a single
 server.
+
+
+Mailing list
+
+tpop3d now has a mailing list, tpop3d-discuss@lists.beasts.org. This is a
+low-traffic mailing list which will also be used for announcements of new
+tpop3d revisions. To subscribe, send an email with the subject `subscribe' to
+tpop3d-discuss-request@lists.beasts.org.
 

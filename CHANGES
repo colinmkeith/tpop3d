@@ -1,6 +1,14 @@
 Changes for tpop3d
 $Id$
 
+1.2.4
+
+Fixes for a few minor bugs, and more intelligent signal handling. tpop3d now
+shuts down in a cleaner fashion on SIGTERM, and re-execs itself on receipt of
+SIGHUP. In addition, a new debugging option (-DAWFUL_BACKTRACE_HACK) is
+available on Linux; a few people have reported unexplained trouble and this
+will allow more useful data to be collected in the event of a failure.
+
 1.2.3
 
 Made logging clearer; fixed a potential problem with lock files for

@@ -43,21 +43,27 @@ static const char rcsid[] = "$Id$";
  */
 #define MAX_DATA_IN_FLIGHT      8192
 
+/* Data structure representing the config file, and global variable which we
+ * set from it.
+ */
+stringmap config;
+
+extern int append_domain;           /* Do we automatically try user@domain if user alone fails to authenticate? In pop3.c. */
+int log_stderr;                     /* Are log messages also sent to standard error? */
+int verbose;                        /* Should we be verbose about data going to/from the client? */
+int timeout_seconds = 30;           /* How long a period of inactivity may elapse before a client is dropped. */
+int max_running_children = 16;      /* How many children may exist at once. */
+
 /* net_loop:
  * Accept connections and put them into an appropriate state, calling
  * setuid() and fork() when appropriate. listen_addrs is a NULL-terminated
  * list of addresses on which to listen.
  */
-int num_running_children = 0;     /* How many children are active. */
-int max_running_children = 16;    /* How many children may exist at once. */
+int num_running_children = 0;       /* How many children are active. */
+int foad = 0, restart = 0;          /* Flags used to indicate that we should exit or should re-exec. */
+int post_fork = 0;                  /* Flag used to indicate that we are handling a connection in a child. */
 
-int foad = 0, restart = 0;        /* Flag used to indicate that we should exit. */
-
-int post_fork = 0;                /* Flag used to indicate that we are handling a connection in a child. */
-
-long int timeout_seconds = 30;
-
-connection this_child_connection; /* Stored here so that if a signal terminates the child, the mailspool will still get unlocked. */
+connection this_child_connection;   /* Stored here so that if a signal terminates the child, the mailspool will still get unlocked. */
 
 void net_loop(vector listen_addrs) {
     list connections = list_new();
@@ -302,14 +308,28 @@ void usage(FILE *fp) {
                 "\n");
 }
 
+/* config_get_int:
+ * Get an integer value from a config string. Returns 1 on success, -1 on
+ * failure, or 0 if no value was found.
+ */
+int config_get_int(const char *directive, int *value) {
+    item *I = stringmap_find(config, directive);
+    char *s, *t;
+    if (!value) return -1;
+    if (!I) return 0;
+
+    s = (char*)I->v;
+    if (!*s) return -1;
+    errno = 0;
+    *value = strtol(s, &t, 10);
+    if (*t) return -1;
+
+    return errno == ERANGE ? -1 : 1;
+}
+
 /* main:
  * Read config file, set up authentication and proceed to main loop.
  */
-stringmap config;
-extern int append_domain; /* Do we automatically try user@domain if user alone fails to authenticate? In pop3.c. */
-int log_stderr;           /* Are log messages also sent to standard error? */
-int verbose;              /* Should we be verbose about data going to/from the client? */
-
 char optstring[] = "+hdvf:";
 
 int main(int argc, char **argv, char **envp) {
@@ -445,27 +465,25 @@ int main(int argc, char **argv, char **envp) {
     if (I && (!strcmp(I->v, "yes") || !strcmp(I->v, "true"))) append_domain = 1;
 
     /* Find out how long we wait before timing out... */
-    I = stringmap_find(config, "timeout-seconds");
-    if (I) {
-        char * endptr;
-        errno = 0;
-        timeout_seconds = strtol(I->v, &endptr, 10);
-        if(endptr == I->v) {
-            print_log(LOG_ERR, "%s: value of `%s' for timeout-seconds does not make sense; exiting\n", configfile, (char *)I->v); 
+    switch (config_get_int("timeout-seconds", &timeout_seconds)) {
+        case 0:
+            timeout_seconds = 30;
+            break;
+
+        case -1:
+            print_log(LOG_ERR, "%s: value given for timeout-seconds does not make sense; exiting\n", configfile);
             return 1;
-        }
-        if(timeout_seconds < 0) {
-            print_log(LOG_ERR, "%s: cannot specify a negative value (`%s') for timeout-seconds; exiting\n", configfile, (char *)I->v); 
-            return 1;
-        }
-        if(errno == ERANGE) {
-            print_log(LOG_ERR, "%s: value of `%s' is too large; exiting\n", configfile, (char *)I->v); 
-            return 1;
-        }
-    } else {
-        timeout_seconds = 30;
+
+        case 1:
+            if (timeout_seconds < 1) {
+                print_log(LOG_ERR, "%s: cannot specify a 0 or a negative value for timeout-seconds; exiting\n", configfile);
+            }
+            break;
+
+        default:
+            ;
     }
-   
+
     set_signals();
 
     /* Start the authentication drivers */
