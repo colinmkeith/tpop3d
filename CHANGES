@@ -10,9 +10,7 @@ The facility as which tpop3d logs messages may now be changed from the
 configuration file.
 
 A serious bug in TPOP3D::AuthDriver which affected operation under
-auth-other was corrected.
-
-Fixed the behaviour of STAT after DELE.
+auth-other was corrected. Fixed the behaviour of STAT after DELE.
 
 {md5} passwords may now be encoded in base64 as well as hex, for compatibility
 with Exim and LDAP.
@@ -28,7 +26,8 @@ recommended). In addition, tpop3d now marks messages in maildirs as `seen',
 using the `:2,S' filename suffix, rather than just moving them to cur/.
 
 Made logging of failed authentication attempts more informative, following a
-suggestion by Jens Liebchen.
+suggestion by Jens Liebchen. Some minor bugs were fixed thanks to the efforts
+of Chris Elsworth, Ben Schumacher and Odhiambo Washington.
 
 1.3.5
 
