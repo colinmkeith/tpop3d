@@ -50,10 +50,10 @@ AC_ARG_WITH(mailspool-directory,
   file. Deprecated.
 
     --with-mailspool-directory=DIR  Set the mailspool directory.
-                                    [default=/var/spool/mail]],
+                                    [default=not specified]],
 
     [mspool=$withval],
-    [mspool="/var/spool/mail"])
+    [mspool=""])
 
 AC_ARG_ENABLE(auth-mysql,
         [
@@ -306,7 +306,10 @@ then
     AC_DEFINE(APPALLING_BACKTRACE_HACK,1,[Produce a backtrace if the program crashes.])
 fi
 
-AC_DEFINE_UNQUOTED(MAILSPOOL_DIR, "$mspool", [Fallback mailspool location.] )
+if test x"$mspool" != x""
+then
+    AC_DEFINE_UNQUOTED(MAILSPOOL_DIR, "$mspool", [Fallback mailspool location.] )
+fi
 
 dnl Set up stuff for auth-mysql.
 if test x"$enable_auth_mysql" = x"yes"

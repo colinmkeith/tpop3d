@@ -40,6 +40,7 @@ static struct {
     gid_t gid;
     int tls;
     char *filter_spec;
+    int scope;
     struct {
         char *mailbox, *mboxtype, *user, *group;
     } attr;
@@ -52,7 +53,10 @@ static struct {
         NULL,               /* or password */
         -1, -1,             /* no default user/group */
         0,                  /* don't use TLS */
-        "(mail=$(local_part)@$(domain))",     /* default filter matches complete email address to mail attribute */
+        "(mail=$(local_part)@$(domain))",
+                            /* default filter matches complete email address
+                             * to mail attribute */
+        LDAP_SCOPE_SUBTREE, /* search subtree by default. */
         {
             NULL,           /* attribute from which to obtain mailbox location */
             NULL,           /*    by default, guess mailbox type. */
@@ -148,6 +152,17 @@ int auth_ldap_init(void) {
         ldapinfo.filter_spec = xstrdup(s);
     else
         log_print(LOG_WARNING, _("auth_ldap_init: using default auth-ldap-filter `%s'"), ldapinfo.filter_spec);
+
+    if ((s = config_get_string("auth-ldap-scope"))) {
+        if (strcasecmp(s, "subtree") == 0)
+            ldapinfo.scope = LDAP_SCOPE_SUBTREE;
+        else if (strcasecmp(s, "base") == 0)
+            ldapinfo.scope = LDAP_SCOPE_BASE;
+        else if (strcasecmp(s, "onelevel") == 0)
+            ldapinfo.scope = LDAP_SCOPE_ONELEVEL;
+        else
+            log_print(LOG_WARNING, _("auth_ldap_init: unknown scope specification `%s'; using default, `subtree'"), s);
+    }
 
     /* Mailbox locations, or attribute which specifies it. */
     s = config_get_string("auth-ldap-mailbox");

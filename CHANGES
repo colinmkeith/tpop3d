@@ -30,8 +30,13 @@ recommended). In addition, tpop3d now marks messages in maildirs as `seen',
 using the `:2,S' filename suffix, rather than just moving them to cur/.
 
 Made logging of failed authentication attempts more informative, following a
-suggestion by Jens Liebchen. Some minor bugs were fixed thanks to the efforts
-of Chris Elsworth, Ben Schumacher and Odhiambo Washington.
+suggestion by Jens Liebchen.
+
+Configure no longer sets a default mailspool directory, as this could lead to
+confusing behaviour and is deprecated anyway.
+
+Some minor bugs were fixed thanks to the efforts of Chris Elsworth, Ben
+Schumacher and Odhiambo Washington.
 
 1.3.5
 

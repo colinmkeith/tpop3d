@@ -62,6 +62,7 @@ char *cfgdirectives[] = {
     "auth-ldap-password",
     "auth-ldap-use-tls",
     "auth-ldap-filter",
+    "auth-ldap-scope",
     "auth-ldap-mailbox",
     "auth-ldap-mailbox-attr",
     "auth-ldap-mboxtype-attr",

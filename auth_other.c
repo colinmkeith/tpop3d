@@ -205,6 +205,8 @@ int auth_other_start_child() {
 
             return 1;
     }
+
+    return 0; /* NOTREACHED */
 }
 
 /* auth_other_kill_child:
