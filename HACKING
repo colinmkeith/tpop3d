@@ -56,7 +56,7 @@ mailbox drivers in mind.
   in the scripts/ subdirectory. There is a perl module which makes writing
   perl authenticators very easy in the TPOP3D-AuthDriver subdirectory; the
   standard perl Makefile.PL ; make ; make install procedure will install it
-  for you. The example perl scripts in scripts/ use this module.
+  for you. The dotapopfile example perl script in scripts/ uses this module.
 
   If you wish to write an authenticator in perl, you can also use the
   auth_perl driver, which embeds a perl interpreter in the main tpop3d daemon.

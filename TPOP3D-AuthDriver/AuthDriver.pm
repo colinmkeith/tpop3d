@@ -12,7 +12,7 @@
 
 =head1 NAME
 
-TPOP3D::AuthDriver - library to interface to tpop3d's auth-other
+TPOP3D::AuthDriver - library to interface to tpop3d's auth-other and auth-perl
 
 =head1 SYNOPSIS
 
@@ -31,7 +31,7 @@ TPOP3D::AuthDriver - library to interface to tpop3d's auth-other
   
   sub pass($$) {
     my ($self, $req) = @_;
-    if ($req->{'user'} eq "fred" and $req->{pass} eq "secret") {
+    if ($req->{user} eq "fred" and $req->{pass} eq "secret") {
       # Success.
       return { 'result' => 'YES',
                'logmsg' => 'authenticated Fred',
@@ -41,16 +41,30 @@ TPOP3D::AuthDriver - library to interface to tpop3d's auth-other
                'mailbox' => '/var/spool/mail/fred' };
     } else {
       # Failure.
-      return { 'result' => 'NO', 'logmsg' => 'authentication failed' };
+      return { 'result' => 'NO',
+               'logmsg' => 'authentication failed' };
     }
   }
 
   1;
 
-  package Main;
+  package main;
 
   $auth = new FredAuthDriver;
-  $auth->run();
+
+  # function for auth-perl compatibility
+  sub passauth ($) {
+    return $auth->pass($_[0]);
+  }
+  
+  # run in auth-other mode
+  if (defined($ENV{TPOP3D_CONTEXT})
+      and $ENV{TPOP3D_CONTEXT eq 'auth_other') {
+    $auth->run();
+    exit 0;
+  }
+
+  1;
 
 =head1 DESCRIPTION
 
@@ -186,56 +200,41 @@ This method is called by run() when a request for APOP authentication is
 received. REQUEST is a reference to a hash of the parameters supplied by the
 server, including
 
-=over 4
+  timestamp
+    server's RFC1939 timestamp
 
-=item timestamp
+  user
+    client's supplied username
 
-server's RFC1939 timestamp
+  digest
+    client's supplied digest, in hex
 
-=item user
-
-client's supplied username
-
-=item digest
-
-client's supplied digest, in hex
-
-=back
+  clienthost
+    hostname or IP number of the client host
 
 
 It should return a reference to a hash containing the following keys:
 
-=over 4
+  result
+    if authentication was successful, `YES'; otherwise `NO'
 
-=item result
+  uid
+    username/uid with which to access mailspool
 
-if authentication was successful, `YES'; otherwise `NO'
+  gid
+    groupname/gid with which to access mailspool
 
-=item uid
+  domain
+    (optional) domain in which the user has been authenticated
 
-username/uid with which to access mailspool
+  mailbox
+    (optional) location of mailbox
 
-=item gid
+  mboxtype
+    (optional) name of mailbox driver
 
-groupname/gid with which to access mailspool
-
-=item domain
-
-(optional) domain in which the user has been authenticated
-
-=item mailbox
-
-(optional) location of mailbox
-
-=item mboxtype
-
-(optional) name of mailbox driver
-
-=item logmsg
-
-(optional) message to log
-
-=back 4
+  logmsg
+    (optional) message to log
 
 Note that if you do not supply a value for C<mailspool>, then the mailspool
 name will be determined from the `mailbox:' and `auth-other-mailbox:'
@@ -276,17 +275,14 @@ This method is called by run() when a request for USER/PASS authentication is
 received. REQUEST is a reference to a hash of the parameters supplied by the
 server, including
 
-=over
+  user
+    client's supplied username
 
-=item user
+  pass
+    client's supplied password
 
-client's supplied username
-
-=item pass
-
-client's supplied password
-
-=back
+  clienthost
+    hostname or IP number of the client host
 
 It should return a reference to a hash, as described for the C<apop> method
 above. You should override this to perform USER/PASS authentication, if you
@@ -303,10 +299,12 @@ sub pass ($$) {
 
 __END__
 
+=back
+
 =head1 COPYING
 
 Copyright (c) 2001 Chris Lightfoot, <chris@ex-parrot.com>
-F<http://www.ex-parrot.com/~chris/tpop3d>
+F<http://www.ex-parrot.com/~chris/tpop3d/>
 
 This program is free software; you can redistribute and/or modify it under the
 same terms as Perl itself.
@@ -321,4 +319,4 @@ $Id$
 
 =head1 SEE ALSO
 
-F<tpop3d>, F<RFC1939>, F<http://www.ex-parrot.com/~chris/tpop3d/>
+L<tpop3d(8)>, L<tpop3d.conf(5)>, F<RFC1939>, F<http://www.ex-parrot.com/~chris/tpop3d/>
