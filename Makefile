@@ -6,6 +6,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.10  2000/10/28 14:57:04  chris
+# Added man page, conditional auth_mysql compilation.
+#
 # Revision 1.9  2000/10/18 22:27:14  chris
 # Minor changes.
 #
@@ -35,18 +38,27 @@
 #
 #
 
-VERSION = 0.5
+VERSION = 0.6
 IDLE_TIMEOUT = 30   # seconds before we time out clients
 
-MYSQLROOT = /software
-# MYSQLROOT = /usr
+CFLAGS  += -g -DTPOP3D_VERSION='"$(VERSION)"' -DIDLE_TIMEOUT=$(IDLE_TIMEOUT) -Wall
+LDFLAGS += -g
+LDLIBS  += -ldl -lpam
 
-CFLAGS  += -g -I$(MYSQLROOT)/include/mysql -DTPOP3D_VERSION='"$(VERSION)"' -DIDLE_TIMEOUT=$(IDLE_TIMEOUT) -Wall
-LDFLAGS += -g -L$(MYSQLROOT)/lib/mysql
-LDLIBS  += -ldl -lpam -lefence -lmysqlclient
+# For Electric Fence malloc(3) debugging, uncomment the following two lines:
+# LDFLAGS += -umalloc -ufree -ucalloc -urealloc
+# LDLIBS  += -lefence
+
+# For vmail-sql MySQL support, uncomment the following
+#MYSQLROOT = /usr/local
+#CFLAGS   += -DAUTH_MYSQL -I$(MYSQLROOT)/include/mysql
+#LDFLAGS  += -L$(MYSQLROOT)/lib/mysql
+#LDLIBS   += -lmysqlclient
 
 TXTS =  README          \
-        COPYING
+        COPYING         \
+        tpop3d.8        \
+        tpop3d.cat
 
 SRCS =  auth_mysql.c	\
         auth_pam.c	\
@@ -74,9 +86,10 @@ HDRS =  auth_mysql.h	\
         main.h	        \
         md5.h	        \
         stringmap.h	\
-        vector.h
+        vector.h        \
+        util.h
 
-tpop3d: $(OBJS) depend Makefile
+tpop3d: depend $(OBJS) Makefile
 	$(CC) $(LDFLAGS) $(LDLIBS) -o $@ $(OBJS)
 
 tarball: nodepend
@@ -89,7 +102,7 @@ tarball: nodepend
 checkin:
 	ci -l $(SRCS) $(HDRS) $(TXTS) Makefile
 
-%.o: %.c
+%.o: %.c Makefile
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean: nodepend
