@@ -1,0 +1,11 @@
+Credits and contributors for tpop3d
+$Id$
+
+Paul Warren-- for pointing out that gnu-pop3d sucked, and that we needed
+something better.
+
+Mark Longair-- for testing, patches, bug fixes and the odd (metaphorical)
+kick in the teeth when I'd done something dense and he'd acted as the victim.
+
+Dom Gallagher-- for help testing tpop3d on Solaris.
+

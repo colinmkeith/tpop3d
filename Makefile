@@ -213,10 +213,7 @@ connection.o: /usr/include/syslog.h /usr/include/sys/syslog.h
 connection.o: /usr/lib/gcc-lib/i386-redhat-linux/egcs-2.91.66/include/stdarg.h
 connection.o: /usr/include/unistd.h /usr/include/bits/posix_opt.h
 connection.o: /usr/include/bits/confname.h /usr/include/getopt.h
-connection.o: /usr/include/netinet/in.h /usr/include/limits.h
-connection.o: /usr/include/bits/posix1_lim.h /usr/include/bits/local_lim.h
-connection.o: /usr/include/linux/limits.h /usr/include/bits/posix2_lim.h
-connection.o: /usr/include/stdint.h /usr/include/bits/wordsize.h
+connection.o: /usr/include/netinet/in.h /usr/include/stdint.h
 connection.o: /usr/include/bits/socket.h /usr/include/bits/sockaddr.h
 connection.o: /usr/include/asm/socket.h /usr/include/asm/sockios.h
 connection.o: /usr/include/bits/in.h /usr/include/bits/byteswap.h
@@ -269,16 +266,15 @@ mailspool.o: /usr/include/bits/mman.h /usr/include/sys/stat.h
 mailspool.o: /usr/include/bits/stat.h /usr/include/sys/time.h
 mailspool.o: /usr/include/bits/time.h /usr/include/sys/utsname.h
 mailspool.o: /usr/include/bits/utsname.h connection.h /usr/include/pwd.h
-mailspool.o: /usr/include/netinet/in.h /usr/include/limits.h
-mailspool.o: /usr/include/bits/posix1_lim.h /usr/include/bits/local_lim.h
-mailspool.o: /usr/include/linux/limits.h /usr/include/bits/posix2_lim.h
-mailspool.o: /usr/include/stdint.h /usr/include/bits/wordsize.h
+mailspool.o: /usr/include/netinet/in.h /usr/include/stdint.h
 mailspool.o: /usr/include/bits/socket.h /usr/include/bits/sockaddr.h
 mailspool.o: /usr/include/asm/socket.h /usr/include/asm/sockios.h
 mailspool.o: /usr/include/bits/in.h /usr/include/bits/byteswap.h
 mailspool.o: /usr/include/sys/socket.h authswitch.h /usr/include/stdlib.h
 mailspool.o: /usr/include/alloca.h mailspool.h vector.h tokenise.h md5.h
-mailspool.o: global.h util.h
+mailspool.o: global.h /usr/include/limits.h /usr/include/bits/posix1_lim.h
+mailspool.o: /usr/include/bits/local_lim.h /usr/include/linux/limits.h
+mailspool.o: /usr/include/bits/posix2_lim.h util.h
 main.o: /usr/include/errno.h /usr/include/features.h /usr/include/sys/cdefs.h
 main.o: /usr/include/gnu/stubs.h /usr/include/bits/errno.h
 main.o: /usr/include/linux/errno.h /usr/include/asm/errno.h
@@ -290,28 +286,25 @@ main.o: /usr/include/sys/select.h /usr/include/bits/select.h
 main.o: /usr/include/bits/sigset.h /usr/include/sys/sysmacros.h
 main.o: /usr/include/netdb.h /usr/include/rpc/netdb.h
 main.o: /usr/include/sys/socket.h /usr/include/bits/socket.h
-main.o: /usr/include/limits.h /usr/include/bits/posix1_lim.h
-main.o: /usr/include/bits/local_lim.h /usr/include/linux/limits.h
-main.o: /usr/include/bits/posix2_lim.h /usr/include/bits/sockaddr.h
-main.o: /usr/include/asm/socket.h /usr/include/asm/sockios.h
-main.o: /usr/include/signal.h /usr/include/bits/signum.h
-main.o: /usr/include/bits/siginfo.h /usr/include/bits/sigaction.h
-main.o: /usr/include/bits/sigcontext.h /usr/include/asm/sigcontext.h
-main.o: /usr/include/bits/sigstack.h
+main.o: /usr/include/bits/sockaddr.h /usr/include/asm/socket.h
+main.o: /usr/include/asm/sockios.h /usr/include/signal.h
+main.o: /usr/include/bits/signum.h /usr/include/bits/siginfo.h
+main.o: /usr/include/bits/sigaction.h /usr/include/bits/sigcontext.h
+main.o: /usr/include/asm/sigcontext.h /usr/include/bits/sigstack.h
 main.o: /usr/lib/gcc-lib/i386-redhat-linux/egcs-2.91.66/include/stdarg.h
 main.o: /usr/include/stdio.h /usr/include/string.h /usr/include/syslog.h
 main.o: /usr/include/sys/syslog.h /usr/include/unistd.h
 main.o: /usr/include/bits/posix_opt.h /usr/include/bits/confname.h
 main.o: /usr/include/getopt.h /usr/include/netinet/in.h /usr/include/stdint.h
-main.o: /usr/include/bits/wordsize.h /usr/include/bits/in.h
-main.o: /usr/include/bits/byteswap.h /usr/include/arpa/inet.h
-main.o: /usr/include/sys/time.h /usr/include/bits/time.h
-main.o: /usr/include/sys/utsname.h /usr/include/bits/utsname.h
-main.o: /usr/include/sys/wait.h /usr/include/bits/waitflags.h
-main.o: /usr/include/bits/waitstatus.h config.h stringmap.h vector.h
-main.o: connection.h /usr/include/pwd.h authswitch.h /usr/include/stdlib.h
-main.o: /usr/include/alloca.h mailspool.h /usr/include/sys/stat.h
-main.o: /usr/include/bits/stat.h tokenise.h errprintf.h list.h util.h
+main.o: /usr/include/bits/in.h /usr/include/bits/byteswap.h
+main.o: /usr/include/arpa/inet.h /usr/include/sys/time.h
+main.o: /usr/include/bits/time.h /usr/include/sys/utsname.h
+main.o: /usr/include/bits/utsname.h /usr/include/sys/wait.h
+main.o: /usr/include/bits/waitflags.h /usr/include/bits/waitstatus.h config.h
+main.o: stringmap.h vector.h connection.h /usr/include/pwd.h authswitch.h
+main.o: /usr/include/stdlib.h /usr/include/alloca.h mailspool.h
+main.o: /usr/include/sys/stat.h /usr/include/bits/stat.h tokenise.h
+main.o: errprintf.h list.h util.h
 md5c.o: md5.h global.h /usr/include/limits.h /usr/include/features.h
 md5c.o: /usr/include/sys/cdefs.h /usr/include/gnu/stubs.h
 md5c.o: /usr/include/bits/posix1_lim.h /usr/include/bits/local_lim.h
@@ -331,10 +324,7 @@ pop3.o: /usr/lib/gcc-lib/i386-redhat-linux/egcs-2.91.66/include/stdarg.h
 pop3.o: /usr/include/unistd.h /usr/include/bits/posix_opt.h
 pop3.o: /usr/include/bits/confname.h /usr/include/getopt.h
 pop3.o: /usr/include/arpa/inet.h /usr/include/netinet/in.h
-pop3.o: /usr/include/limits.h /usr/include/bits/posix1_lim.h
-pop3.o: /usr/include/bits/local_lim.h /usr/include/linux/limits.h
-pop3.o: /usr/include/bits/posix2_lim.h /usr/include/stdint.h
-pop3.o: /usr/include/bits/wordsize.h /usr/include/bits/socket.h
+pop3.o: /usr/include/stdint.h /usr/include/bits/socket.h
 pop3.o: /usr/include/bits/sockaddr.h /usr/include/asm/socket.h
 pop3.o: /usr/include/asm/sockios.h /usr/include/bits/in.h
 pop3.o: /usr/include/bits/byteswap.h /usr/include/sys/socket.h authswitch.h

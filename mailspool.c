@@ -37,10 +37,6 @@ static const char rcsid[] = "$Id$";
 #include "util.h"
 
 /* File locking:
- * This is probably not sufficiently robust to be used over NFS, but I don't
- * guarantee it won't work! It is a partial implementation of the strategy
- * which Exim uses; see exim_lock.c in the Exim distribution.
- * 
  * fcntl, flock and .lock locking are done, along with a rather comedy attempt
  * at cclient locking, which is only there so that PINE figures out when the
  * user is attempting to pick up her mail using POP3 in the middle of a PINE
@@ -165,9 +161,9 @@ int file_lock(const int fd, const char *name) {
         goto fail;
     }
 
-    /* Now, write our process ID into the lockfile. */
+    /* Now, write our process ID into the lockfile (*not* the mailspool...). */
     sprintf(pidstr, "%d\n", (int)getpid());
-    if (xwrite(fd, pidstr, strlen(pidstr)) != strlen(pidstr)) {
+    if (xwrite(fd2, pidstr, strlen(pidstr)) != strlen(pidstr)) {
         print_log(LOG_ERR, "file_lock(%s): failed to write PID to hitching post: %m", name);
         goto fail;
     }
