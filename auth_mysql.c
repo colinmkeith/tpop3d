@@ -330,8 +330,8 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
             goto fail;
         }
 
-        if (mysql_field_count(result) != 4) {
-            print_log(LOG_ERR, "auth_mysql_new_apop: %d fields returned by query, should be 4: mailbox location, password hash, unix user, mailbox type", mysql_field_count(result));
+        if (mysql_field_count(mysql) != 4) {
+            print_log(LOG_ERR, "auth_mysql_new_apop: %d fields returned by query, should be 4: mailbox location, password hash, unix user, mailbox type", mysql_field_count(mysql));
             goto fail;
         }
 
@@ -468,8 +468,8 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const c
             goto fail;
         }
 
-        if (mysql_field_count(result) != 4) {
-            print_log(LOG_ERR, "auth_mysql_new_user_pass: %d fields returned by query, should be 4: mailbox location, password hash, unix user, mailbox type", mysql_field_count(result));
+        if (mysql_field_count(mysql) != 4) {
+            print_log(LOG_ERR, "auth_mysql_new_user_pass: %d fields returned by query, should be 4: mailbox location, password hash, unix user, mailbox type", mysql_field_count(mysql));
             goto fail;
         }
 
