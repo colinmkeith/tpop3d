@@ -63,9 +63,21 @@ AC_ARG_ENABLE(auth-mysql,
     [enable_auth_mysql="no"])
 
 AC_ARG_WITH(mysql-root,
-        [    --with-mysql-root=DIR   Set root of MySQL distribution used by auth_mysql.
-                            Should contain include/mysql/mysql.h and
-                            lib/mysql/libmysqlclient.so [default=/usr]],
+        [    --with-mysql-root=DIR     Set root of MySQL distribution used by auth_mysql.
+                              Should contain include/mysql/mysql.h and
+                              lib/mysql/libmysqlclient.so [default=/usr]],
+    [mysql_root=$withval],
+    [mysql_root="/usr"])
+
+AC_ARG_ENABLE(auth-ldap,
+        [  --enable-auth-ldap      Enable authentication against an LDAP directory.
+                          [default=no]],
+    [enable_auth_ldap=$enableval],
+    [enable_auth_other="no"])
+    
+AC_ARG_WITH(openldap-root,
+        [    --with-openldap-root=DIR  Root directory of the OpenLDAP installation.
+                              [default=/usr]],
     [mysql_root=$withval],
     [mysql_root="/usr"])
 
@@ -215,6 +227,11 @@ then
     AC_DEFINE(AUTH_MYSQL,1,[Use vmail-sql style authentication.])
 fi
 
+if test x"$enable_auth_ldap" = x"yes"
+then
+    AC_DEFINE(AUTH_LDAP,1,[Use LDAP authentication.])
+fi
+
 if test x"$enable_auth_other" = x"yes"
 then
     AC_DEFINE(AUTH_OTHER,1,[Use an external program for authentication.])
@@ -291,12 +308,22 @@ fi
 
 AC_DEFINE_UNQUOTED(MAILSPOOL_DIR, "$mspool", [Fallback mailspool location.] )
 
+dnl Set up stuff for auth-mysql.
 if test x"$enable_auth_mysql" = x"yes"
 then
     LDFLAGS="$LDFLAGS -L$mysql_root/lib/mysql"
     dnl Also have to do CPPFLAGS, so that AC_CHECK_HEADER works...
     CPPFLAGS="$CPPFLAGS -I$mysql_root/include/mysql"
 fi
+
+dnl auth-ldap.
+if test x"$enable_auth_ldap" = x"yes"
+then
+    LDFLAGS="$LDFLAGS -L$ldap_root/lib"
+    dnl Also have to do CPPFLAGS, so that AC_CHECK_HEADER works...
+    CPPFLAGS="$CPPFLAGS -I$ldap_root/include"
+fi
+
 
 dnl Checks for programs.
 AC_PROG_CC
@@ -354,7 +381,7 @@ dnl Checks for header files.
 AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
 
-AC_CHECK_HEADERS(fcntl.h limits.h sys/file.h sys/time.h syslog.h unistd.h crypt.h execinfo.h security/pam_appl.h mysql.h tcpd.h)
+AC_CHECK_HEADERS(fcntl.h limits.h sys/file.h sys/time.h syslog.h unistd.h crypt.h execinfo.h security/pam_appl.h ldap.h mysql.h tcpd.h)
 
 if test x"$enable_backtrace" = x"yes"
 then
@@ -385,6 +412,14 @@ then
     if test x"$ac_cv_header_mysql_h" != x"yes"
     then
         AC_MSG_ERROR( [[vmail-sql authentication enabled, but can't find mysql.h]] )
+    fi
+fi
+
+if test x"$enable_auth_ldap" = x"yes"
+then
+    if test x"$ac_cv_header_ldap_h" != x"yes"
+    then
+        AC_MSG_ERROR( [[LDAP authentication enabled, but can't find ldap.h]] )
     fi
 fi
 
@@ -465,6 +500,12 @@ fi
 if test x"$enable_auth_mysql" = x"yes"
 then
     AC_CHECK_FUNC(mysql_init, [], AC_MSG_ERROR([[vmail-sql authentication enabled, but mysql_init doesn't seem to be available.]]))
+
+fi
+
+if test x"$enable_auth_ldap" = x"yes"
+then
+    AC_CHECK_FUNC(ldap_open, [], AC_MSG_ERROR([[LDAP authentication enabled, but mysql_init doesn't seem to be available.]]))
 
 fi
 

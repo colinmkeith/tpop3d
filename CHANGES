@@ -10,7 +10,8 @@ The facility as which tpop3d logs messages may now be changed from the
 configuration file.
 
 A serious bug in TPOP3D::AuthDriver which affected operation under
-auth-other was corrected. Fixed the behaviour of STAT after DELE.
+auth-other was corrected. Fixed the behaviour of STAT after DELE. A bug in the
+experimental BSD metadata cache code was fixed.
 
 {md5} passwords may now be encoded in base64 as well as hex, for compatibility
 with Exim and LDAP.

@@ -724,12 +724,16 @@ int mailspool_load_index(mailbox m) {
         if (n > x.msglength) n = x.msglength;
 
         /* Compute MD5 */
-        MD5Init(&ctx);
-        MD5Update(&ctx, (unsigned char*)filemem + x.offset, n);
-        MD5Final(realhash, &ctx);
+        md5_digest(filemem + x.offset, n, realhash);
 
-        if (memcmp(realhash, x.hash, 16) != 0)
+        /* No match; stop. */
+        if (memcmp(realhash, x.hash, 16) != 0) {
+            /* Get rid of any preceding record: we will have to re-index that
+             * one, too. */
+            if (m->num > 0)
+                --m->num;
             break;
+        }
 
         /* OK, this message seems to have been indexed correctly.... */
         mailbox_add_indexpoint(m, &x);

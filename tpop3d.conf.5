@@ -279,6 +279,72 @@ that if you leave the \fBauth-mysql-...\fP directives in place but remove the
 this is that the \fBtpop3d.conf\fP file should not be readable by arbitrary
 users.
 
+.SS LDAP authentication options
+
+These are only available if you compiled \fBtpop3d\fP with support for
+\fBauth-ldap\fP.
+
+.TP
+\fBauth-ldap-enable\fP: (\fByes\fP | \fBtrue\fP)
+Enable LDAP authentication.
+.TP
+\fBauth-ldap-url\fP: \fILDAP URL\fP
+LDAP URL indicating server against which to make authentication requests.
+.TP
+\fBauth-ldap-username\fP: \fILDAP server username\fP
+Username to use when binding to LDAP server to search for a user.
+.TP
+\fBauth-ldap-password\fP: \fILDAP server password\fP
+Password of search user.
+.TP
+\fBauth-ldap-filter\fP: \fIsubstitution string\fP
+Filter template to use when searching for a user's account.
+
+.TP
+\fBauth-ldap-mailbox\fP: [\fImailbox-driver\fP:]\fIpath-spec\fP ...
+User mailbox location, as described above.
+
+    or
+.TP
+\fBauth-ldap-mailbox-attr\fP: \fIattribute name\fP
+.TP
+\fBauth-ldap-mboxtype-attr\fP: \fIattribute name\fP
+LDAP attributes which contains the name of a user's mailbox, and its type.
+If the type is not specified, or if the attribute is not present for a given
+user, the driver will guess that mailbox names which end `/' are of type
+maildir, otherwise of type bsd.
+
+.TP
+\fBauth-ldap-mail-user\fP: (\fIuser-name\fP | \fIuid\fP)
+.TP
+\fBauth-ldap-mail-group\fP: (\fIgroup-name\fP | \fIgid\fP)
+User and group under which access to the mailbox will take place.
+
+    or
+.TP
+\fBauth-ldap-mail-user-attr\fP: \fIattribute name\fP
+.TP
+\fBauth-ldap-mail-group-attr\fP: \fIattribute name\fP
+LDAP attributes which specify the user and group under which access to the
+mailbox will take place.
+
+.SS A note on LDAP authentication
+
+\fBtpop3d\fP uses a search-bind model for authenticating users against an LDAP
+server. When a user attempts to log in by supplying a username and password,
+\fBtpop3d\fP will attempt to locate an LDAP record for the user by substituting
+for \fB$(local_part)\fP and (optionally) \fB$(domain)\fP in the
+\fBauth-ldap-filter\fP filter template, binding to the LDAP server as the
+search user, and querying the LDAP server with this filter. If the search
+yields exactly one result, then an attempt is made to bind to the server using
+the credentials supplied by the client. If the bind is successful, then the
+user is authenticated.
+
+Information about the user's account, in particular, the user and group id
+to use for mailbox access, and the location and type of the mailbox,
+may be obtained either from the directory, or from values in the configuration
+file.
+
 .SS External program (`other') authentication options
 
 These are only available if you compiled \fBtpop3d\fP with support for
