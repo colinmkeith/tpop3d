@@ -1,0 +1,26 @@
+Portability notes for tpop3d
+$Id$
+
+I wrote tpop3d on Linux, and that is the platform on which it has been tested
+most thoroughly. However, if you want to build it on another platform, please
+go right ahead. You may need to make some tweaks (mostly in the Makefile,
+hopefully). Here is what I know about compiling tpop3d on other platforms, so
+far:
+
+* FreeBSD (and probably other modern BSD systems)
+
+  You will need to comment out the line which enables flock(2) locking, since
+  FreeBSD implements this with fcntl(2) locking; attempting to use both
+  therefore causes tpop3d to deadlock.
+
+  You will need to remove the reference to -ldl, which does not exist on
+  FreeBSD (on Linux it is needed to link against PAM with dynamic libraries
+  support).
+
+  You will probably want to change the definition oF MAILSPOOL_DIR to be
+  "/var/mail".
+
+* Others
+
+  You tell me....
+
