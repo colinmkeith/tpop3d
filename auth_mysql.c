@@ -266,7 +266,7 @@ char mysql_driver_active = 0;
  * server doesn't respond any more, try to connect to all defined MySQL
  * servers. If none work, we give up.  Return 0 if OK, -1 if we can't connect
  * to any server. */
-static int get_mysql_server(char *where) {
+static int get_mysql_server(void) {
     int n;
     static MYSQL mysql_handle;
     char *password;
@@ -312,7 +312,7 @@ static int get_mysql_server(char *where) {
         return 0;
     }
 
-    log_print(LOG_ERR, _("get_mysql_server: can't find any working MySQL server; giving up"), where);
+    log_print(LOG_ERR, _("get_mysql_server: can't find any working MySQL server; giving up"));
 
     mysql = NULL;
 
@@ -655,6 +655,7 @@ void auth_mysql_onlogin(const authcontext A, const char *clienthost, const char 
     if (get_mysql_server() == -1) {
         log_print(LOG_ERR, _("auth_mysql_onlogin: aborting"));
         return;
+    }
 
     query = substitute_query_params(onlogin_query_template, A->user, A->local_part, A->domain, clienthost, serverhost);
     if (!query)
