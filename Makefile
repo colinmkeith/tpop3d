@@ -6,6 +6,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.12  2000/10/31 23:17:29  chris
+# flock locking now a compile-time option.
+#
 # Revision 1.11  2000/10/31 20:37:22  chris
 # Minor changes.
 #
@@ -41,7 +44,7 @@
 #
 #
 
-VERSION = 0.6
+VERSION = 0.7
 IDLE_TIMEOUT = 30   # seconds before we time out clients
 
 CFLAGS  += -g -DTPOP3D_VERSION='"$(VERSION)"' -DIDLE_TIMEOUT=$(IDLE_TIMEOUT) -Wall
@@ -52,6 +55,13 @@ LDLIBS  += -ldl -lpam
 # programs which used the Washington University C-Client library, comment out
 # the following line (not recommended).
 CFLAGS += -DCCLIENT_LOCKING
+
+# If you do not want tpop3d to do flock(2) locking on mailspools (for instance
+# if your system attempts to emulate it using fcntl(2) locking, which would
+# cause tpop3d to deadlock), then comment out the following line. Note that
+# flock locking is always done on c-client lock files if CCLIENT_LOCKING is
+# set, since PINE uses flock.
+CFLAGS += -DFLOCK_LOCKING
 
 # For Electric Fence malloc(3) debugging, uncomment the following two lines:
 #LDFLAGS += -umalloc -ufree -ucalloc -urealloc
@@ -79,6 +89,7 @@ SRCS =  auth_mysql.c	\
         md5c.c	        \
         pop3.c	        \
         stringmap.c	\
+	tokenise.c      \
         vector.c
 
 OBJS = $(SRCS:.c=.o)
@@ -94,6 +105,7 @@ HDRS =  auth_mysql.h	\
         main.h	        \
         md5.h	        \
         stringmap.h	\
+	tokenise.h      \
         vector.h        \
         util.h
 
