@@ -27,8 +27,19 @@ are responsible for authenticating users and selecting the locations of their
 mailboxes.
  
   --enable-auth-pam       Enable PAM authentication. [default=yes]],
-    [enable_pam=$enableval],
-    [enable_pam="yes"])
+    [enable_auth_pam=$enableval],
+    [enable_auth_pam="yes"])
+
+AC_ARG_ENABLE(pam-leak-hack,
+        [
+    --enable-pam-leak-hack    On many systems, there are memory leaks in the
+                              PAM libraries. This option will build a tpop3d
+                              which forks a child process for each PAM
+                              authentication. This is slower, but will avoid
+                              a memory leak in tpop3d.
+                              [default=no]],
+    [enable_really_ugly_pam_hack=$enableval],
+    [enable_really_ugly_pam_hack="no"])
 
 AC_ARG_ENABLE(auth-passwd,
         [
@@ -37,8 +48,9 @@ AC_ARG_ENABLE(auth-passwd,
     [enable_auth_passwd="no"])
 
 AC_ARG_ENABLE(shadow-passwords,
-        [    --enable-shadow-passwords  auth_passwd should use /etc/shadow.
-                               [default=no]],
+        [
+    --enable-shadow-passwords auth-passwd should use /etc/shadow.
+                              [default=no]],
     [enable_shadow=$enableval],
     [enable_shadow="no"])
 
@@ -49,31 +61,34 @@ AC_ARG_WITH(mailspool-directory,
   those for virtual domain users). It can be overridden from the configuration
   file. Deprecated.
 
-    --with-mailspool-directory=DIR  Set the mailspool directory.
-                                    [default=not specified]],
+    --with-mailspool-directory=DIR
+                              Set the mailspool directory.
+                              [default=not specified]],
 
     [mspool=$withval],
     [mspool=""])
 
 AC_ARG_ENABLE(auth-mysql,
         [
-  --enable-auth-mysql     Enable auth_mysql (vmail-sql) authentication.
+  --enable-auth-mysql     Enable auth-mysql (vmail-sql) authentication.
                           [default=no]],
     [enable_auth_mysql=$enableval],
     [enable_auth_mysql="no"])
 
 AC_ARG_WITH(mysql-include-dir,
-        [  --with-mysql-include-dir=DIR     Set MySQL include directory
-                                   Should contain mysql.h
-                                   [default=/usr/include/mysql]
+        [
+    --with-mysql-include-dir=DIR     
+                              Set MySQL include directory, which should contain
+                              mysql.h.
+                              [default=/usr/include/mysql]
 ],
     [mysql_include_dir=$withval],
     [mysql_include_dir="/usr/include/mysql"])
 
 AC_ARG_WITH(mysql-lib-dir,
-        [  --with-mysql-lib-dir=DIR         Set MySQL library directory
-                                   Should contain libmysqlclient.so
-                                   [default=/usr/lib/mysql]
+        [    --with-mysql-lib-dir=DIR  Set MySQL library directory, which should contain
+                              libmysqlclient.so.
+                              [default=/usr/lib/mysql]
 ],
     [mysql_lib_dir=$withval],
     [mysql_lib_dir="/usr/lib/mysql"])
@@ -85,7 +100,8 @@ AC_ARG_ENABLE(auth-ldap,
     [enable_auth_ldap="no"])
     
 AC_ARG_WITH(openldap-root,
-        [    --with-openldap-root=DIR  Root directory of the OpenLDAP installation.
+        [
+    --with-openldap-root=DIR  Root directory of the OpenLDAP installation.
                               [default=/usr]
 ],
     [openldap_root=$withval],
@@ -274,9 +290,13 @@ dnl Now do some configuration based on these options; nothing done
 dnl here should have awkward dependencies.
 
 dnl Authentication drivers.
-if test x"$enable_pam" = x"yes"
+if test x"$enable_auth_pam" = x"yes"
 then
-    AC_DEFINE(AUTH_PAM,1,[Use PAM authentication.])
+    AC_DEFINE(AUTH_PAM, 1, [Use PAM authentication.])
+    if test x"$enable_really_ugly_pam_hack" = x"yes"
+    then
+        AC_DEFINE(REALLY_UGLY_PAM_HACK, 1, [Fork a process for each PAM authentication])
+    fi
 fi
 
 if test x"$enable_auth_passwd" = x"yes" || test x"$enable_shadow" = x"yes"
@@ -464,7 +484,7 @@ then
 fi
 
 # Some machines have dlopen etc. in libdl, and these are needed for PAM.
-if test x"$enable_pam" = x"yes"
+if test x"$enable_auth_pam" = x"yes"
 then
     AC_CHECK_LIB(dl, dlopen, , )
     AC_CHECK_LIB(pam, pam_start, [], AC_MSG_ERROR([[pam authentication enabled, but can't find libpam]]))
@@ -547,7 +567,7 @@ fi
 #    fi
 #fi
 
-if test x"$enable_pam" = x"yes"
+if test x"$enable_auth_pam" = x"yes"
 then
     if test x"$ac_cv_header_security_pam_appl_h" != x"yes"
     then
@@ -647,7 +667,7 @@ then
 
 fi
 
-if test x"$enable_pam" = x"yes"
+if test x"$enable_auth_pam" = x"yes"
 then
     AC_CHECK_FUNC(pam_authenticate, [], AC_MSG_ERROR([[PAM authentication enabled, but pam_authenticate doesn't seem to be available.]]))
 

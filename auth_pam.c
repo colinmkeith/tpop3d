@@ -15,12 +15,14 @@ static const char rcsid[] = "$Id$";
 
 #include <sys/types.h> /* BSD needs this here, it seems. */
 
+#include <errno.h>
 #include <grp.h>
 #include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
+#include <unistd.h>
 
 #include <security/pam_appl.h>
 
@@ -52,23 +54,72 @@ int auth_pam_conversation(int num_msg, const struct pam_message **msg, struct pa
     return PAM_SUCCESS;
 }
 
+/* auth_pam_do_authentication FACILITY USER PASSWORD
+ * Tries to authenticate USER with PASSWORD using the named PAM FACILITY,
+ * returning nonzero on success or zero on failure. */
+static int auth_pam_do_authentication(const char *facility, const char *user, const char *pass, const char *clienthost) {
+    struct pam_conv conv;
+    pam_handle_t *pamh = NULL;
+    int result = 0, r;
+    
+    /* This will generate a warning on Solaris; I can't see an easy fix. */
+    conv.conv = auth_pam_conversation;
+    conv.appdata_ptr = (void*)pass;
+    
+    r = pam_start(facility, user, &conv, &pamh);
+
+    if (r != PAM_SUCCESS) {
+        log_print(LOG_ERR, "auth_pam_new_user_pass: pam_start: %s", pam_strerror(pamh, r));
+        return 0;
+    }
+    
+    /* We want to be able to test against the client IP; make the remote host
+     * information available to the PAM stack. */
+    r = pam_set_item(pamh, PAM_RHOST, clienthost);
+    
+    if (r != PAM_SUCCESS) {
+        log_print(LOG_ERR, "auth_pam_new_user_pass: pam_start: %s", pam_strerror(pamh, r));
+        return 0;
+    }
+
+    /* Authenticate user. */
+    r = pam_authenticate(pamh, 0);
+
+    if (r == PAM_SUCCESS) {
+        /* OK, is the account presently allowed to log in? */
+        r = pam_acct_mgmt(pamh, PAM_SILENT);
+        if (r == PAM_SUCCESS)
+            /* Succeeded. */
+            result = 1;
+        else
+            /* Failed; account is disabled or something. */
+            log_print(LOG_ERR, "auth_pam_new_user_pass: pam_acct_mgmt(%s): %s", user, pam_strerror(pamh, r));
+    } else
+        /* User did not authenticate. */
+        log_print(LOG_ERR, "auth_pam_new_user_pass: pam_authenticate(%s): %s", user, pam_strerror(pamh, r));
+
+    r = pam_end(pamh, r);
+    if (r != PAM_SUCCESS) log_print(LOG_ERR, "auth_pam_new_user_pass: pam_end: %s", pam_strerror(pamh, r));
+
+    return result;
+}
+
 /* auth_pam_new_user_pass:
  * Attempt to authenticate user and pass using PAM. This is not a
  * virtual-domains authenticator, so it only looks at user. */
-authcontext auth_pam_new_user_pass(const char *user, const char *local_part, const char *domain, const char *pass, const char *clienthost /* unused */, const char *serverhost) {
-    pam_handle_t *pamh = NULL;
+#ifdef REALLY_UGLY_PAM_HACK
+pid_t auth_pam_child_pid;
+#endif
+authcontext auth_pam_new_user_pass(const char *user, const char *local_part, const char *domain, const char *pass, const char *clienthost, const char *serverhost) {
     struct passwd pw, *pw2;
-    int r, n = PAM_SUCCESS;
-    authcontext a = NULL;
-    struct pam_conv conv;
-    char *facility;
     char *s;
     int use_gid = 0;
     gid_t gid = 99;
+    static const char *facility;
+    int authenticated = 0;
 
     /* Check the this isn't a virtual-domain user. */
     if (local_part) return NULL;
-
 
     /* It is possible to use PAM to authenticate users who do not exist as
      * system users. We support this by defining an auth-pam-mail-user
@@ -97,9 +148,8 @@ authcontext auth_pam_new_user_pass(const char *user, const char *local_part, con
     /* pw now contains either the data for the real UNIX user named or the UNIX
      * user given by the auth-pam-mail-user config option. */
 
-
     /* Obtain facility name. */
-    if (!(facility = config_get_string("auth-pam-facility")))
+    if (!facility && !(facility = config_get_string("auth-pam-facility")))
         facility = AUTH_PAM_FACILITY;
 
     /* Obtain gid to use */
@@ -111,43 +161,69 @@ authcontext auth_pam_new_user_pass(const char *user, const char *local_part, con
         use_gid = 1;
     }
 
-    /* This will generate a warning on Solaris; I can't see an easy fix. */
-    conv.conv = auth_pam_conversation;
-    conv.appdata_ptr = (void*)pass;
-    
-    r = pam_start(facility, user, &conv, &pamh);
+    /* 
+     * On many systems, PAM leaks memory, which is a problem for a daemon like
+     * tpop3d which does all authentication in the main daemon. So we
+     * optionally implement a really ugly hack where we fork a process in
+     * which to interact with PAM.
+     */
 
-    if (r != PAM_SUCCESS) {
-        log_print(LOG_ERR, "auth_pam_new_user_pass: pam_start: %s", pam_strerror(pamh, r));
-        return NULL;
+#ifdef REALLY_UGLY_PAM_HACK
+    {
+        int pfd[2];
+        char res = 0;
+        ssize_t n;
+        
+        /* 
+         * The child process writes a byte zero into the pipe on failure or a
+         * one on success. Don't use the exit value because we don't want to
+         * have to piss about with the SIGCHLD handler.
+         */
+        
+        if (pipe(pfd) == -1)
+            log_print(LOG_ERR, "auth_pam_new_user_pass: pipe: %m");
+        else {
+            switch (auth_pam_child_pid = fork()) {
+                case 0:
+                    close(pfd[0]);
+                    if (xwrite(pfd[1], auth_pam_do_authentication(facility, user, pass, clienthost) ? "\001" : "\0", 1) == -1)
+                        /* This is really bad. The parent may hang waiting for us. */
+                        log_print(LOG_ERR, _("auth_pam_new_user_pass: (child process): write: %m"));
+                    close(pfd[1]);
+                    _exit(0);
+
+                case -1:
+                    close(pfd[0]);
+                    close(pfd[1]);
+                    log_print(LOG_ERR, "auth_pam_new_user_pass: fork: %m");
+                    break;
+
+                default:
+                    close(pfd[1]);
+                    while ((n = read(pfd[0], &res, 1)) == -1 && errno == EINTR);
+                    close(pfd[0]);
+                    if (n <= 0) {
+                        /* Bad. Read error, child probably crashed. */
+                        if (n == -1)
+                            log_print(LOG_ERR, "auth_pam_new_user_pass: read: %m");
+                        else 
+                            log_print(LOG_ERR, _("auth_pam_new_user_pass: authentication child did not send status (shouldn't happen)"));
+                        authenticated = 0;
+                    } else
+                        /* Good. Byte returned. */
+                        authenticated = res;
+                    break;
+            }
+        }
     }
+#else
+    authenticated = auth_pam_do_authentication(facility, user, pass, clienthost);
+#endif  /* REALLY_UGLY_PAM_HACK */
     
-    /* We want to be able to test against the client IP; make the remote host
-     * information available to the PAM stack. */
-    r = pam_set_item(pamh, PAM_RHOST, clienthost);
-    
-    if (r != PAM_SUCCESS) {
-        log_print(LOG_ERR, "auth_pam_new_user_pass: pam_start: %s", pam_strerror(pamh, r));
+    if (authenticated)
+        return authcontext_new(pw.pw_uid, use_gid ? gid : pw.pw_gid, NULL, NULL, pw.pw_dir);
+    else
         return NULL;
-    }
-
-    /* Authenticate user. */
-    r = pam_authenticate(pamh, 0);
-
-    if (r == PAM_SUCCESS) {
-        /* OK, is the account presently allowed to log in? */
-        r = pam_acct_mgmt(pamh, PAM_SILENT);
-        if (r == PAM_SUCCESS) {
-            /* Succeeded; figure out the mailbox name later. */
-            a = authcontext_new(pw.pw_uid, use_gid ? gid : pw.pw_gid, NULL, NULL, pw.pw_dir);
-        } else log_print(LOG_ERR, "auth_pam_new_user_pass: pam_acct_mgmt(%s): %s", user, pam_strerror(pamh, r));
-    } else log_print(LOG_ERR, "auth_pam_new_user_pass: pam_authenticate(%s): %s", user, pam_strerror(pamh, r));
-
-    r = pam_end(pamh, n);
-
-    if (r != PAM_SUCCESS) log_print(LOG_ERR, "auth_pam_new_user_pass: pam_end: %s", pam_strerror(pamh, r));
-
-    return a;
 }
 
 #endif /* AUTH_PAM */

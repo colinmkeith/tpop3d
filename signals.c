@@ -127,8 +127,8 @@ void die_signal_handler(const int i) {
 extern int num_running_children; /* in main.c */
 
 #ifdef AUTH_OTHER
-extern pid_t authchild_pid, authchild_died; /* in auth_other.c */
-extern int authchild_wr, authchild_rd, authchild_status;
+extern pid_t auth_other_child_pid, auth_other_childdied; /* in auth_other.c */
+extern int auth_other_childwr, auth_other_childrd, auth_other_childstatus;
 #endif /* AUTH_OTHER */
 
 /* Save information about any child which dies with a signal. */
@@ -145,13 +145,19 @@ void child_signal_handler(const int i) {
     while (1) {
         pid = waitpid(-1, &status, WNOHANG);
         if (pid > 0) {
+#ifdef REALLY_UGLY_PAM_HACK
+            extern auth_pam_child_pid; /* in auth_pam.c */
+            if (pid == auth_pam_child_pid)
+                ; /* Do nothing; in principle we should check to see if it crashed. */
+            else
+#endif /* REALLY_UGLY_PAM_HACK */
 #ifdef AUTH_OTHER
-            if (pid == authchild_pid) {
-                authchild_pid = 0;
-                authchild_died = pid;
-                authchild_status = status;
-                close(authchild_wr);
-                close(authchild_rd);
+            if (pid == auth_other_child_pid) {
+                auth_other_child_pid = 0;
+                auth_other_childdied = pid;
+                auth_other_childstatus = status;
+                close(auth_other_childwr);
+                close(auth_other_childrd);
             } else
 #endif /* AUTH_OTHER */
             {

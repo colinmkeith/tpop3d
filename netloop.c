@@ -412,8 +412,8 @@ sig_atomic_t foad = 0, restart = 0; /* Flags used to indicate that we should exi
 void net_loop(void) {
     connection *J;
 #ifdef AUTH_OTHER
-    extern pid_t authchild_died;
-    extern int authchild_status;
+    extern pid_t auth_other_childdied;
+    extern int auth_other_childstatus;
 #endif /* AUTH_OTHER */
     extern pid_t child_died;
     extern int child_died_signal;
@@ -457,9 +457,9 @@ void net_loop(void) {
 #ifdef AUTH_OTHER
         /* It may be that the authentication child died; log the message here
          * to avoid doing something we shouldn't in the signal handler. */
-        if (authchild_died) {
-            log_print(LOG_WARNING, _("net_loop: authentication child %d terminated with status %d"), (int)authchild_died, authchild_status);
-            authchild_died = 0;
+        if (auth_other_childdied) {
+            log_print(LOG_WARNING, _("net_loop: authentication child %d terminated with status %d"), (int)auth_other_childdied, auth_other_childstatus);
+            auth_other_childdied = 0;
         }
 #endif /* AUTH_OTHER */
         

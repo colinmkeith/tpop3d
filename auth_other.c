@@ -72,15 +72,15 @@ static const char rcsid[] = "$Id$";
 #define MAX_DATA_SIZE   4096
 
 char *auth_program;
-time_t authchild_start_time;
-uid_t authchild_uid;
-gid_t authchild_gid;
-volatile pid_t authchild_pid, authchild_died;
-volatile int authchild_status;
-struct timeval authchild_timeout;
+time_t auth_other_childstart_time;
+uid_t auth_other_childuid;
+gid_t auth_other_childgid;
+volatile pid_t auth_other_child_pid, auth_other_childdied;
+volatile int auth_other_childstatus;
+struct timeval auth_other_childtimeout;
 
 /* File descriptors used to talk to child. */
-volatile int authchild_wr = -1, authchild_rd = -1;
+volatile int auth_other_childwr = -1, auth_other_childrd = -1;
 
 /* dump:
  * Debugging method. */
@@ -163,13 +163,13 @@ int auth_other_start_child() {
         return 0;
     }
    
-    switch (authchild_pid = fork()) {
+    switch (auth_other_child_pid = fork()) {
         case 0:
-            if (setgid(authchild_gid) == -1) {
-                log_print(LOG_ERR, "auth_other_start_child: setgid(%d): %m", (int)authchild_gid);
+            if (setgid(auth_other_childgid) == -1) {
+                log_print(LOG_ERR, "auth_other_start_child: setgid(%d): %m", (int)auth_other_childgid);
                 _exit(1);
-            } else if (setuid(authchild_uid) == -1) {
-                log_print(LOG_ERR, "auth_other_start_child: setuid(%d): %m", (int)authchild_uid);
+            } else if (setuid(auth_other_childuid) == -1) {
+                log_print(LOG_ERR, "auth_other_start_child: setuid(%d): %m", (int)auth_other_childuid);
                 _exit(1);
             }
             
@@ -196,8 +196,8 @@ int auth_other_start_child() {
 
         default:
             /* Parent. */
-            authchild_wr = p1[1];
-            authchild_rd = p2[0];
+            auth_other_childwr = p1[1];
+            auth_other_childrd = p2[0];
  
             close(p1[0]);
             close(p2[1]);
@@ -215,23 +215,23 @@ int auth_other_start_child() {
  * SIGKILL-shaped violence if that fails. */
 void auth_other_kill_child() {
     struct timeval deadline, now;
-    if (authchild_pid == 0) return; /* Already dead. */
-    kill(authchild_pid, SIGTERM);
+    if (auth_other_child_pid == 0) return; /* Already dead. */
+    kill(auth_other_child_pid, SIGTERM);
     
     /* Wait for it to expire. */
     gettimeofday(&now, NULL);
     deadline = now;
-    tvadd(&deadline, &authchild_timeout);
+    tvadd(&deadline, &auth_other_childtimeout);
     
-    while (authchild_pid && tvcmp(&now, &deadline) < 0) {
+    while (auth_other_child_pid && tvcmp(&now, &deadline) < 0) {
         struct timespec delay = {0, 100000000}; /* 0.1s; note nano not microseconds */
         nanosleep(&delay, NULL);
         gettimeofday(&now, NULL);
     }
 
-    if (authchild_pid) {
+    if (auth_other_child_pid) {
         log_print(LOG_WARNING, _("auth_other_kill_child: child failed to die; killing with SIGKILL"));
-        kill(authchild_pid, SIGKILL);
+        kill(auth_other_child_pid, SIGKILL);
         /* Assume this works; it ought to! */
     }
 }
@@ -279,14 +279,14 @@ int auth_other_init() {
             f = 0.75;
     }
 
-    authchild_timeout.tv_sec  = (long)floor(f);
-    authchild_timeout.tv_usec = (long)((f - floor(f)) * 1e6);
+    auth_other_childtimeout.tv_sec  = (long)floor(f);
+    auth_other_childtimeout.tv_usec = (long)((f - floor(f)) * 1e6);
 
     /* Find out user and group under which program will run. */
     if (!(s = config_get_string("auth-other-user"))) {
         log_print(LOG_ERR, _("auth_other_init: no user specified"));
         return 0;
-    } else if (!parse_uid(s, &authchild_uid)) {
+    } else if (!parse_uid(s, &auth_other_childuid)) {
         log_print(LOG_ERR, _("auth_other_init: auth-other-user directive `%s' does not make sense"), s);
         return 0;
     }
@@ -294,12 +294,12 @@ int auth_other_init() {
     if (!(s = config_get_string("auth-other-group"))) {
         log_print(LOG_ERR, _("auth_other_init: no group specified"));
         return 0;
-    } else if (!parse_gid(s, &authchild_gid)) {
+    } else if (!parse_gid(s, &auth_other_childgid)) {
         log_print(LOG_ERR, _("auth_other_init: auth-other-group directive `%s' does not make sense"), s);
         return 0;
     }
 
-    log_print(LOG_INFO, "auth_other_init: %s: will run as uid %d, gid %d", auth_program, (int)authchild_uid, (int)authchild_gid);
+    log_print(LOG_INFO, "auth_other_init: %s: will run as uid %d, gid %d", auth_program, (int)auth_other_childuid, (int)auth_other_childgid);
 
     if (!auth_other_start_child()) {
         log_print(LOG_ERR, _("auth_other_init: failed to start authentication child for first time"));
@@ -312,8 +312,8 @@ int auth_other_init() {
 /* auth_other_postfork:
  * Post-fork cleanup: close our copies of the file descriptors. */
 void auth_other_postfork() {
-    close(authchild_wr);
-    close(authchild_rd);
+    close(auth_other_childwr);
+    close(auth_other_childrd);
 }
 
 /* auth_other_close:
@@ -332,7 +332,7 @@ int auth_other_send_request(const int nvars, ...) {
     char *p;
     size_t nn;
     
-    if (!authchild_pid) return 0;
+    if (!auth_other_child_pid) return 0;
 
     va_start(ap, nvars);
 
@@ -360,7 +360,7 @@ int auth_other_send_request(const int nvars, ...) {
     /* Since write operations are atomic, this will either succeed entirely or
      * fail. In the latter case, it may be with EAGAIN because the child
      * process is blocking; we interpret this as a protocol error. */
-    if (try_write(authchild_wr, buffer, nn)) ret = 1;
+    if (try_write(auth_other_childwr, buffer, nn)) ret = 1;
     else {
         if (errno == EAGAIN)
             log_print(LOG_ERR, _("auth_other_send_request: write: write on pipe blocked; killing child"));
@@ -384,10 +384,10 @@ stringmap auth_other_recv_response() {
     char *p, *q, *r, *s;
     struct timeval deadline;
 
-    if (!authchild_pid) return NULL;
+    if (!auth_other_child_pid) return NULL;
 
     gettimeofday(&deadline, 0);
-    tvadd(&deadline, &authchild_timeout);
+    tvadd(&deadline, &auth_other_childtimeout);
 
     p = buffer;
     do {
@@ -396,7 +396,7 @@ stringmap auth_other_recv_response() {
         fd_set readfds;
 
         FD_ZERO(&readfds);
-        FD_SET(authchild_rd, &readfds);
+        FD_SET(auth_other_childrd, &readfds);
         gettimeofday(&tt, NULL);
         if (tvcmp(&deadline, &tt) == -1) {
             log_print(LOG_ERR, _("auth_other_recv_response: timed out waiting for a response; killing child"));
@@ -404,9 +404,9 @@ stringmap auth_other_recv_response() {
         }
         tvsub(&timeout, &tt);
 
-        switch (select(authchild_rd + 1, &readfds, NULL, NULL, &timeout)) {
+        switch (select(auth_other_childrd + 1, &readfds, NULL, NULL, &timeout)) {
             case 1:
-                rr = read(authchild_rd, p, (buffer + sizeof(buffer) - p));
+                rr = read(auth_other_childrd, p, (buffer + sizeof(buffer) - p));
 
                 switch (rr) {
                     case 0:
@@ -482,7 +482,7 @@ authcontext auth_other_new_apop(const char *name, const char *local_part, const 
     item *I;
     authcontext a = NULL;
  
-    if (!authchild_pid) auth_other_start_child();
+    if (!auth_other_child_pid) auth_other_start_child();
     
     for (p = digeststr, q = digest; q < digest + 16; p += 2, ++q)
         sprintf(p, "%02x", (unsigned int)*q);
@@ -546,7 +546,7 @@ authcontext auth_other_new_user_pass(const char *user, const char *local_part, c
     item *I;
     authcontext a = NULL;
 
-    if (!authchild_pid) auth_other_start_child();
+    if (!auth_other_child_pid) auth_other_start_child();
 
     if (local_part && domain) {
         if (!auth_other_send_request(7, "method", "PASS", "user", user, "local_part", local_part, "domain", domain, "pass", pass, "clienthost", clienthost, "serverhost", serverhost))
@@ -605,7 +605,7 @@ void auth_other_onlogin(const authcontext A, const char *clienthost, const char 
     stringmap S;
     item *I;
 
-    if (!authchild_pid) auth_other_start_child();
+    if (!auth_other_child_pid) auth_other_start_child();
 
     if (!auth_other_send_request(6, "method", "ONLOGIN", "user", A->user, "local_part", A->local_part, "domain", A->domain, "clienthost", clienthost, "serverhost", serverhost)
         || !(S = auth_other_recv_response()))
