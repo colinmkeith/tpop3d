@@ -38,7 +38,7 @@ ssize_t xwrite(int fd, const void *buf, size_t count) {
             c -= e;
             b += e;
         } else if (errno != EINTR) return e;
-    } while (c > 0);
+    }
     return count;
 }
 
