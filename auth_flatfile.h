@@ -18,8 +18,8 @@
 #include "authswitch.h"
 
 /* auth_flatfile.c */
-authcontext auth_flatfile_new_user_pass(const char *user, const char *local_part, const char *domain, const char *pass, const char *host);
-int  auth_flatfile_init(void);
+authcontext auth_flatfile_new_user_pass(const char *user, const char *local_part, const char *domain, const char *pass, const char *clienthost, const char *serverhost);
+int auth_flatfile_init(void);
 
 #endif /* AUTH_FLATFILE */
 
