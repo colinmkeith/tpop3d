@@ -1,0 +1,56 @@
+#!/usr/bin/perl -w
+#
+# pop3bench:
+# POP3 server benchmarking tool.
+#
+# Copyright (c) 2004 Chris Lightfoot. All rights reserved.
+# Email: chris@ex-parrot.com; WWW: http://www.ex-parrot.com/~chris/
+#
+
+my $rcsid = ''; $rcsid .= '$Id$';
+
+use IO::Socket;
+use Time::HiRes;
+use Error qw(:try);
+
+my $T = time();
+
+sub howlong () {
+    my $T2 = time();
+    $T2 -= $T;
+    $T = time();
+    return $T2;
+}
+
+sub parse_options (@) {
+    my @args = @_;
+    my $res = {
+        apop => 0,
+        pipelining => 0,
+        user => undef,
+        pass => undef,
+        commands => [ list, uidl, retr ]
+    };
+    while (shift(@args) =~ /^--(.+)/) {
+        if ($1 eq 'username') {
+            $res->{user} = shift(@args);
+        } elsif ($1 eq 'password') {
+            $res->{pass} = shift(@args);
+        } elsif ($1 eq 'apop') {
+            $res->{apop} = 1;
+        } elsif ($1 eq 'pipelining') {
+            $res->{pipelining} = 1;
+        } elsif ($1 eq 'commands') {
+            my %allowed = map { $_ => 1 } qw(list uidl dele retr top noop);
+            $res->{commands} = [ ];
+            foreach (split(/,\s*/, shift(@args))) {
+                $_ = lc($_);
+                return "`$_' is not a known command" unless (exists($allowed{$_}));
+                push(@{$res->{commands}}, $_);
+            }
+        } else {
+            return "`--$1': unknown option";
+        }
+    }
+}
+
