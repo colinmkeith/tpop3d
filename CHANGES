@@ -7,7 +7,7 @@ from 16 to 100. Fixed a typo in Makefile.am. Incorporated a patch from Diego
 Alvarez to allow substitution variables to be used in LDAP base configurations.
 Altered the apop-only option to affect unsecured connections only, following a
 suggestion by Dave Baker. Fixed the `mass virtual hosting', following a bug
-report from Matt at Local Access Communications.
+report from Matthew Trent.
 
 1.5.2
 
