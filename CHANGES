@@ -17,6 +17,8 @@ types of mailboxes used by auth-mysql.
 
 Support for TCP Wrappers was added.
 
+tpop3d will now remove a stale PID file on startup, rather than exiting.
+
 Support for the MySQL PASSWORD() function as a password-hashing method was
 added.
 

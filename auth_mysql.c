@@ -47,14 +47,16 @@ static const char rcsid[] = "$Id$";
  *  [3] mailbox type
  */
 char *user_pass_query_template =
-    "SELECT concat(domain.path, '/', popbox.mbox_name), popbox.password_hash, domain.unix_user, 'mailspool' "
+    "SELECT concat(domain.path, '/', popbox.mbox_name), popbox.password_hash, "
+            "domain.unix_user, 'mailspool' "
       "FROM popbox, domain "
      "WHERE popbox.local_part = '$(local_part)' "
        "AND popbox.domain_name = '$(domain)' "
        "AND popbox.domain_name = domain.domain_name";
        
 char *apop_query_template =
-    "SELECT concat(domain.path, '/', popbox.mbox_name), popbox.password_hash, domain.unix_user, 'mailspool' "
+    "SELECT concat(domain.path, '/', popbox.mbox_name), popbox.password_hash, "
+            "domain.unix_user, 'mailspool' "
       "FROM popbox, domain "
      "WHERE popbox.local_part = '$(local_part)' "
        "AND popbox.domain_name = '$(domain)' "
@@ -206,7 +208,7 @@ static char *crypt_md5(const char *pw, const char *salt)
 
 /* MySQL PASSWORD() routines. This is here so that you can use the MySQL
  * proprietary password-hashing routine with tpop3d. The code is inserted here
- * to avoid having to do an explicit quesry to get the MySQL password hash.
+ * to avoid having to do an explicit query to get the MySQL password hash.
  * Observe that this is not completely safe, since the machine on which the
  * MySQL server is running may use a different character set to this machine.
  * However, it is probably not worth worrying about this in reality.
@@ -428,7 +430,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
                  * to use later.
                  */
                 a = authcontext_new(pw->pw_uid, use_gid ? gid : pw->pw_gid,
-                                    NULL, row[0], row[3], domain);
+                                    row[3], row[0], pw->pw_dir, domain);
 
                 break;
             }
@@ -593,7 +595,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const c
                 }
 
                 a = authcontext_new(pw->pw_uid, use_gid ? gid : pw->pw_gid,
-                                    NULL, row[0], row[3], domain);
+                                    row[3], row[0], pw->pw_dir, domain);
                 break;
             }
 
