@@ -114,6 +114,7 @@ char *cfgdirectives[] = {
 
 #ifdef USE_WHOSON
     "whoson-enable",
+#endif
     
     /* final entry must be NULL */
     NULL};

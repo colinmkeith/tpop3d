@@ -472,12 +472,13 @@ void usage(FILE *fp) {
 "Synopsis: tpop3d -h | [-f file] [-p file] [-d] [-v]\n"
 "\n"
 "  -h               Display this message\n"
-"  -f file          Read configuration from file (default: /etc/tpop3d.conf)\n"
+"  -f file          Read configuration from file\n"
+"                   (default: %s/tpop3d.conf)\n"
 "  -p file          Write PID to file (default: don't use a PID file)\n"
 "  -d               Do not detach from controlling terminal\n"
 "  -v               Log traffic to/from server for debugging purposes\n"
 "\n"
-                ), TPOP3D_VERSION);
+                ), TPOP3D_VERSION, CONFIG_DIR);
 
     /* Describe the compiled-in options. */
     authswitch_describe(fp);
@@ -512,7 +513,7 @@ extern int mailspool_save_indices;  /* in mailspool.c */
 
 int main(int argc, char **argv, char **envp) {
     int nodaemon = 0;
-    char *configfile = "/etc/tpop3d.conf", *s;
+    char *configfile = CONFIG_DIR"/tpop3d.conf", *s;
     int na, c;
 
 #ifdef MTRACE_DEBUGGING

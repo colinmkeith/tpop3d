@@ -23,7 +23,8 @@ noinst_HEADERS = auth_mysql.h auth_ldap.h auth_other.h auth_perl.h auth_pam.h \
 
 #tpop3d_LDFLAGS = -L@mysql_root@/lib/mysql
 
-CFLAGS = -Wall -Wstrict-prototypes -g -O2
+CFLAGS += -Wall -Wstrict-prototypes -g -O2
+CFLAGS += -DCONFIG_DIR=\"$(sysconfdir)\"
 
 man_MANS = tpop3d.8 tpop3d.conf.5
 

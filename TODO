@@ -62,15 +62,3 @@ $Id$
   a process to handle TLS, while the main daemon carries on doing its stuff.
 
 
-* Obey --sysconfdir.
-
-
-* Mass-hosting option
-
-  At the moment, if tpop3d listens on 0.0.0.0, the append-domain option can
-  only be used with one specified domain. Although Matthew Reimer's addition
-  of the $(serverhost) variable to the authentication code permits a workaround
-  for this, it would be helpful for tpop3d to be able to infer the domain name
-  from the actual IP address to which a connection is made.
-
-

@@ -116,7 +116,7 @@ void terminate_signal_handler(const int i) {
  * be undefined behaviour too. */
 extern connection this_child_connection;    /* in main.c */
 
-extern char * pidfile;    /* in main.c */
+extern char *pidfile;    /* in main.c */
 extern int post_fork;    /* in main.c */
 
 void die_signal_handler(const int i) {
