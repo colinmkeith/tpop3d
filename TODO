@@ -61,23 +61,15 @@ $Id$
   reacquired. This is feasible, but would require careful thought.
 
 
-* More example scripts and configs
-
-  These would be handy, especially for answering user questions. In
-  particular, some configurations are quite common in practice but not
-  directly addressed by examples here; for instance, POP-before-SMTP relaying.
-
-  Also, not everyone likes perl; some non-perl examples would be good.
-
-
 * Secured Sockets Layer support
 
-  It is possible to use tpop3d with an SSL proxy such as stunnel; however,
-  there are advantages to implementing such support natively in tpop3d; in
-  particular, it is more compatible with POP-before-SMTP relaying. There is
-  example code in the OpenSSL distribution which would serve as the starting
-  point for an implementation. However, there are issues with blocking and
-  non-blocking calls.
+  It is possible to use tpop3d with an SSL proxy such as stunnel or tlsproxyd,
+    http://ex-parrot.com/~chris/software.html#tlsproxyd;
+  however, there are advantages to implementing such support natively in
+  tpop3d; in particular, it is more compatible with POP-before-SMTP relaying.
+  There is example code in the OpenSSL distribution which would serve as the
+  starting point for an implementation. However, there are issues with
+  blocking and non-blocking calls.
 
 
 * Obey --sysconfdir.

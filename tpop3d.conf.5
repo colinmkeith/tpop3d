@@ -569,6 +569,10 @@ killed with \fBSIGTERM\fP; if it fails to expire, \fBSIGKILL\fP will then be
 sent. An authentication program should catch \fBSIGTERM\fP to do any essential
 cleaning up.
 
+Your authentication program must not leak memory or file descriptors; if this
+is a problem, have it exit after some number of transactions; \fBtpop3d\fP will
+restart it automatically.
+
 .SS Perl authentication options
 
 These are only available if you compiled \fBtpop3d\fP with support for
@@ -614,6 +618,12 @@ subroutine is called after any successful login (not just logins mediated
 by \fBauth-perl\fP) and is intended to be used to implement POP-before-SMTP
 relaying; the return value from this subroutine is ignored, except for any
 \fBlogmsg\fP hash element, which is logged in the normal way.
+
+Your perl routines must not leak memory (normally not a problem because of
+perl's garbage collector) or other system resources. If this is a problem,
+you could consider forcing \fBtpop3d\fP to restart every so often by calling
+\fBkill(1, $$)\fP, but it would probably be preferable to use \fBauth-other\fP
+in this case.
 
 .SH FILES
 .B /etc/tpop3d.conf

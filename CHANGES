@@ -20,7 +20,7 @@ auth-other was corrected. Fixed the behaviour of STAT after DELE. A bug in the
 experimental BSD metadata cache code was fixed. A memory leak in the stringmap
 code which affected auth-perl and auth-other was fixed. Fixed a reference
 counting problem which could cause auth-perl's perl interpreter to leak
-memory.
+memory. Added some notes to tpop3d.conf(5) on memory and resource leaks.
 
 {md5} passwords may now be encoded in base64 as well as hex, for compatibility
 with Exim and LDAP.

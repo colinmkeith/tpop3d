@@ -25,6 +25,7 @@ static const char rcsid[] = "$Id$";
 #include <sys/time.h>
 #include <stdio.h>         /* rename() */
 #include <errno.h>
+#include <unistd.h>
 
 #include "mailbox.h"
 #include "util.h"
