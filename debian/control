@@ -1,0 +1,16 @@
+Source: tpop3d
+Section: mail
+Priority: optional
+Maintainer: Mark Longair <mhl@pobox.com>
+Build-Depends: debhelper (>> 3.0.0)
+Standards-Version: 3.5.2
+
+Package: tpop3d
+Architecture: any
+Depends: ${shlibs:Depends}
+Description: A POP3 server
+ tpop3d is yet-another-pop3-server. The intention has been to write a
+ server which is fast, extensible, and secure. `Extensible' is used
+ specifically in the context of new authentication mechanisms.  This
+ package is compiled to use PAM authentication.  See also the package
+ tpop3d-vmail-sql.
