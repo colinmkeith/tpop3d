@@ -191,7 +191,7 @@ int auth_ldap_init(void) {
             goto fail;
         }
     } else if (!s && t)
-        ldapinfo.attr.group = xstrdup(s);
+        ldapinfo.attr.group = xstrdup(t);
     else if (s && t) {
         log_print(LOG_ERR, _("auth_ldap_init: both an auth-ldap-mail-group and an auth-ldap-mail-group-attr directive were specified"));
         goto fail;

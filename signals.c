@@ -14,6 +14,7 @@ static const char rcsid[] = "$Id$";
 
 #include <errno.h>
 #include <signal.h>
+#include <string.h>
 #include <syslog.h>
 
 #include <sys/wait.h>

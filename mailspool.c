@@ -656,7 +656,7 @@ fail:
  * the tail of the file; this is done by calling into the `normal'
  * mailspool_build_index. Returns 0 on success or -1 on failure. */
 int mailspool_load_index(mailbox m) {
-    char *indexfile;
+    char *indexfile = NULL;
     FILE *fp = NULL;
     struct stat st;
     int offset, length, msglength;
@@ -710,7 +710,6 @@ int mailspool_load_index(mailbox m) {
 
     while (fscanf(fp, "%8x %8x %8x %32[0-9a-f]", &offset, &length, &msglength, hexdigest) == 4) {
         struct indexpoint x;
-        MD5_CTX ctx;
         size_t n = 512;
         unsigned char realhash[16];
 
