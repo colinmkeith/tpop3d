@@ -17,6 +17,9 @@ Roberto Braga-- for a reliability patch to the example init.d script.
 Paul Makepeace-- for contributing maildir support, and getting tpop3d running
 on Mac OS X.
 
+Allan Joergensen-- for helping me find and fix a bug with the code which was
+causing problems on Linux for S/390.
+
 And numerous others, for putting up with foolish questions about Unix
 mailspool handling or (more often) indignant rants about Unix in general and
 the sorry state of file locking in particular.
