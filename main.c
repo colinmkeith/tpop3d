@@ -2,10 +2,11 @@
  * main.c:
  * main loop for pop3 server
  *
- * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
+ * Copyright (c) 2001 Chris Lightfoot. All rights reserved.
  *
  */
 
+static const char copyright[] = "$Copyright: (c) 2001 Chris Lightfoot. All rights reserved $";
 static const char rcsid[] = "$Id$";
 
 #include <errno.h>

@@ -4,7 +4,7 @@
  * This makes no attempt to balance the tree, so has bad worst-case behaviour.
  * Also, I haven't implemented removal of items from the tree. So sue me.
  *
- * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
+ * Copyright (c) 2001 Chris Lightfoot. All rights reserved.
  *
  */
 

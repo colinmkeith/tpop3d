@@ -7,7 +7,7 @@
  * malicious user. In fact, we zero the information at point of attaching to
  * the database.
  * 
- * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
+ * Copyright (c) 2001 Chris Lightfoot. All rights reserved.
  *
  */
 

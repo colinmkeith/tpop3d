@@ -2,7 +2,7 @@
  * auth_pam.c:
  * authenticate using Pluggable Authentication Modules
  *
- * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
+ * Copyright (c) 2001 Chris Lightfoot. All rights reserved.
  *
  */
 

@@ -2,7 +2,7 @@
  * config.c:
  * config file parsing
  *
- * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
+ * Copyright (c) 2001 Chris Lightfoot. All rights reserved.
  *
  */
 

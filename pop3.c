@@ -14,11 +14,16 @@ static const char rcsid[] = "$Id$";
 #include <syslog.h>
 #include <time.h>
 #include <unistd.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 #include <sys/types.h>
 
 #include "authswitch.h"
 #include "connection.h"
 #include "util.h"
+
+extern int verbose;
 
 /* hex_digest:
  * Print a dump of a message hash.
@@ -137,9 +142,15 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     strcat(nn, c->domain);
                     c->a = authcontext_new_apop(nn, c->timestamp, digest);
                     free(nn);
+
                 }
 
                 if (c->a) {
+                    /* Now save a new ID string for this client. */
+                    free(c->idstr);
+                    c->idstr =(char*)malloc(strlen(c->a->credential) + 2 + strlen(inet_ntoa(c->sin.sin_addr)) + 1);
+                    sprintf(c->idstr, "%s(%s)", c->a->credential, inet_ntoa(c->sin.sin_addr));
+
                     c->state = transaction;
                     return fork_and_setuid;
                 } else {
@@ -182,6 +193,11 @@ enum connection_action connection_do(connection c, const pop3command p) {
             }
 
             if (c->a) {
+                /* Now save a new ID string for this client. */
+                free(c->idstr);
+                c->idstr =(char*)malloc(strlen(c->a->credential) + 2 + strlen(inet_ntoa(c->sin.sin_addr)) + 1);
+                sprintf(c->idstr, "%s(%s)", c->a->credential, inet_ntoa(c->sin.sin_addr));
+
                 memset(c->pass, 0, strlen(c->pass));
                 c->state = transaction;
                 return fork_and_setuid; /* Code in main.c sends response in case of error. */
@@ -271,15 +287,21 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 }
             } else {
                 item *J;
+                int nn = 0;
                 connection_sendresponse(c, 1, "Scan list follows");
                 vector_iterate(c->m->index, J) {
                     if (!((indexpoint)J->v)->deleted) {
                         char response[32];
                         snprintf(response, 31, "%d %d", 1 + J - c->m->index->ary, ((indexpoint)J->v)->msglength - ((indexpoint)J->v)->length - 1);
                         connection_sendline(c, response);
+                        ++nn;
                     }
                 }
                 connection_sendline(c, ".");
+                /* That might have taken a long time. */
+                c->lastcmd = time(NULL);
+                if (verbose)
+                    print_log(LOG_DEBUG, "connection_do: client %s: sent %d-line scan list", c->idstr, nn + 1);
             }
             break;
 
@@ -297,17 +319,21 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 }
             } else {
                 item *J;
+                int nn = 0;
                 connection_sendresponse(c, 1, "ID list follows");
                 vector_iterate(c->m->index, J) {
                     if (!((indexpoint)J->v)->deleted) {
                         char response[64];
                         snprintf(response, 63, "%d %s", 1 + J - c->m->index->ary, hex_digest(((indexpoint)J->v)->hash));
                         connection_sendline(c, response);
+                        ++nn;
                     }
                 }
                 connection_sendline(c, ".");
                 /* That might have taken a long time. */
                 c->lastcmd = time(NULL);
+                if (verbose)
+                    print_log(LOG_DEBUG, "connection_do: client %s: sent %d-line unique ID list", c->idstr, nn + 1);
             }
             break;
 
@@ -332,7 +358,8 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     }
                     /* That might have taken a long time. */
                     c->lastcmd = time(NULL);
-
+                    if (verbose)
+                        print_log(LOG_DEBUG, "connection_do: client %s: sent message %d", c->idstr, msg_num);
                 }
                 break;
             } else {
@@ -358,6 +385,8 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 }
                 /* That might have taken a long time. */
                 c->lastcmd = time(NULL);
+                if (verbose)
+                    print_log(LOG_DEBUG, "connection_do: client %s: sent up to %d lines of message %d", c->idstr, arg2, msg_num);
                 break;
             }
                 

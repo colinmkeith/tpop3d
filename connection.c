@@ -28,6 +28,8 @@ static const char rcsid[] = "$Id$";
 #include "connection.h"
 #include "util.h"
 
+extern int verbose;
+
 /* make_timestamp:
  * Create a timestamp string.
  */
@@ -95,6 +97,9 @@ connection connection_new(int s, const struct sockaddr_in *sin, const char *doma
 
     if (domain) c->domain = strdup(domain);
 
+    c->idstr = (char*)malloc(strlen(inet_ntoa(sin->sin_addr)) + 1 + strlen(domain) + 1);
+    sprintf(c->idstr, "%s/%s", inet_ntoa(sin->sin_addr), domain);
+
     c->p = c->buffer = (char*)malloc(c->bufferlen = MAX_POP3_LINE);
     if (!c->buffer) goto fail;
 
@@ -126,6 +131,7 @@ void connection_delete(connection c) {
     if (c->m) mailspool_delete(c->m);
 
     if (c->domain)    free(c->domain);
+    if (c->idstr)     free(c->idstr);
     if (c->buffer)    free(c->buffer);
     if (c->timestamp) free(c->timestamp);
     if (c->user)      free(c->user);
@@ -141,7 +147,7 @@ ssize_t connection_read(connection c) {
     ssize_t n;
     if (!c) return -1;
     if (c->p == c->buffer + c->bufferlen) {
-        print_log(LOG_ERR, "connection_read: over-long line from client %s", inet_ntoa(c->sin.sin_addr));
+        print_log(LOG_ERR, "connection_read: client %s: over-long line", c->idstr);
         errno = ENOBUFS;
         return -1;
     }
@@ -205,6 +211,23 @@ pop3command connection_parsecommand(connection c) {
 
     pc = pop3command_new(p);
 
+    if (verbose) {
+        char *s;
+        int i, l;
+        l = sizeof("connection_parsecommand: client : received `'") + strlen(c->idstr);
+        for (i = 0; i < pc->toks->toks->n_used; ++i) l += strlen((char*)(pc->toks->toks->ary[i].v)) + 6;
+        s = (char*)malloc(l);
+        sprintf(s, "connection_parsecommand: client %s: received `", c->idstr);
+        for (i = 0; i < pc->toks->toks->n_used; ++i) {
+            if (i == 0 || pc->cmd != PASS) strcat(s, (char*)(pc->toks->toks->ary[i].v));
+            else strcat(s, "[...]");
+            if (i != pc->toks->toks->n_used - 1) strcat(s, " ");
+        }
+        strcat(s, "'");
+        print_log(LOG_DEBUG, "%s", s);
+        free(s);
+    }
+                
     /* now update the buffer */
     memmove(c->buffer, q, c->buffer + c->bufferlen - q);
     c->p = c->buffer;
@@ -259,6 +282,8 @@ int connection_sendresponse(connection c, const int success, const char *s) {
     snprintf(x, l, "%s %s\r\n", success ? "+OK" : "-ERR", s);
     m = xwrite(c->s, x, l = strlen(x));
     free(x);
+    if (verbose)
+        print_log(LOG_DEBUG, "connection_sendresponse: client %s: sent `%s %s'", c->idstr, success? "+OK" : "-ERR", s);
     return (m == l);
 }
 

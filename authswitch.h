@@ -2,7 +2,7 @@
  * authswitch.h:
  * authentication drivers
  *
- * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
+ * Copyright (c) 2001 Chris Lightfoot. All rights reserved.
  *
  * $Id$
  *
