@@ -125,7 +125,7 @@ listener listener_new(const struct sockaddr_in *addr, const char *domain
                 }
 
             if (!L->domain)
-                log_print(LOG_WARNING, _("listener_new: %s: no suitable domain suffix found for this address"), inet_ntoa(addr->sin_addr));
+                log_print(LOG_WARNING, _("listener_new: %s:%d: no suitable domain suffix found for this address"), inet_ntoa(addr->sin_addr), htons(addr->sin_port));
         }
     } else L->domain = xstrdup(domain);
 
@@ -138,10 +138,10 @@ listener listener_new(const struct sockaddr_in *addr, const char *domain
         struct utsname u;
         if (uname(&u) == -1) {
             log_print(LOG_WARNING, "listener_new: uname: %m");
-            log_print(LOG_WARNING, _("listener_new: %s: using domain suffix `x.invalid'"), inet_ntoa(addr->sin_addr));
+            log_print(LOG_WARNING, _("listener_new: %s:%d: using domain suffix `x.invalid'"), inet_ntoa(addr->sin_addr), htons(addr->sin_port));
             L->domain = xstrdup("x.invalid");
         } else {
-            log_print(LOG_WARNING, _("listener_new: %s: using fallback domain suffix `%s'"), inet_ntoa(addr->sin_addr), u.nodename);
+            log_print(LOG_WARNING, _("listener_new: %s:%d: using fallback domain suffix `%s'"), inet_ntoa(addr->sin_addr), htons(addr->sin_port), u.nodename);
             L->domain = xstrdup(u.nodename);
         }
     }
@@ -154,10 +154,10 @@ listener listener_new(const struct sockaddr_in *addr, const char *domain
         L->tls.ctx = tls_create_context(certfile, pkeyfile);
         if (!L->tls.ctx) {
             if (mode == immediate) {
-                log_print(LOG_ERR, _("listener_new: %s: cannot create TLS context for listener; dropping it"), inet_ntoa(addr->sin_addr));
+                log_print(LOG_ERR, _("listener_new: %s:%d: cannot create TLS context for listener; dropping it"), inet_ntoa(addr->sin_addr), htons(addr->sin_port));
                 goto fail;
             } else if (mode == stls) {
-                log_print(LOG_ERR, _("listener_new: %s: cannot create TLS context; setting TLS mode to `none'"), inet_ntoa(addr->sin_addr));
+                log_print(LOG_ERR, _("listener_new: %s:%d: cannot create TLS context; setting TLS mode to `none'"), inet_ntoa(addr->sin_addr), htons(addr->sin_port));
                 L->tls.mode = none;
             }
         }

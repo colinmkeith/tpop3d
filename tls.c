@@ -38,13 +38,15 @@ int noreadpassphrase = 1;
 /* tls_getpassphrase:
  * Obtain a pass phrase from the user. */
 static int tls_getpass(char *buf, int size, int rwflag, void *userdata) {
-    char *s;
+    char *prompt, *s;
     memset(buf, 0, size);
     if (noreadpassphrase) return 0;
-    fprintf(stderr, "%s\n", (char*)userdata);
+    prompt = xmalloc(strlen((char*)userdata) + 40);
+    sprintf(prompt, "Enter pass phrase for `%s': ", (char*)userdata);
     /* XXX some systems have unreasonable limits on the length of strings
      * returned by getpass(3). */
-    s = getpass("Enter pass phrase: ");
+    s = getpass(prompt);
+    xfree(prompt);
     strncpy(buf, s, size - 1);
     memset(s, 0, strlen(s));    /* paranoia */
     return strlen(buf);

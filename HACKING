@@ -59,7 +59,7 @@ mailbox drivers in mind.
   for you. The dotapopfile example perl script in scripts/ uses this module.
 
   If you wish to write an authenticator in perl, you can also use the auth_perl
-  driver, which embeds a perl interpreter in the main tpop3d daemon.  This may
+  driver, which embeds a perl interpreter in the main tpop3d daemon. This may
   well be more efficient than using auth_other.
 
 
@@ -90,9 +90,9 @@ mailbox drivers in mind.
 
   Functions should be commented like this:
 
-    /* foo:
-     * Calculate the foo value of the passed string. The arguments and return
-     * value of the function should be explained here, unless they are
+    /* foo BAR
+     * Calculate the foo value of the passed string BAR. The arguments and
+     * return value of the function should be explained here, unless they are
      * blindingly obvious. */
     int foo (const char *bar) {
         /* ... */

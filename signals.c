@@ -67,31 +67,19 @@ void set_signals() {
     int restart_signals[]   = {SIGHUP, 0};
     int die_signals[]       = {SIGQUIT, SIGABRT, SIGSEGV, SIGBUS, SIGILL, 0};
     int *i;
-    struct sigaction sa, saz = {0};
+    struct sigaction sa = {0};
 
-    for (i = ignore_signals; *i; ++i) {
-        sa = saz;
-        sa.sa_handler = SIG_IGN;
-        sigaction(*i, &sa, NULL);
-    }
-
-    for (i = terminate_signals; *i; ++i) {
-        sa = saz;
-        sa.sa_handler = terminate_signal_handler;
-        sigaction(*i, &sa, NULL);
-    }
+    for (i = ignore_signals; *i; ++i)
+        xsignal(*i, SIG_IGN);
     
-    for (i = restart_signals; *i; ++i) {
-        sa = saz;
-        sa.sa_handler = restart_signal_handler;
-        sigaction(*i, &sa, NULL);
-    }
+    for (i = terminate_signals; *i; ++i)
+        xsignal(*i, terminate_signal_handler);
+    
+    for (i = restart_signals; *i; ++i)
+        xsignal(*i, restart_signal_handler);
 
-    for (i = die_signals; *i; ++i) {
-        sa = saz;
-        sa.sa_handler = die_signal_handler;
-        sigaction(*i, &sa, NULL);
-    }
+    for (i = die_signals; *i; ++i)
+        xsignal(*i, die_signal_handler);
 
     /* SIGCHLD is special. */
     sa.sa_handler = child_signal_handler;

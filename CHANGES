@@ -22,7 +22,7 @@ to use non-blocking I/O throughout. Support for TLS was added. Connections are
 now frozen briefly after a failed authentication using code adapted from a
 contribution by Yann Grossel, who also contributed support for MySQL server
 failover for auth-mysql. tpop3d will now remove a stale lock files for
-mailspools.
+mailspools. Various code tidyings-up.
 
 1.4.2
 

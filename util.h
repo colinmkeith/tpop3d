@@ -115,6 +115,9 @@ char *xstrdup(const char *s);
 
 char *xstrndup(const char *s, const size_t count);
 
+
+void (*xsignal(int signum, void(*handler)(int)))(int);
+
 /* MD5 digests. */
 void md5_digest(const void *v, const size_t n, unsigned char *md5);
 char *md5_digest_str(const void *v, const size_t n, const int base64);

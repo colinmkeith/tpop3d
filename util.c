@@ -16,6 +16,7 @@ static const char rcsid[] = "$Id$";
 #include <fcntl.h>
 #include <pwd.h>
 #include <grp.h>
+#include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -106,6 +107,18 @@ int parse_uid(const char *user, uid_t *u) {
     }
 
     return 0;
+}
+
+/* xsignal NUMBER HANDLER
+ * Set a signal with a similar interface to signal(2) using sigaction(2). */
+void (*xsignal(int signum, void(*handler)(int)))(int) {
+    struct sigaction sa = {0}, sa_old;
+    sa.sa_handler = handler;
+    sa.sa_flags = SA_RESTART;
+    if (sigaction(signum, &sa, &sa_old) == -1)
+        return SIG_ERR;
+    else
+        return sa_old.sa_handler;
 }
 
 /* parse_gid:
