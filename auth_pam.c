@@ -98,6 +98,16 @@ authcontext auth_pam_new_user_pass(const char *user, const char *local_part, con
         log_print(LOG_ERR, "auth_pam_new_user_pass: pam_start: %s", pam_strerror(pamh, r));
         return NULL;
     }
+    
+    /* We want to be able to test against the client IP; make the remote host
+     * information available to the PAM stack. */
+    r = pam_set_item(pamh, PAM_RHOST, host);
+    
+    if (r != PAM_SUCCESS) {
+        log_print(LOG_ERR, "auth_pam_new_user_pass: pam_start: %s", pam_strerror(pamh, r));
+        return NULL;
+    }
+
 
     /* Authenticate user. */
     r = pam_authenticate(pamh, 0);

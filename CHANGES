@@ -1,6 +1,10 @@
 Changes for tpop3d
 $Id$
 
+1.4.2
+
+auth-pam now passes the client host information to the authentication stack.
+
 1.4.1
 
 Hooks for POP-before-SMTP relaying support were implemented in tpop3d, and

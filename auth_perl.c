@@ -63,6 +63,7 @@ void xs_init(void) {
     char *file = __FILE__;
     newXS("DynaLoader::boot_DynaLoader", boot_DynaLoader, file);
     newXS("TPOP3D::log_print", xs_log_print, file);
+    newXS("TPOP3D::print_log", xs_log_print, file);
 }
 
 /* auth_perl_init:

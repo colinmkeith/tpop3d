@@ -26,6 +26,8 @@ Sebastien Thomas-- for contributing auth-ldap.
 
 Ben Schumacher-- for bug fixes and useful commentary.
 
+Jason Clifford-- for an enhancement of the PAM code.
+
 And numerous others, for putting up with foolish questions about Unix
 mailspool handling or (more often) indignant rants about Unix in general and
 the sorry state of file locking in particular.
