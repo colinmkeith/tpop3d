@@ -427,11 +427,11 @@ int connection_sendline(connection c, const char *s) {
  * terminated with `\r\n'. If n is -1, the whole message is sent.
  *
  * RFC1939 doesn't define what a server which encounters an error half-way
- * through sending a message. In any case it's clear that we mustn't send the
- * final ., since that would result in the user obtaining a truncated message.
- * So we return -1 if the message could not be sent but a -ERR response was
- * transmitted to the client, -2 if sending failed after a +OK response was
- * sent, or the number of bytes written on success.
+ * through sending a message should do. In any case it's clear that we mustn't
+ * send the final ., since that would result in the user obtaining a truncated
+ * message.  So we return -1 if the message could not be sent but a -ERR
+ * response was transmitted to the client, -2 if sending failed after a +OK
+ * response was sent, or the number of bytes written on success.
  *
  * Assumes the message on disk uses only `\n' to indicate EOL. */
 int connection_sendmessage(connection c, int fd, size_t msgoffset, size_t skip, size_t msglength, int n) {
@@ -459,7 +459,7 @@ int connection_sendmessage(connection c, int fd, size_t msgoffset, size_t skip, 
     p += skip;
 
     /* Send the message headers */
-	 while (p < r && *p != '\n') {
+    while (p < r && *p != '\n') {
         q = memchr(p, '\n', r - p);
         if (!q) q = r;
         errno = 0;

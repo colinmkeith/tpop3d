@@ -122,6 +122,9 @@ void (*xsignal(int signum, void(*handler)(int)))(int);
 void md5_digest(const void *v, const size_t n, unsigned char *md5);
 char *md5_digest_str(const void *v, const size_t n, const int base64);
 
+/* Mapping length. */
+size_t getmaplength(const size_t len);
+
 /* Optional internationalisation support. */
 #ifdef WITH_I18N
 #   include <gettext.h>

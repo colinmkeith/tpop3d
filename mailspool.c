@@ -244,13 +244,6 @@ static unsigned char *memstr(const unsigned char *haystack, const size_t hlen,
     return NULL;
 }
 
-/* getmaplength LENGTH
- * Return a multiple of the system page size which is equal to or larger than
- * LENGTH, to be used as a parameter to mmap(2). */
-static size_t getmaplength(const size_t len) {
-    return ((len + PAGESIZE - 1) / PAGESIZE) * PAGESIZE;
-}
-
 /* mailspool_build_index MAILBOX MEMORY
  * Build an index of a mailspool in MAILBOX. Uses mmap(2) for speed; if MEMORY
  * is non-NULL, it is assumed to point to a mapped region on the mailspool

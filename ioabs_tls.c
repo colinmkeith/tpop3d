@@ -152,6 +152,23 @@ static ssize_t ioabs_tls_read(connection c, void *buf, size_t count) {
     return IOABS_ERROR;
 }
 
+static void dump(const char *s, size_t l) {
+    const char *p;
+    fprintf(stderr, ">>>");
+    for (p = s; p < s + l; ++p) {
+        if (*p < 32)
+            switch(*p) {
+                case '\t': fprintf(stderr, "\\t"); break;
+                case '\r': fprintf(stderr, "\\r"); break;
+                case '\n': fprintf(stderr, "\\n"); break;
+                default:   fprintf(stderr, "\\x%02x", *p);
+            }
+        else fprintf(stderr, "%c", (int)*p);
+    }   
+    fprintf(stderr, "<<<\n"); 
+}   
+
+
 /* ioabs_tls_immediate_write CONNECTION BUFFER COUNT
  * Attempt to write COUNT bytes from BUFFER to CONNECTION. Returns the number
  * of bytes written on success, IOABS_WOULDBLOCK if the write would block, and
@@ -160,8 +177,8 @@ static ssize_t ioabs_tls_read(connection c, void *buf, size_t count) {
 static ssize_t ioabs_tls_immediate_write(connection c, const void *buf, size_t count) {
     int n, e;
     struct ioabs_tls *io;
-    io = (struct ioabs_tls*)c->io;
 
+    io = (struct ioabs_tls*)c->io;
     if (count == 0) return 0;   /* otherwise can't distinguish this case... */
 
     if (io->read_blocked_on_write) return IOABS_WOULDBLOCK;
@@ -176,6 +193,7 @@ static ssize_t ioabs_tls_immediate_write(connection c, const void *buf, size_t c
     }
 
     e = ERR_get_error();
+
     switch (SSL_get_error(io->ssl, n)) {
         case SSL_ERROR_WANT_READ:
             io->write_blocked_on_read = 1;
@@ -228,7 +246,7 @@ static void ioabs_tls_pre_select(connection c, int *n, fd_set *readfds, fd_set *
  * Post-select handling for TLS, with its complicated logic. */
 static int ioabs_tls_post_select(connection c, fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
     int ret = 0, R = 0;
-    ssize_t n;
+    ssize_t n, wtotal;
     int canread, canwrite;
     struct ioabs_tls *io;
     io = (struct ioabs_tls*)c->io;
@@ -305,9 +323,11 @@ static int ioabs_tls_post_select(connection c, fd_set *readfds, fd_set *writefds
     }
 
     /* Write from the buffer to the connection, if necessary. */
-    if (((!io->write_blocked_on_read && !io->read_blocked_on_write && canwrite) || (io->write_blocked_on_read && canread)) && buffer_available(c->wrb) > 0) {
+    if (((!io->write_blocked_on_read && !io->read_blocked_on_write && canwrite)
+            || (io->write_blocked_on_read && canread))
+        && (wtotal = buffer_available(c->wrb)) > 0) {
         io->write_blocked_on_read = 0;
-        n = 1;
+        buffer_make_contiguous(c->wrb);
         do {
             char *w;
             size_t wlen;

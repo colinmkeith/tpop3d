@@ -21,11 +21,12 @@ typedef struct _buffer {
 /* buffer_available BUFFER
  * Return the number of bytes of data available to consume from BUFFER. This
  * is a macro which may evaluate BUFFER more than once. */
-#define buffer_available(B) (((B)->put + (B)->len - (B)->get) % (B)->len)
+#define buffer_available(B) ((size_t)(((B)->put + (B)->len - (B)->get) % (B)->len))
 
 /* buffer.c */
 buffer buffer_new(const size_t len);
 void buffer_delete(buffer B);
+void buffer_make_contiguous(buffer B);
 char *buffer_get_consume_ptr(buffer B, size_t *slen);
 void buffer_consume_bytes(buffer B, const size_t num);
 char *buffer_consume_all(buffer B, char *str, size_t *slen);

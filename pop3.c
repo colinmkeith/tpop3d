@@ -61,6 +61,7 @@ static enum connection_action do_capa(connection c) {
 
         connection_sendline(c, *p);
     }
+
     connection_sendline(c, ".");
     return do_nothing;
 }

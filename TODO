@@ -82,5 +82,7 @@ $Id$
 
 * Underlying connection closed... TLS bug (email of 20030906).
 
+  Probably now fixed (email of 20031105).
+
 * Log statistics on transactions (email of 20031013)
 

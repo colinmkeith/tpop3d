@@ -12,7 +12,9 @@ static const char rcsid[] = "$Id$";
 #include <sys/types.h>
 
 #include <assert.h>
+#include <limits.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "buffer.h"
 #include "util.h"
@@ -34,6 +36,38 @@ void buffer_delete(buffer B) {
     xfree(B);
 }
 
+/* buffer_make_contiguous BUFFER
+ * Makes the available data in BUFFER contiguous, so that it can be returned
+ * by a single call to buffer_get_consume_ptr. */
+void buffer_make_contiguous(buffer B) {
+    size_t a;
+    char *newbuf;
+
+    assert(B);
+    
+    a = buffer_available(B);
+    if (!a || (size_t)B->get + a <= B->len)
+        /* Nothing to do. */
+        return;
+    
+    /*
+     *           v (get + a) % len
+     * ,---------------------------------------------.
+     * |XXXXXXXXXXXXXXXXX|               |XXXXXXXXXXX|
+     * | (get + a) % len |               | len - get |
+     * |XXXXXXXXXXXXXXXXX|               |XXXXXXXXXXX|
+     * `---------------------------------------------'
+     * ^ 0                               ^ get
+     */
+    newbuf = xmalloc(B->len);
+    memcpy(newbuf, B->buf + B->get, B->len - B->get);
+    memcpy(newbuf + B->len - B->get, B->buf, (B->get + a) % B->len);
+    xfree(B->buf);
+    B->buf = newbuf;
+    B->get = 0;
+    B->put = a;
+}
+
 /* buffer_get_consume_ptr BUFFER SLEN
  * Consume some available data in BUFFER, returning a pointer to the data and
  * recording the number of bytes consumed in SLEN. This may be less than the
@@ -50,7 +84,7 @@ char *buffer_get_consume_ptr(buffer B, size_t *slen) {
         *slen = 0;
         return NULL;
     }
-    if (B->get + a > B->len)
+    if ((size_t)B->get + a > B->len)
         a = B->len - B->get;
     p = B->buf + B->get;
     *slen = a;
@@ -101,27 +135,30 @@ char *buffer_consume_all(buffer B, char *str, size_t *slen) {
  * This uses a Boyer-Moore search, but we can't just reuse memstr because we
  * may have to search across the end of the buffer. */
 char *buffer_consume_to_mark(buffer B, const char *mark, const size_t mlen, char *str, size_t *slen) {
-    int skip[256], k;
-    size_t a;
+    size_t skip[256], a;
+    int k;
 
     assert(B);
+    assert(mlen > 0 && mlen <= (size_t)INT_MAX);
     
     if ((a = buffer_available(B)) < mlen) return NULL;
+
+    assert(a <= (size_t)INT_MAX);
 
     /* Oh dear. Should special-case the mlen == 1 case, since it's the only
      * one we use.... */
     for (k = 0; k < 256; ++k) skip[k] = mlen;
-    for (k = 0; k < mlen - 1; ++k) skip[(unsigned char)mark[k]] = mlen - k - 1;
+    for (k = 0; k < (int)mlen - 1; ++k) skip[(unsigned char)mark[k]] = mlen - k - 1;
 
-    for (k = mlen - 1; k < a; k += skip[(unsigned char)mark[k]]) {
+    for (k = (int)mlen - 1; k < (int)a; k += skip[(unsigned char)mark[k]]) {
         int i, j;
-        for (j = mlen - 1, i = k; j >= 0 && B->buf[(B->get + i) % B->len] == mark[j]; j--) i--;
+        for (j = (int)mlen - 1, i = k; j >= 0 && B->buf[(B->get + i) % B->len] == mark[j]; j--) i--;
         if (j == -1) {
             /* Have found the mark at location i + 1. */
             i += 1 + mlen;  /* account for mark and terminating null */
-            if (!str || *slen < i + 1)
-                str = xrealloc(str, i + 1);
-            *slen = i + 1;
+            if (!str || *slen < (size_t)i + 1)
+                str = xrealloc(str, (size_t)i + 1);
+            *slen = (size_t)i + 1;
             for (j = 0; j < i; ++j)
                 str[j] = B->buf[(B->get + j) % B->len];
             str[j] = 0;
@@ -150,7 +187,7 @@ void buffer_expand(buffer B, const size_t num) {
         B->buf = newbuf;
         B->len = newlen;
         B->get = 0;
-        B->put = a;
+        B->put = (off_t)a;
     }
 }
 

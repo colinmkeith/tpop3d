@@ -276,3 +276,12 @@ char *md5_digest_str(const void *v, const size_t n, const int base64) {
 
     return res;
 }
+
+/* getmaplength LENGTH
+ * Return a multiple of the system page size which is equal to or larger than
+ * LENGTH, to be used as a parameter to mmap(2). */
+size_t getmaplength(const size_t len) {
+    return ((len + PAGESIZE - 1) / PAGESIZE) * PAGESIZE;
+}
+
+
