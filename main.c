@@ -13,7 +13,6 @@ static const char rcsid[] = "$Id$";
 #include <fcntl.h>
 #include <netdb.h>
 #include <signal.h>
-#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include <syslog.h>
@@ -32,6 +31,8 @@ static const char rcsid[] = "$Id$";
 #include "connection.h"
 #include "errprintf.h"
 #include "list.h"
+#include "listener.h"
+#include "signals.h"
 #include "stringmap.h"
 #include "vector.h"
 #include "util.h"
@@ -42,199 +43,15 @@ static const char rcsid[] = "$Id$";
  */
 #define MAX_DATA_IN_FLIGHT      8192
 
-/* Should we be verbose about data going to/from the client? */
-int verbose;
-
-#ifdef __SVR4
-/* inet_aton:
- * Implementation of inet_aton for machines (Solaris [cough]) which do not
- * have it.
- */
-int inet_aton(const char *s, struct in_addr *ip);
-
-int inet_aton(const char *s, struct in_addr *ip) {                              
-    in_addr_t i = inet_addr(s);                                                 
-    if (i == ((in_addr_t)-1)) return 0;                                         
-    memcpy(ip, &i, sizeof(int));                                                
-    return 1;                                                                   
-}                                                                               
-#endif
-
-/* xwrite:
- * Write some data, taking account of short writes.
- */
-ssize_t xwrite(int fd, const void *buf, size_t count) {
-    size_t c = count;
-    const char *b = (const char*)buf;
-    while (c > 0) {
-        int e = write(fd, b, count);
-        if (e > 0) {
-            c -= e;
-            b += e;
-        } else return e;
-    } while (c > 0);
-    return count;
-}
-
-/* daemon:
- * Become a daemon. From "The Unix Programming FAQ", Andrew Gierth et al.
- */
-int daemon(int nochdir, int noclose) {
-    switch (fork()) {
-        case 0:  break;
-        case -1: return -1;
-        default: _exit(0);          /* exit the original process */
-    }
-
-    if (setsid() < 0)               /* shouldn't fail */
-        return -1;
-
-    switch (fork()) {
-        case 0:  break;
-        case -1: return -1;
-        default: _exit(0);
-    }
-
-    if (!nochdir) chdir("/");
-
-    if (!noclose) {
-        int i, j = sysconf(_SC_OPEN_MAX); /* getdtablesize()? */
-        for (i = 0; i < j; ++i) close(i);
-        open("/dev/null",O_RDWR);
-        dup(0); dup(0);
-    }
-
-    return 0;
-}
-
-/* print_log:
- * Because many systems do not have LOG_PERROR, we use a custom function to
- * write an error to the system log, and optionally to standard error as
- * well.
- */
-int log_stderr;
-
-void print_log(int priority, const char *fmt, ...) {
-    char *s;
-    va_list ap;
-    va_start(ap, fmt);
-    s = verrprintf(fmt, ap);
-    va_end(ap);
-    syslog(priority, "%s", s);
-    if (log_stderr) fprintf(stderr, "%s\n", s);
-    free(s);
-}
-
-/* For virtual-domains support, we need to find the address and domain name
- * associated with a socket on which we are listening.
- */
-typedef struct _listener {
-    struct sockaddr_in sin;
-    char *domain;
-    int s;
-} *listener;
-
-listener listener_new(const struct sockaddr_in *addr, const char *domain);
-void listener_delete(listener L);
-
-/* listener_new:
- * Create a new listener object, listening on the specified address.
- */
-listener listener_new(const struct sockaddr_in *addr, const char *domain) {
-    listener L;
-    struct hostent *he;
-    
-    L = (listener)malloc(sizeof(struct _listener));
-    memset(L, 0, sizeof(struct _listener));
-    memcpy(&(L->sin), addr, sizeof(struct sockaddr_in));
-    L->s = socket(PF_INET, SOCK_STREAM, 0);
-    if (L->s == -1) {
-        print_log(LOG_ERR, "listener_new: socket: %m");
-        goto fail;
-    } else {
-        int t = 1;
-        if (setsockopt(L->s, SOL_SOCKET, SO_REUSEADDR, &t, sizeof(t)) == -1) {
-            print_log(LOG_ERR, "listener_new: setsockopt: %m");
-            goto fail;
-        } else if (fcntl(L->s, F_SETFL, O_NONBLOCK) == -1) {
-            print_log(LOG_ERR, "listener_new: fcntl: %m");
-            goto fail;
-        } else if (bind(L->s, (struct sockaddr*)addr, sizeof(struct sockaddr_in)) == -1) {
-            print_log(LOG_ERR, "listener_new: bind(%s:%d): %m", inet_ntoa(addr->sin_addr), ntohs(addr->sin_port));
-            goto fail;
-        } else if (listen(L->s, SOMAXCONN) == -1) {
-            print_log(LOG_ERR, "listener_new: listen: %m");
-            goto fail;
-        }
-    }
-
-    /* Now, we need to find the domain associated with this socket. */
-    if (!domain) {
-        he = gethostbyaddr((char *)&(addr->sin_addr), sizeof(addr->sin_addr), AF_INET);
-        if (!he) {
-            print_log(LOG_WARNING, "listener_new: gethostbyaddr(%s): cannot resolve name", inet_ntoa(addr->sin_addr));
-            print_log(LOG_WARNING, "listener_new: %s: no domain suffix can be appended for this address", inet_ntoa(addr->sin_addr));
-        } else {
-            /* We need to find out an appropriate domain suffix for the address.
-             * FIXME we just take the first address with a "." in it, and use the
-             * part after the ".".
-             */
-            char **a, *b;
-            b = strchr(he->h_name, '.');
-            if (b && *(b + 1)) {
-                L->domain = strdup(b + 1);
-            } else 
-                for (a = he->h_aliases; *a; ++a) {
-                    char *b;
-                    fprintf(stderr, "%s\n", *a);
-                    if ((b = strchr(*a, '.')) && *(b + 1)) {
-                        L->domain = strdup(b + 1);
-                        break;
-                    }
-                }
-
-            if (!L->domain)
-                print_log(LOG_WARNING, "listener_new: %s: no suitable domain suffix found for this address", inet_ntoa(addr->sin_addr));
-        }
-    } else L->domain = strdup(domain);
-
-    /* Last try; use the nodename from uname(2). */
-    if (!L->domain) {
-        struct utsname u;
-        if (uname(&u) == -1) {
-            print_log(LOG_WARNING, "listener_new: uname: %m");
-            print_log(LOG_WARNING, "listener_new: %s: using domain suffix `x.invalid'", inet_ntoa(addr->sin_addr));
-            L->domain = strdup("x.invalid");
-        } else {
-            print_log(LOG_WARNING, "listener_new: %s: using fallback domain suffix %s", inet_ntoa(addr->sin_addr), u.nodename);
-            L->domain = strdup(u.nodename);
-        }
-    }
-
-    return L;
-
-fail:
-    listener_delete(L);
-    return NULL;
-}
-
-/* listener_delete:
- * Delete a listener object, closing the associated socket.
- */
-void listener_delete(listener L) {
-    if (!L) return;
-    if (L->s != -1) close(L->s); /* Do not shutdown(2). */
-    if (L->domain) free(L->domain);
-    free(L);
-}
-
 /* net_loop:
  * Accept connections and put them into an appropriate state, calling
  * setuid() and fork() when appropriate. listen_addrs is a NULL-terminated
  * list of addresses on which to listen.
  */
-int num_running_children = 0;   /* How many children are active. */
-int max_running_children = 16;  /* How many children may exist at once. */
+int num_running_children = 0;     /* How many children are active. */
+int max_running_children = 16;    /* How many children may exist at once. */
+
+int foad = 0, restart = 0;        /* Flag used to indicate that we should exit. */
 
 long int timeout_seconds = 30;
 
@@ -243,15 +60,15 @@ connection this_child_connection; /* Stored here so that if a signal terminates 
 void net_loop(vector listen_addrs) {
     list connections = list_new();
     int post_fork = 0;
+    listitem I, J;
+    item *t;
 
     print_log(LOG_INFO, "net_loop: tpop3d version " TPOP3D_VERSION " successfully started");
 
     /* Main select() loop */
-    for (;;) {
+    while (!foad) {
         fd_set readfds;
-        item *t;
-        listitem I, J;
-        struct timeval tv = {1, 0}; /* Must be less than IDLE_TIMEOUT but otherwise value is unimportant */
+        struct timeval tv = {1, 0}; /* Must be less than IDLE_TIMEOUT and small enough that termination on receipt of SIGTERM is timely. */
         int n = 0, e;
 
         FD_ZERO(&readfds);
@@ -452,76 +269,18 @@ void net_loop(vector listen_addrs) {
             }
         }
     }
-}
 
-/* die_signal_handler:
- * Signal handler to log a message and quit.
- *
- * XXX This is bad, because we call out to functions which may use malloc or
- * file I/O or anything else. However, we quit immediately afterwards, so it's
- * probably OK. Alternatively we would have to siglongjmp out, but that would
- * be undefined behaviour too.
- */
-void die_signal_handler(const int i) {
-    struct sigaction sa;
-/*    print_log(LOG_ERR, "quit: %s", sys_siglist[i]); */
-    print_log(LOG_ERR, "quit: signal %d", i); /* Some systems do not have sys_siglist. */
-    if (this_child_connection) connection_delete(this_child_connection);
-    memset(&sa, 0, sizeof(sa));
-    sa.sa_handler = SIG_DFL;
-    sigaction(i, &sa, NULL);
-    raise(i);
-}
+    /* Termination request received; we should close all connections in an orderly fashion. */
+    if (restart) print_log(LOG_INFO, "net_loop: restarting after signal");
+    else print_log(LOG_INFO, "net_loop: terminating after signal");
 
-/* child_signal_handler:
- * Signal handler to deal with SIGCHLD.
- */
-void child_signal_handler(const int i) {
-    int status;
-    
-    while (waitpid(-1, &status, WNOHANG) > 0)
-        --num_running_children;
-}
-
-/* set_signals:
- * Set the relevant signals to be ignored/handled.
- */
-void set_signals() {
-    int ignore_signals[] = {SIGPIPE, SIGHUP, SIGALRM, SIGUSR1, SIGUSR2, SIGFPE,
-#ifdef SIGIO        
-        SIGIO,
-#endif
-#ifdef SIGVTALRM
-        SIGVTALRM,
-#endif
-#ifdef SIGLOST
-        SIGLOST,
-#endif
-#ifdef SIGPWR
-        SIGPWR,
-#endif
-        0};
-    int die_signals[] = {SIGINT, SIGTERM, SIGQUIT, SIGABRT, SIGSEGV, SIGBUS, 0};
-    int *i;
-    struct sigaction sa;
-
-    for (i = ignore_signals; *i; ++i) {
-        memset(&sa, 0, sizeof(sa));
-        sa.sa_handler = SIG_IGN;
-        sigaction(*i, &sa, NULL);
+    if (connections) {
+        list_iterate(connections, J) connection_delete((connection)J->d.v);
+        list_delete(connections);
     }
-
-    for (i = die_signals; *i; ++i) {
-        memset(&sa, 0, sizeof(sa));
-        sa.sa_handler = die_signal_handler;
-        sigaction(*i, &sa, NULL);
-    }
-
-    /* SIGCHLD is special. */
-    sa.sa_handler = child_signal_handler;
-    sa.sa_flags = SA_NOCLDSTOP;
-    sigaction(SIGCHLD, &sa, NULL);
 }
+
+
 
 /* usage:
  * Print usage information.
@@ -551,10 +310,12 @@ void usage(FILE *fp) {
  */
 stringmap config;
 extern int append_domain; /* Do we automatically try user@domain if user alone fails to authenticate? In pop3.c. */
+int log_stderr;           /* Are log messages also sent to standard error? */
+int verbose;              /* Should we be verbose about data going to/from the client? */
 
-char optstring[] = "+hdvf::";
+char optstring[] = "+hdvf:";
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv, char **envp) {
     vector listeners;
     item *I;
     int nodaemon = 0;
@@ -579,16 +340,15 @@ int main(int argc, char **argv) {
                 break;
 
             case 'f':
-                if (!optarg) {
-                    fprintf(stderr, "tpop3d: option -f requires an argument\n");
-                    usage(stderr);
-                    return 1;
-                } else configfile = optarg;
+                configfile = optarg;
                 break;
 
             case '?':
             default:
-                fprintf(stderr, "tpop3d: unrecognised option -%c\n", optopt);
+                if (optopt == 'f' && !optarg)
+                    fprintf(stderr, "tpop3d: option -f requires an argument\n");
+                else
+                    fprintf(stderr, "tpop3d: unrecognised option -%c\n", optopt);
                 usage(stderr);
                 return 1;
         }
@@ -722,8 +482,17 @@ int main(int argc, char **argv) {
     net_loop(listeners);
 
     authswitch_close();
-    vector_delete_free(listeners);
+    if (listeners) {
+        vector_iterate(listeners, I) listener_delete((listener)I->v);
+        vector_delete(listeners);
+    }
 
+    /* We may have got here because we're supposed to terminate and restart. */
+    if (restart) {
+        execve(argv[0], argv, envp);
+        print_log(LOG_ERR, "%s: %m", argv[0]);
+    }
+    
     return 0;
 }
 
