@@ -1,0 +1,316 @@
+dnl Process this file with autoconf to produce a configure script.
+
+AC_INIT(auth_mysql.c)
+AC_CONFIG_AUX_DIR(config)
+AM_CONFIG_HEADER(configuration.h)
+AM_INIT_AUTOMAKE(tpop3d, 1.2.4)
+
+dnl Checks for programs.
+AC_PROG_CC
+
+dnl Check which options are enabled...
+
+AC_ARG_ENABLE(electric-fence,
+    [  --enable-electric-fence Enable Electric Fence support [default=no]],
+    [enable_efence=$enableval],
+    [enable_efence=no])
+
+AC_ARG_ENABLE(flock-locking,
+    [  --enable-flock-locking  Enable flock(2) locking [default=no]],
+    [enable_flock=$enableval],
+    [enable_flock=no])
+
+AC_ARG_ENABLE(fcntl-locking,
+    [  --enable-fcntl-locking  Enable fcntl(2) locking [default=yes]],
+    [enable_fcntl=$enableval],
+    [enable_fcntl=yes])
+
+AC_ARG_ENABLE(dotfile-locking,
+    [  --enable-dotfile-locking
+                          Enable dotfile locking [default=yes]],
+    [enable_dotfile=$enableval],
+    [enable_dotfile=yes])
+
+AC_ARG_ENABLE(cclient-locking,
+    [  --enable-cclient-locking
+                          Enable C-Client locking [default=yes]],
+    [enable_cclient=$enableval],
+    [enable_cclient=yes])
+
+AC_ARG_ENABLE(backtrace,
+        [  --enable-backtrace
+                          Enable backtrace(3) reporting in the case of
+                          crashes. [default=no]],
+    [enable_backtrace=$enableval],
+    [enable_backtrace=no])
+
+AC_ARG_ENABLE(ignore-cclient-metadata,
+    [  --enable-ignore-cclient-metadata
+                          Ignore C-Client metadata [default=yes]],
+    [enable_ignore_cclient_metadata=$enableval],
+    [enable_ignore_cclient_metadata=yes])
+
+AC_ARG_WITH(authentication,
+        [  --with-authentication=TYPE   Set the type of authentication
+                               used.  TYPE can be passwd, shadow, pam
+                               or mysql [default=pam]],
+    [authentication=$withval],
+    [authentication="pam"])
+
+case $authentication in
+    pam)    ;;
+    passwd) ;;
+    shadow) ;;
+    mysql)  ;;
+    *)  AC_MSG_ERROR( Unknown authentication type: $authentication ) ;;
+esac
+
+AC_ARG_ENABLE(snide-comments,
+        [  --disable-snide-comments         Use less snide responses],
+    [enable_snide=$enableval],
+    [enable_snide="yes"])
+
+dnl FIXME: change to a configuration file option...
+
+AC_ARG_WITH(mailspool-directory,
+        [  --with-mailspool-directory=DIR   Set the mailspool directory.
+                          [default=/var/spool/mail]],
+    [mspool=$withval],
+    [mspool="/var/spool/mail"])
+
+AC_ARG_WITH(mysql-root,
+        [  --with-mysql-root=DIR   Set root of MySQL distribution.  Should contain
+                          include/mysql/mysql.h and lib/mysql/libmysqlclient.so
+                          [default=/usr]],
+    [mysql_root=$withval],
+    [mysql_root="/usr"])
+
+dnl Now do some configuration based on these options; nothing done
+dnl here should have awkward dependencies.
+
+if test x"$authentication" = x"passwd" || test x"$authentication" = x"shadow"
+then
+    AC_DEFINE(AUTH_PASSWD,1,[Use /etc/passwd style authentication.])
+fi
+
+if test x"$authentication" = x"shadow"
+then
+    AC_DEFINE(AUTH_PASSWD_SHADOW,1,[Use shadow password authentication.])
+fi
+
+if test x"$authentication" = x"pam"
+then
+    AC_DEFINE(AUTH_PAM,1,[Use PAM authetication.])
+fi
+
+if test x"$authentication" = x"mysql"
+then
+    AC_DEFINE(AUTH_MYSQL,1,[Use vmail-sql style authentication.])
+fi
+
+if test x"$enable_snide" = x"no"
+then
+    AC_DEFINE(NO_SNIDE_COMMENTS,1,[Turns off responses that some people object to.])
+fi
+
+if test x"$enable_backtrace" = x"yes"
+then
+    AC_DEFINE(APPALLING_BACKTRACE_HACK,1,[Produce a backtrace if the program crashes.])
+fi
+
+AC_DEFINE_UNQUOTED( MAILSPOOL_DIR, "$mspool", [Tells tpop3d where the mailspool is.] )
+
+if test x"$authentication" = x"mysql"
+then
+    CFLAGS="$CFLAGS -I$mysql_root/include/mysql"
+    LDFLAGS="$LDFLAGS -L$mysql_root/lib/mysql"
+    dnl Also have to do CPPFLAGS, so that AC_CHECK_HEADER works...
+    CPPFLAGS="$CPPFLAGS -I$mysql_root/include/mysql"
+fi
+
+if test x"$enable_cclient" = x"yes"
+then
+    AC_DEFINE(WITH_CCLIENT_LOCKING,1,[Turns on C-Client locking.])
+fi
+
+if test x"$enable_ignore_cclient_metadata" = x"yes"
+then
+#   if test "$enable_cclient" = "yes"
+#   then
+        AC_DEFINE(IGNORE_CCLIENT_METADATA,1,[Ignore C-Client metadata?] )
+#   else
+#       AC_MSG_ERROR(--enable-ignore-cclient-metadata makes no sense without --enable-cclient-locking.)
+#   fi
+fi
+
+if test x"$enable_dotfile" = x"yes"
+then
+    AC_DEFINE(WITH_DOTFILE_LOCKING,1,[Use NFS safe dotfile locking.])
+fi
+
+if test x"$enable_flock" = x"yes"
+then
+    AC_DEFINE(WITH_FLOCK_LOCKING,1,[Turns on flock(2) locking.])
+fi
+
+if test x"$enable_fcntl" = x"yes"
+then
+    AC_DEFINE(WITH_FCNTL_LOCKING,1,[Turns on fcntl(2) locking.])
+fi
+
+dnl Checks for libraries.
+
+if test x"$enable_efence" = x"yes"
+then
+    AC_CHECK_LIB(efence, main, [], AC_MSG_ERROR([electric fence enabled but can't find libefence...]))
+    LDFLAGS="$LDFLAGS -umalloc -ufree -ucalloc -urealloc"
+fi
+
+if test x"$authentication" = x"passwd" || test x"$authentication" = x"shadow"
+then
+    AC_CHECK_LIB(crypt, main, [], AC_MSG_ERROR([[passwd authentication enabled, but can't find libcrypt]]) )
+fi
+
+if test x"$authentication" = x"pam"
+then
+    AC_CHECK_LIB(dl, main, [], AC_MSG_ERROR([[pam authentication enabled, but can't find libdl]]) )
+    AC_CHECK_LIB(pam, pam_start, [], AC_MSG_ERROR([[pam authentication enabled, but can't find libpam]]) )
+fi
+
+if test x"$authentication" = x"mysql"
+then
+    AC_CHECK_LIB(mysqlclient, main, [], AC_MSG_ERROR([[vmail-sql authentication enabled, but can't find libmysqlclient]]) )
+fi
+
+dnl Checks for header files.
+AC_HEADER_STDC
+AC_HEADER_SYS_WAIT
+
+AC_CHECK_HEADERS(fcntl.h limits.h sys/file.h sys/time.h syslog.h unistd.h crypt.h execinfo.h security/pam_appl.h mysql.h)
+
+if test x"$enable_backtrace" = x"yes"
+then
+    if test x"$ac_cv_header_execinfo_h" != x"yes"
+    then
+        AC_MSG_ERROR( [backtrace enabled but can't find execinfo.h] )
+    fi
+fi
+
+if test x"$authentication" = x"passwd" || test x"$authentication" = x"shadow"
+then
+    if test x"$ac_cv_header_crypt_h" != x"yes"
+    then
+        AC_MSG_ERROR( [[passwd authentication enabled, but can't find crypt.h]] )
+    fi
+fi
+
+if test x"$authentication" = x"pam"
+then
+    if test x"$ac_cv_header_security_pam_appl_h" != x"yes"
+    then
+        AC_MSG_ERROR( [[PAM authentication enabled, but can't find security/pam_appl.h]] )
+    fi
+fi
+
+if test x"$authentication" = x"mysql"
+then
+    if test x"$ac_cv_header_mysql_h" != x"yes"
+    then
+        AC_MSG_ERROR( [[vmail-sql authentication enabled, but can't find mysql.h]] )
+    fi
+fi
+
+if test x"$enable_flock" = x"yes"
+then
+    if test x"$ac_cv_header_sys_file_h" != x"yes"
+    then
+        AC_MSG_ERROR( [flock locking enabled, but can't find sys/file.h] )
+    fi
+fi
+
+if test x"$enable_fcntl" = x"yes"
+then
+
+    if test x"$ac_cv_header_fcntl_h" != x"yes"
+    then
+        AC_MSG_ERROR( [fcntl locking enabled but can't find fcntl.h] )
+    fi
+
+    if test x"$ac_cv_header_unistd_h" != x"yes"
+    then
+        AC_MSG_ERROR( [fcntl locking enabled but can't find unistd.h] )
+    fi
+
+fi
+
+dnl Checks for typedefs, structures, and compiler characteristics.
+AC_C_CONST
+AC_TYPE_UID_T
+AC_TYPE_PID_T
+AC_TYPE_SIZE_T
+AC_HEADER_TIME
+
+dnl Checks for library functions.
+AC_FUNC_MEMCMP
+AC_FUNC_MMAP
+
+AC_CHECK_FUNCS(gettimeofday select socket strcspn strdup strerror strspn strstr strtol uname)
+
+if test x"$enable_backtrace" = x"yes"
+then
+    AC_CHECK_FUNC(backtrace, [], AC_MSG_ERROR([backtrace enabled but backtrace doesn't seem to be available.]))
+
+fi
+
+if test x"$enable_flock" = x"yes"
+then
+    AC_CHECK_FUNC(flock, [], AC_MSG_ERROR([flock locking enabled but flock doesn't seem available.]))
+
+fi
+
+if test x"$enable_fcntl" = x"yes"
+then
+    AC_CHECK_FUNC(fcntl, [], AC_MSG_ERROR([fcntl locking enabled but fcntl doesn't seem available.]))
+
+fi
+
+if test x"$authentication" = x"passwd" || test x"$authentication" = x"shadow"
+then
+    AC_CHECK_FUNC(crypt, [], AC_MSG_ERROR([[passwd authentication enabled, but crypt doesn't seem to be available.]]))
+
+fi
+
+if test x"$authentication" = x"pam"
+then
+    AC_CHECK_FUNC(pam_authenticate, [], AC_MSG_ERROR([[PAM authentication enabled, but pam_authenticate doesn't seem to be available.]]))
+
+fi
+
+if test x"$authentication" = x"mysql"
+then
+    AC_CHECK_FUNC(mysql_init, [], AC_MSG_ERROR([[vmail-sql authentication enabled, but mysql_init doesn't seem to be available.]]))
+
+fi
+
+
+dnl If flock and fcntl are selected, there's a chance that they
+dnl will deadlock.  We do a test for this here...
+
+if test x"$enable_fcntl" = x"yes" && test x"$enable_flock" = x"yes"
+then
+    AC_MSG_CHECKING(checking if fcntl and flock locking can be used together)
+
+    AC_TRY_RUN( `cat config/flock-uses-fcntl.c`,
+
+                AC_MSG_RESULT("yes"),
+
+                AC_MSG_RESULT("no"); AC_MSG_ERROR([[You selected both flock and fcntl locking, which won't work on this system.]]),
+
+                AC_MSG_ERROR( [[Sorry, can't perform the fcntl and flock deadlock test if you're cross compiling.]] ) )
+
+fi
+
+AC_SUBST(ac_aux_dir)
+AC_SUBST(mysql_root)
+
+AC_OUTPUT(Makefile)

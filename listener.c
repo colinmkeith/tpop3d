@@ -8,6 +8,10 @@
 
 static const char rcsid[] = "$Id$";
 
+#ifdef HAVE_CONFIG_H
+#include "configuration.h"
+#endif // HAVE_CONFIG_H
+
 #include <fcntl.h>
 #include <netdb.h>
 #include <stdio.h>

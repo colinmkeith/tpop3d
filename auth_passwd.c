@@ -6,6 +6,10 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
+#include "configuration.h"
+#endif // HAVE_CONFIG_H
+
 #ifdef AUTH_PASSWD
 static const char rcsid[] = "$Id$";
 
