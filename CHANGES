@@ -16,7 +16,7 @@ This facility replaces the old apop_password field in the database; instead,
 APOP users should arrange for their passwords to be recorded in the plaintext
 format as above.
 
-The new vmail-sql will work.
+The new vmail-sql will work in the same way, when it is released.
 
 1.3.1
 

@@ -72,6 +72,7 @@ connection this_child_connection;   /* Stored here so that if a signal terminate
 vector listeners;                   /* Listeners */
 list connections;                   /* Active connections. */
 
+
 /* Theory of operation:
  * The main loop is in net_loop, below; it calls listeners_ and
  * connections_pre_select, then calls select, then calls listeners_ and
@@ -79,7 +80,6 @@ list connections;                   /* Active connections. */
  * client, fork_child is called. The global variables listeners and
  * connections are used to handle this procedure.
  */
-
 
 /* listeners_pre_select:
  * Called before the main select(2) so listening sockets can be polled.
@@ -474,10 +474,8 @@ int main(int argc, char **argv, char **envp) {
 
             case '?':
             default:
-                if (optopt == 'f' && !optarg)
-                    fprintf(stderr, _("tpop3d: option -f requires an argument\n"));
-                else if (optopt == 'p' && !optarg)
-                    fprintf(stderr, _("tpop3d: option -p requires an argument\n"));
+                if (strchr(optstring, optopt))
+                    fprintf(stderr, _("tpop3d: option -%c requires an argument\n"), optopt);
                 else
                     fprintf(stderr, _("tpop3d: unrecognised option -%c\n"), optopt);
                 usage(stderr);
