@@ -51,13 +51,17 @@ man_MANS = tpop3d.8
 
 SUBDIRS = init.d config
 
+tpop3d.cat: tpop3d.8
+	(echo -e ".pl 1100i" ; cat tpop3d.8 ; echo ".pl \n(nlu+10") | groff -Tascii -man > tpop3d.cat
+
 ## These need to be distributed along with configure:
 
 EXTRA_DIST = bootstrap \
              mysql_crypt.patch \
              CREDITS \
              PORTABILITY \
-             $(man_MANS)
+             $(man_MANS) \
+             tpop3d.cat
 
 MAINTERCLEANFILES = Makefile.in aclocal.m4 configure configuration.h.in \
                     stamp-h.in
