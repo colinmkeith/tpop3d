@@ -71,9 +71,8 @@ authcontext auth_pam_new_user_pass(const char *user, const char *local_part, con
 
     /* Copy the password structure, since it is in static storage and may
      * get overwritten by calls in the PAM code. */
-    pw2 = getpwnam(user);
-    if (!pw2) return NULL;
-    else memcpy(&pw, pw2, sizeof(pw));
+    if (!(pw2 = getpwnam(user))) return NULL;
+    pw = *pw2;
 
     /* Obtain facility name. */
     if (!(facility = config_get_string("auth-pam-facility")))
@@ -108,7 +107,6 @@ authcontext auth_pam_new_user_pass(const char *user, const char *local_part, con
         return NULL;
     }
 
-
     /* Authenticate user. */
     r = pam_authenticate(pamh, 0);
 
@@ -117,7 +115,7 @@ authcontext auth_pam_new_user_pass(const char *user, const char *local_part, con
         r = pam_acct_mgmt(pamh, PAM_SILENT);
         if (r == PAM_SUCCESS) {
             /* Succeeded; figure out the mailbox name later. */
-            a = authcontext_new(pw.pw_uid, use_gid ? gid : pw.pw_gid, NULL, NULL, pw2->pw_dir);
+            a = authcontext_new(pw.pw_uid, use_gid ? gid : pw.pw_gid, NULL, NULL, pw.pw_dir);
         } else log_print(LOG_ERR, "auth_pam_new_user_pass: pam_acct_mgmt(%s): %s", user, pam_strerror(pamh, r));
     } else log_print(LOG_ERR, "auth_pam_new_user_pass: pam_authenticate(%s): %s", user, pam_strerror(pamh, r));
 
