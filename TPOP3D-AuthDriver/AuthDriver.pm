@@ -81,7 +81,7 @@ virtual-domains configurations.
 
 package TPOP3D::AuthDriver;
 
-$VERSION = '0.1';
+$VERSION = '0.2';
 
 =item new
 

@@ -544,7 +544,7 @@ authcontext auth_other_new_user_pass(const char *user, const char *pass, const c
 
     if (!authchild_pid) auth_other_start_child();
 
-    if (!auth_other_send_request(4, "method", "PASS", "user", user, "pass", pass, "clienthost", host)
+    if (!auth_other_send_request(4, "method", "PASS", "user", user, "pass", pass, "clienthost", host, "random", words[rand() % 6])
         || !(S = auth_other_recv_response()))
         return NULL;
     

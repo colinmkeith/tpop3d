@@ -31,8 +31,7 @@ static const char rcsid[] = "$Id$";
 #include "vector.h"
 
 /* maildir_make_indexpoint:
- * Make an indexpoint to put in a maildir.
- */
+ * Make an indexpoint to put in a maildir. */
 static void maildir_make_indexpoint(struct indexpoint *m, const char *filename, off_t size, time_t mtime) {
     memset(m, 0, sizeof(struct indexpoint));
 
@@ -44,8 +43,16 @@ static void maildir_make_indexpoint(struct indexpoint *m, const char *filename, 
     m->length = 0;    /* "\n\nFrom " delimiter not used */
     m->deleted = 0;
     m->msglength = size;
-    /* XXX this could break uniqueness, though in practice this is unlikely. */
-    strncpy(m->hash, filename+4, sizeof(m->hash));    /* +4: skip cur/ or new/ subdir */
+
+    /* In previous versions of tpop3d, the first 16 characters of the file name
+     * of a maildir message were used to form a unique ID. Unfortunately, this
+     * is not a good strategy, especially now that time_t's are 10 characters
+     * long. So now we form an MD5 hash of the file name; obviously, these
+     * unique IDs are not compatible with the old ones, so optionally you can
+     * retain the old scheme by replacing the following line with
+     *     strncpy(m->hash, filename+4, sizeof(m->hash));
+     */
+    md5_digest(filename + 4, strcspn(filename + 4, ":"), m->hash); /* +4: skip cur/ or new/ subdir; ignore flags at end. */
     
     m->mtime = mtime;
 }
@@ -53,8 +60,7 @@ static void maildir_make_indexpoint(struct indexpoint *m, const char *filename, 
 /* maildir_build_index:
  * Build an index of a maildir. subdir is one of cur, tmp or new; time is the
  * time at which the operation started, used to ignore messages delivered
- * during processes. Returns 0 on success, -1 otherwise.
- */
+ * during processes. Returns 0 on success, -1 otherwise. */
 int maildir_build_index(mailbox M, const char *subdir, time_t time) {
     DIR *dir;
     struct dirent *d;
@@ -100,16 +106,14 @@ int maildir_build_index(mailbox M, const char *subdir, time_t time) {
 }
 
 /* maildir_sort_callback:
- * qsort(3) callback for ordering messages in a maildir.
- */
+ * qsort(3) callback for ordering messages in a maildir. */
 int maildir_sort_callback(const void *a, const void *b) {
     const struct indexpoint *A = a, *B = b;
     return A->mtime - B->mtime;
 }
 
 /* maildir_new:
- * Create a mailbox object from a maildir.
- */
+ * Create a mailbox object from a maildir. */
 mailbox maildir_new(const char *dirname) {
     mailbox M, failM = NULL;
     struct timeval tv1, tv2;
@@ -165,8 +169,7 @@ fail:
  * maildir, escaping lines which begin . as required by RFC1939. Returns 1
  * on success or 0 on failure. The whole message is sent if n == -1.
  *
- * XXX Assumes that maildirs use only '\n' to indicate EOL.
- */
+ * XXX Assumes that maildirs use only '\n' to indicate EOL. */
 int maildir_send_message(const mailbox M, int sck, const int i, int n) {
     struct indexpoint *m;
     int fd, status;
@@ -187,25 +190,22 @@ int maildir_send_message(const mailbox M, int sck, const int i, int n) {
 }
 
 /* maildir_apply_changes:
- * Apply deletions to a maildir.
- */
+ * Apply deletions to a maildir. */
 int maildir_apply_changes(mailbox M) {
     struct indexpoint *m;
     if (!M) return 1;
 
     for (m = M->index; m < M->index + M->num; ++m) {
         if (m->deleted) {
-            if (unlink(m->filename) == -1) {
+            if (unlink(m->filename) == -1)
                 log_print(LOG_ERR, "maildir_apply_changes: unlink(%s): %m", m->filename);
-                return 0;
-            }
+                /* Warn but proceed anyway. */
         } else {
             /* Mark message read. */
             if (strncmp(m->filename, "new/", 4) == 0) {
                 char *cur;
-                cur = xmalloc(6 + strlen(m->filename) - 4);
-                sprintf(cur, "cur/%s", m->filename + 4);
-                if (!cur) return 0;
+                cur = xmalloc(strlen(m->filename) + 5);
+                sprintf(cur, "cur/%s:2,S", m->filename + 4); /* Set seen flag */
                 rename(m->filename, cur);    /* doesn't matter if it can't */
                 xfree(cur);
             }

@@ -1,7 +1,6 @@
 Things To Do
 $Id$
 
-
 * More authentication schemes
 
   Virtual-domain schemes which use /etc/passwd-style flat text files seem to be
@@ -78,4 +77,7 @@ $Id$
   particular, it is more compatible with POP-before-SMTP relaying. There is
   example code in the OpenSSL distribution which would serve as the starting
   point for an implementation.
+
+
+* Fix DELE/STAT bug
 
