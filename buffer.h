@@ -23,7 +23,6 @@ typedef struct _buffer {
  * is a macro which may evaluate BUFFER more than once. */
 #define buffer_available(B) (((B)->put + (B)->len - (B)->get) % (B)->len)
 
-
 /* buffer.c */
 buffer buffer_new(const size_t len);
 void buffer_delete(buffer B);

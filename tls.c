@@ -11,6 +11,19 @@
 
 static const char rcsid[] = "$Id$";
 
+#include <sys/types.h>
+
+#include <stdio.h>
+#include <string.h>
+#include <syslog.h>
+#include <unistd.h>
+
+#include <openssl/err.h>
+#include <openssl/ssl.h>
+
+#include "tls.h"
+#include "util.h"
+
 #define tls_errorstr()  ERR_reason_error_string(ERR_get_error())
 
 /* Normally, tpop3d will not read a pass phrase for a certificate from the
@@ -36,9 +49,14 @@ static int tls_getpass(char *buf, int size, int rwflag, void *userdata) {
 
 /* tls_init
  * Global TLS initialisation. */
+static int tls_init_called;
 int tls_init(void) {
+    if (tls_init_called)
+        return 1;
     SSL_load_error_strings();
     SSL_library_init();
+    tls_init_called = 1;
+    return 1;
 }
 
 /* tls_create_context CERTFILE PKEYFILE
@@ -50,7 +68,7 @@ SSL_CTX *tls_create_context(const char *certfile, const char *pkeyfile) {
     int ret;
     SSL_CTX *ctx;
     
-    if (!(ctx = SSL_CTX_new(SSLv23_server_methods()))) {
+    if (!(ctx = SSL_CTX_new(SSLv23_server_method()))) {
         log_print(LOG_ERR, "tls_create_context: SSL_CTX_new: %s", tls_errorstr());
         return NULL;
     }
@@ -60,15 +78,15 @@ SSL_CTX *tls_create_context(const char *certfile, const char *pkeyfile) {
 
     /* Load certificate, and, if specified, separate private key. */
     SSL_CTX_set_default_passwd_cb_userdata(ctx, (void*)certfile);
-    if ((ret = SSL_CTX_use_certificate_file(ctx, cfg->certfile, SSL_FILETYPE_PEM)) <= 0) {
-        log_print(LOG_ERR, "%s: %s", cfg->certfile, ERR_reason_error_string(ERR_get_error()));
+    if ((ret = SSL_CTX_use_certificate_file(ctx, certfile, SSL_FILETYPE_PEM)) <= 0) {
+        log_print(LOG_ERR, "tls_create_context: %s: %s", certfile, ERR_reason_error_string(ERR_get_error()));
         SSL_CTX_free(ctx);
         return NULL;
     }
 
     SSL_CTX_set_default_passwd_cb_userdata(ctx, (void*)pkeyfile);
-    if ((ret = SSL_CTX_use_PrivateKey_file(ctx, pkeyfile, SSL_FILETYPE_PEM)) <= 0) {
-        log_print(LOG_ERR, "tls_create_context: %s: %s", pkeyfile, tls_errorstr());
+    if ((ret = SSL_CTX_use_PrivateKey_file(ctx, pkeyfile ? pkeyfile : certfile, SSL_FILETYPE_PEM)) <= 0) {
+        log_print(LOG_ERR, "tls_create_context: %s: %s", pkeyfile ? pkeyfile : certfile, tls_errorstr());
         SSL_CTX_free(ctx);
         return NULL;
     }

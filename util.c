@@ -223,7 +223,7 @@ char *xstrndup(const char *s, const size_t count) {
 /* md5_digest:
  * Make an MD5 digest of some data. */
 void md5_digest(const void *v, const size_t n, unsigned char *md5) {
-    MD5_CTX ctx;
+    md5_ctx ctx;
     MD5Init(&ctx);
     MD5Update(&ctx, (unsigned char*)v, n);
     MD5Final(md5, &ctx);

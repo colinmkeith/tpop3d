@@ -20,7 +20,7 @@
 #ifdef TPOP3D_TLS
 #include <openssl/err.h>
 #include <openssl/ssl.h>
-enum tls_mode { none, immediate, stls };
+enum tls_mode { none = 0, immediate, stls };
 #endif
 
 /* For virtual-domains support, we need to find the address and domain name
@@ -35,7 +35,7 @@ typedef struct _listener {
 #endif
 #ifdef TPOP3D_TLS
     struct {
-        tls_mode mode;
+        enum tls_mode mode;
         SSL_CTX *ctx;
     } tls;
 #endif
@@ -49,17 +49,15 @@ listener listener_new(const struct sockaddr_in *addr, const char *domain
  /* leading comma-- yuk */  , const char *regex
 #endif
 #ifdef TPOP3D_TLS
-                            , tls_mode mode,
+                            , enum tls_mode mode,
                               const char *certfile, const char *pkeyfile
 #endif
                         );
 
 #ifdef MASS_HOSTING
-    listener listener_new(const struct sockaddr_in *addr, const char *domain, const char *regex);
-    char *listener_obtain_domain(listener l, int s);
-#else
-    listener listener_new(const struct sockaddr_in *addr, const char *domain);
+char *listener_obtain_domain(listener L, int s);
 #endif
+
 void listener_delete(listener L);
 
 

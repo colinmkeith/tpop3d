@@ -23,9 +23,16 @@ These notices must be retained in any copies of any part of this
 documentation and/or software.
  */
 
+/*
+ * This is slightly modified for tpop3d; since OpenSSL defines its own
+ * structure called MD5_CTX, we rename this one for compatibility. We also
+ * remove global.h which needn't be in a separate file, and get rid of the
+ * K&Risms.
+ */
+
 #include "md5.h"
 
-#include <memory.h>
+#include <string.h>
 
 /* Constants for MD5Transform routine.
  */
@@ -46,13 +53,9 @@ documentation and/or software.
 #define S43 15
 #define S44 21
 
-static void MD5Transform PROTO_LIST ((UINT4 [4], unsigned char [64]));
-static void Encode PROTO_LIST
-  ((unsigned char *, UINT4 *, unsigned int));
-static void Decode PROTO_LIST
-  ((UINT4 *, unsigned char *, unsigned int));
-static void MD5_memcpy PROTO_LIST ((POINTER, POINTER, unsigned int));
-static void MD5_memset PROTO_LIST ((POINTER, int, unsigned int));
+static void MD5Transform(UINT4 [4], unsigned char [64]);
+static void Encode(unsigned char *, UINT4 *, unsigned int);
+static void Decode(UINT4 *, unsigned char *, unsigned int);
 
 static unsigned char PADDING[64] = {
   0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -97,9 +100,7 @@ Rotation is separate from addition to prevent recomputation.
 
 /* MD5 initialization. Begins an MD5 operation, writing a new context.
  */
-void MD5Init (context)
-MD5_CTX *context;					 /* context */
-{
+void MD5Init(md5_ctx *context) {
   context->count[0] = context->count[1] = 0;
   /* Load magic initialization constants.
 */
@@ -113,11 +114,7 @@ MD5_CTX *context;					 /* context */
   operation, processing another message block, and updating the
   context.
  */
-void MD5Update (context, input, inputLen)
-MD5_CTX *context;					 /* context */
-unsigned char *input;				     /* input block */
-unsigned int inputLen;			   /* length of input block */
-{
+void MD5Update (md5_ctx *context, unsigned char *input, unsigned int inputLen) {
   unsigned int i, index, partLen;
 
   /* Compute number of bytes mod 64 */
@@ -134,7 +131,7 @@ unsigned int inputLen;			   /* length of input block */
   /* Transform as many times as possible.
 */
   if (inputLen >= partLen) {
- MD5_memcpy
+ memcpy
    ((POINTER)&context->buffer[index], (POINTER)input, partLen);
  MD5Transform (context->state, context->buffer);
 
@@ -147,7 +144,7 @@ unsigned int inputLen;			   /* length of input block */
  i = 0;
 
   /* Buffer remaining input */
-  MD5_memcpy
+  memcpy
  ((POINTER)&context->buffer[index], (POINTER)&input[i],
   inputLen-i);
 }
@@ -155,10 +152,7 @@ unsigned int inputLen;			   /* length of input block */
 /* MD5 finalization. Ends an MD5 message-digest operation, writing the
   the message digest and zeroizing the context.
  */
-void MD5Final (digest, context)
-unsigned char digest[16];			  /* message digest */
-MD5_CTX *context;					/* context */
-{
+void MD5Final (unsigned char digest[16], md5_ctx *context) {
   unsigned char bits[8];
   unsigned int index, padLen;
 
@@ -178,15 +172,12 @@ MD5_CTX *context;					/* context */
 
   /* Zeroize sensitive information.
 */
-  MD5_memset ((POINTER)context, 0, sizeof (*context));
+  memset ((POINTER)context, 0, sizeof (*context));
 }
 
 /* MD5 basic transformation. Transforms state based on block.
  */
-static void MD5Transform (state, block)
-UINT4 state[4];
-unsigned char block[64];
-{
+static void MD5Transform (UINT4 state[4], unsigned char block[64]) {
   UINT4 a = state[0], b = state[1], c = state[2], d = state[3], x[16];
 
   Decode (x, block, 64);
@@ -270,17 +261,13 @@ unsigned char block[64];
 
   /* Zeroize sensitive information.
 */
-  MD5_memset ((POINTER)x, 0, sizeof (x));
+  memset ((POINTER)x, 0, sizeof (x));
 }
 
 /* Encodes input (UINT4) into output (unsigned char). Assumes len is
   a multiple of 4.
  */
-static void Encode (output, input, len)
-unsigned char *output;
-UINT4 *input;
-unsigned int len;
-{
+static void Encode (unsigned char *output, UINT4 *input, unsigned int len) {
   unsigned int i, j;
 
   for (i = 0, j = 0; j < len; i++, j += 4) {
@@ -294,47 +281,10 @@ unsigned int len;
 /* Decodes input (unsigned char) into output (UINT4). Assumes len is
   a multiple of 4.
  */
-static void Decode (output, input, len)
-UINT4 *output;
-unsigned char *input;
-unsigned int len;
-{
+static void Decode (UINT4 *output, unsigned char *input, unsigned int len) {
   unsigned int i, j;
 
   for (i = 0, j = 0; j < len; i++, j += 4)
  output[i] = ((UINT4)input[j]) | (((UINT4)input[j+1]) << 8) |
    (((UINT4)input[j+2]) << 16) | (((UINT4)input[j+3]) << 24);
-}
-
-/* Note: Replace "for loop" with standard memcpy if possible.
- */
-
-static void MD5_memcpy (output, input, len)
-POINTER output;
-POINTER input;
-unsigned int len;
-{
-/*
-  unsigned int i;
-
-  for (i = 0; i < len; i++)
- output[i] = input[i];
-*/
-  memcpy(output,input,len);
-}
-
-/* Note: Replace "for loop" with standard memset if possible.
- */
-static void MD5_memset (output, value, len)
-POINTER output;
-int value;
-unsigned int len;
-{
-/*
-  unsigned int i;
-
-  for (i = 0; i < len; i++)
- ((char *)output)[i] = (char)value;
-*/
-  memset(output,value,len);
 }

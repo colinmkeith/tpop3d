@@ -35,6 +35,11 @@ static const char rcsid[] = "$Id$";
 #include <sys/wait.h>
 
 #include "listener.h"
+
+#ifdef TPOP3D_TLS
+#include "tls.h"
+#endif
+
 #include "util.h"
 
 /* listener_new:
@@ -44,7 +49,7 @@ listener listener_new(const struct sockaddr_in *addr, const char *domain
  /* leading comma-- yuk */  , const char *regex
 #endif
 #ifdef TPOP3D_TLS
-                            , tls_mode mode,
+                            , enum tls_mode mode,
                               const char *certfile, const char *pkeyfile
 #endif
                         ) {
@@ -84,16 +89,16 @@ listener listener_new(const struct sockaddr_in *addr, const char *domain
         char errbuf[128] = {0};
         if ((err = regcomp(&L->re, regex, REG_EXTENDED | REG_ICASE))) {
             regerror(err, &L->re, errbuf, sizeof errbuf);
-            log_print(LOG_WARNING, "listener_new: %s: /%s/: %s", inet_ntoa(addr->sin_addr), L->re, errbuf);
+            log_print(LOG_WARNING, "listener_new: %s:%d: /%s/: %s", inet_ntoa(addr->sin_addr), ntohs(addr->sin_port), L->re, errbuf);
         } else if (L->re.re_nsub != 1) {
-            log_print(LOG_WARNING, _("listener_new: /%s/: regular expression should have exactly one bracketed subexpression"), regex);
+            log_print(LOG_WARNING, _("listener_new: %s:%d: /%s/: regular expression should have exactly one bracketed subexpression"), inet_ntoa(addr->sin_addr), ntohs(addr->sin_port), regex);
             regfree(&L->re);
         } else {
             L->have_re = 1;
             L->regex = xstrdup(regex);
         }
         if (!L->have_re)
-            log_print(LOG_WARNING, _("listener_new: %s: cannot derive domain information for this address"), inet_ntoa(addr->sin_addr));
+            log_print(LOG_WARNING, _("listener_new: %s:%d: cannot derive domain information for this address"), inet_ntoa(addr->sin_addr), ntohs(addr->sin_port));
     } else
 #endif
     /* Now, we need to find the domain associated with this socket. */
@@ -101,7 +106,7 @@ listener listener_new(const struct sockaddr_in *addr, const char *domain
         he = gethostbyaddr((char *)&(addr->sin_addr), sizeof(addr->sin_addr), AF_INET);
         if (!he) {
             log_print(LOG_WARNING, _("listener_new: gethostbyaddr(%s): cannot resolve name"), inet_ntoa(addr->sin_addr));
-            log_print(LOG_WARNING, _("listener_new: %s: cannot obtain domain suffix for this address"), inet_ntoa(addr->sin_addr));
+            log_print(LOG_WARNING, _("listener_new: %s:%d: cannot obtain domain suffix for this address"), inet_ntoa(addr->sin_addr), ntohs(addr->sin_port));
         } else {
             /* We need to find out an appropriate domain suffix for the address.
              * FIXME we just take the first address with a "." in it, and use
@@ -145,10 +150,11 @@ listener listener_new(const struct sockaddr_in *addr, const char *domain
 #ifdef TPOP3D_TLS
     /* Should this listener support some sort of TLS? */
     if (mode != none) {
+        tls_init();
         L->tls.mode = mode;
         L->tls.ctx = tls_create_context(certfile, pkeyfile);
         if (!L->tls.ctx) {
-            if (mode == always) {
+            if (mode == immediate) {
                 log_print(LOG_ERR, _("listener_new: %s: cannot create TLS context for listener; dropping it"), inet_ntoa(addr->sin_addr));
                 goto fail;
             } else if (mode == stls) {

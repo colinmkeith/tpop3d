@@ -13,11 +13,16 @@ static const char rcsid[] = "$Id$";
 
 #include <sys/types.h>
 
-#include <openssl/ssl.h>
+#include <syslog.h>
 #include <unistd.h>
+
+#include <openssl/ssl.h>
+
+#include <sys/select.h>
 
 #include "connection.h"
 #include "listener.h"
+#include "util.h"
 
 /* 
  * This is a bit fragile because, in non-blocking mode, SSL_read and SSL_write
@@ -32,8 +37,6 @@ static const char rcsid[] = "$Id$";
  * connection's read and write buffers, the whole thing does work. But what a
  * mess....
  */
-
-#define clear_errors    io->x_errno = io->ssl_err = io->ssl_io_err = 0
 
 /* underlying_shutdown CONNECTION
  * Shut down the underlying transport for CONNECTION. */
@@ -58,7 +61,8 @@ static int ioabs_tls_shutdown(connection c) {
         return 0;     /* shutdown successful */
     }
 
-    switch (SSL_get_error(n)) {
+    e = ERR_get_error();
+    switch (SSL_get_error(io->ssl, n)) {
         case SSL_ERROR_WANT_READ:
             c->cstate = closing;
             io->shutdown_blocked_on_read = 1;
@@ -75,7 +79,7 @@ static int ioabs_tls_shutdown(connection c) {
             return 0;
 
         case SSL_ERROR_SYSCALL:
-            if (!(e = ERR_get_error())) {
+            if (!e) {
                 if (n == 0)
                     log_print(LOG_ERR, _("ioabs_tls_shutdown: client %s: connection unexpectedly closed by peer"), c->idstr);
                 else
@@ -100,15 +104,15 @@ static int ioabs_tls_shutdown(connection c) {
  * occurred, in which case the connection is shut down. State flags are
  * updated. */
 static ssize_t ioabs_tls_read(connection c, void *buf, size_t count) {
-    int n;
+    int n, e;
     struct ioabs_tls *io;
     io = (struct ioabs_tls*)c->io;
-    clear_errors;
 
     n = SSL_read(io->ssl, buf, count);
 
     if (n > 0) return n;
 
+    e = ERR_get_error();
     switch (SSL_get_error(io->ssl, n)) {
         case SSL_ERROR_WANT_WRITE:
             io->read_blocked_on_write = 1;
@@ -123,7 +127,7 @@ static ssize_t ioabs_tls_read(connection c, void *buf, size_t count) {
             return 0;
 
         case SSL_ERROR_SYSCALL:
-            if (!(e = ERR_get_error())) {
+            if (!e) {
                 if (n == 0)
                     log_print(LOG_ERR, _("ioabs_tls_read: client %s: connection unexpectedly closed by peer"), c->idstr);
                 else
@@ -147,16 +151,16 @@ static ssize_t ioabs_tls_read(connection c, void *buf, size_t count) {
  * IOABS_ERROR if a fatal error occurred, in which case the connection is shut
  * down. State flags are updated. */
 static ssize_t ioabs_tls_immediate_write(connection c, const void *buf, size_t count) {
-    int n;
+    int n, e;
     struct ioabs_tls *io;
     io = (struct ioabs_tls*)c->io;
-    clear_errors;
     
     n = SSL_write(io->ssl, buf, count);
 
     if (n > 0) return n;
 
-    switch (io->ssl_io_err) {
+    e = ERR_get_error();
+    switch (SSL_get_error(io->ssl, n)) {
         case SSL_ERROR_WANT_READ:
             io->write_blocked_on_read = 1;
             /* fall through */
@@ -170,7 +174,7 @@ static ssize_t ioabs_tls_immediate_write(connection c, const void *buf, size_t c
             return IOABS_ERROR;
 
         case SSL_ERROR_SYSCALL:
-            if (!(e = ERR_get_error())) {
+            if (!e) {
                 if (n == 0)
                     log_print(LOG_ERR, _("ioabs_tls_read: client %s: connection unexpectedly closed by peer"), c->idstr);
                 else
@@ -195,7 +199,8 @@ static void ioabs_tls_pre_select(connection c, int *n, fd_set *readfds, fd_set *
     io = (struct ioabs_tls*)c->io;
 
     FD_SET(c->s, readfds);  /* always want to read */
-    if (buffer_available(c->wrb) > 0 || io->accept_blocked_on_write || io->read_blocked_on_write || io->shutdown_blocked_on_write)
+    if ((!io->write_blocked_on_read && buffer_available(c->wrb) > 0)
+        || io->accept_blocked_on_write || io->read_blocked_on_write || io->shutdown_blocked_on_write)
         FD_SET(c->s, writefds);
 
     if (c->s > *n)
@@ -215,10 +220,12 @@ static int ioabs_tls_post_select(connection c, fd_set *readfds, fd_set *writefds
     canwrite = FD_ISSET(c->s, writefds);
     
     /* First, accept handling. */
-    if ((io->accept_blocked_on_read && !canread) || (io->accept_blocked_on_write && !canwrite)) {
+    if ((io->accept_blocked_on_read && canread) || (io->accept_blocked_on_write && canwrite)) {
+        int e;
         io->accept_blocked_on_read = io->accept_blocked_on_write = 0;
-        if ((R = SSL_accept(io->ssl)) <= 0)
-            switch (SSL_get_error(io->ssl, R)) {
+        if ((R = SSL_accept(io->ssl)) <= 0) {
+            e = SSL_get_error(io->ssl, R);
+            switch (e) {
                 case SSL_ERROR_WANT_READ:
                     io->accept_blocked_on_read = 1;
                     break;
@@ -227,14 +234,31 @@ static int ioabs_tls_post_select(connection c, fd_set *readfds, fd_set *writefds
                     io->accept_blocked_on_write = 1;
                     break;
 
+                case SSL_ERROR_ZERO_RETURN:
+                    /* TLS connection closed. */
+                    log_print(LOG_ERR, _("ioabs_tls_post_select: client %s: SSL_accept: connection closed by peer"), c->idstr);
+                    underlying_shutdown(c);
+                    return 0;
+
+                case SSL_ERROR_SYSCALL:
+                    if (!e) {
+                        if (ERR_get_error() == 0)
+                            log_print(LOG_ERR, _("ioabs_tls_post_select: client %s: SSL_accept: connection unexpectedly closed by peer"), c->idstr);
+                        else
+                            log_print(LOG_ERR, _("ioabs_tls_post_select: client %s: SSL_accept: %m; closing connection"), c->idstr);
+                        break;
+                    }
+                    /* fall through */
+                case SSL_ERROR_SSL:
                 default:
-                    log_print(LOG_ERR, _("ioabs_tls_post_select: client %s: SSL_accept: %s"), c->idstr, ERR_reason_error_string(SSL_get_error(io->ssl, R)));
+                    log_print(LOG_ERR, _("ioabs_tls_post_select: client %s: SSL_accept: %s; closing connection"), c->idstr, ERR_reason_error_string(ERR_get_error()));
                     /* Just shut down the physical transport, since TLS isn't
                      * up yet. */
                     underlying_shutdown(c);
                     return 0;
             }
-    } else return 0;
+        }
+    } else if (io->accept_blocked_on_read || io->accept_blocked_on_write) return 0;
     
     /* Next, shutdown processing. */
     if ((io->shutdown_blocked_on_read && canread) || (io->shutdown_blocked_on_write && canwrite)) {
@@ -242,29 +266,11 @@ static int ioabs_tls_post_select(connection c, fd_set *readfds, fd_set *writefds
         /* If we're in the process of shutting down, do nothing else. */
         return 0;
     }
-
-    /* Read from the connection into the buffer, if necessary. */
-    if ((!io->read_blocked_on_write && canread) || (io->read_blocked_on_write && canwrite)) {
-        io->read_blocked_on_write = 0;
-        do {
-            char *r;
-            size_t rlen;
-            buffer_expand(c->rdb, MAX_POP3_LINE);
-            r = buffer_get_push_ptr(c->rdb, &rlen);
-            n = ioabs_tls_read(c, r, rlen);
-            if (n > 0) {
-                buffer_push_bytes(c->rdb, n);
-                c->nrd += n;
-                ret = 1;
-            }
-        } while (n > 0);
-        /* Connection may have been closed. */
-        if (n <= 0)
-            return 0;
-    }
+fprintf(stderr, "  rbow %d wbor %d canread %d canwrite %d buf %d\n", io->read_blocked_on_write, io->write_blocked_on_read, canread, canwrite, buffer_available(c->wrb));
 
     /* Write from the buffer to the connection, if necessary. */
     if (((!io->write_blocked_on_read && canwrite) || (io->write_blocked_on_read && canread)) && buffer_available(c->wrb) > 0) {
+fprintf(stderr, "write!\n");
         io->write_blocked_on_read = 0;
         n = 1;
         do {
@@ -282,6 +288,28 @@ static int ioabs_tls_post_select(connection c, fd_set *readfds, fd_set *writefds
         if (n <= 0)
             return 0;
     }
+fprintf(stderr, "+ rbow %d wbor %d canread %d canwrite %d buf %d\n", io->read_blocked_on_write, io->write_blocked_on_read, canread, canwrite, buffer_available(c->wrb));
+
+    /* Read from the connection into the buffer, if necessary. */
+    if ((!io->read_blocked_on_write && canread) || (io->read_blocked_on_write && canwrite)) {
+        io->read_blocked_on_write = 0;
+        do {
+            char *r;
+            size_t rlen;
+            buffer_expand(c->rdb, MAX_POP3_LINE);
+            r = buffer_get_push_ptr(c->rdb, &rlen);
+            n = ioabs_tls_read(c, r, rlen);
+            if (n > 0) {
+                buffer_push_bytes(c->rdb, n);
+                c->nrd += n;
+                ret = 1;
+            }
+        } while (n > 0);
+        /* Connection may have been closed. */
+        if (n == IOABS_ERROR)
+            return 0;
+    }
+
     
     return ret;
 }

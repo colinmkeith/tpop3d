@@ -114,7 +114,7 @@ static char *crypt_md5(const char *pw, const char *salt)
     static const char *sp,*ep;
     unsigned char   final[16];
     int sl,pl,i,j;
-    MD5_CTX ctx,ctx1;
+    md5_ctx ctx,ctx1;
     unsigned long l;
 
     /* Refine the Salt first */
@@ -433,7 +433,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *local_part, const 
                 unsigned long *lengths;
                 struct passwd *pw;
                 unsigned char this_digest[16];
-                MD5_CTX ctx;
+                md5_ctx ctx;
                 uid_t uid;
                 
                 row = mysql_fetch_row(result);

@@ -18,10 +18,11 @@ values in a database being used by auth-mysql. Added scripts/tpop3dtraffic,
 which extracts the identity of the heaviest POP3 users from logfiles. Added a
 permit-empty-passwords option, default no, largely to protect LDAP users who
 left LDAP anonymous authentication switched on.... The I/O layer was rewritten
-to use non-blocking I/O throughout. Connections are now frozen briefly after a
-failed authentication using code adapted from a contribution by Yann Grossel,
-who also contributed support for MySQL server failover for auth-mysql. tpop3d
-will now remove a stale lock files for mailspools.
+to use non-blocking I/O throughout. Support for TLS was added. Connections are
+now frozen briefly after a failed authentication using code adapted from a
+contribution by Yann Grossel, who also contributed support for MySQL server
+failover for auth-mysql. tpop3d will now remove a stale lock files for
+mailspools.
 
 1.4.2
 

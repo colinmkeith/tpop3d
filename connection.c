@@ -134,7 +134,7 @@ connection connection_new(int s, const struct sockaddr_in *sin, listener L) {
 
     /* I/O abstraction layer */
 #ifdef TPOP3D_TLS
-    if (L->tls.mode == always) {
+    if (L->tls.mode == immediate) {
         if (!(c->io = (struct ioabs*)ioabs_tls_create(c, L))) {
             log_print(LOG_ERR, _("connection_new: could not set up TLS I/O abstraction layer for `%s'"), c->idstr);
             goto fail;

@@ -214,9 +214,10 @@ int parse_listeners(const char *stmt) {
 
             i = strcspn(p, ",");
             cert = xstrndup(p, i);
+            p += i;
             
             /* Optional separate private-key file */
-            if (p[i]) {
+            if (*p) {
                 ++p;
                 if (!*p) {
                     log_print(LOG_ERR, _("parse_listeners: `%s': TLS private key file is blank"), s);
