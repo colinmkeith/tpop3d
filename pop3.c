@@ -33,7 +33,8 @@ extern int verbose;
  * Makes a command do something on a connection, returning a code indicating
  * what the caller should do. */
 int append_domain;  /* Do we automatically try user@domain if user alone fails to authenticate? */
-int strip_domain; /* Automatically try user if user@domain fails? */
+int strip_domain;   /* Automatically try user if user@domain fails? */
+int apop_only;      /* Disconnect any client which says USER. */
 
 enum connection_action connection_do(connection c, const pop3command p) {
     /* This breaks the RFC, but is sensible. */
@@ -43,7 +44,10 @@ enum connection_action connection_do(connection c, const pop3command p) {
         /* Authorisation state: gather username and password. */
         switch (p->cmd) {
         case USER:
-            if (p->toks->num != 2) {
+            if (apop_only) {
+                connection_sendresponse(c, 0, _("Sorry, you must use APOP."));
+                return close_connection;
+            } else if (p->toks->num != 2) {
                 connection_sendresponse(c, 0, _("No, that's not right."));
                 return do_nothing;
             } else if (c->user) {
@@ -410,14 +414,18 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 if (curmsg->deleted)
                     connection_sendresponse(c, 0, _("That message is no more."));
                 else {
+                    int n;
+
                     if (verbose)
                         log_print(LOG_DEBUG, _("connection_do: client %s: sending message %d (%d bytes)"),
                                     c->idstr, msg_num + 1, (int)curmsg->msglength);
                     connection_sendresponse(c, 1, _("Message follows:"));
-                    if (!(curmbox)->send_message(curmbox, c->s, msg_num, -1)) {
+                    if ((n = (curmbox)->send_message(curmbox, c->s, msg_num, -1)) == -1) {
                         connection_sendresponse(c, 0, _("Oops"));
                         return close_connection;
                     }
+                    c->nwr += n; /* Record bytes sent. */
+                    
                     /* That might have taken a long time. */
                     c->idlesince = time(NULL);
                     if (verbose)
@@ -430,6 +438,8 @@ enum connection_action connection_do(connection c, const pop3command p) {
             }
 
         case TOP: {
+                int n;
+
                 if (!have_msg_num) {
                     connection_sendresponse(c, 0, _("What do you want to see?"));
                     break;
@@ -446,10 +456,12 @@ enum connection_action connection_do(connection c, const pop3command p) {
                                 c->idstr, arg2, msg_num + 1, (int)curmsg->msglength);
                 connection_sendresponse(c, 1, _("Message follows:"));
 
-                if (!(curmbox)->send_message(curmbox, c->s, msg_num, arg2)) {
+                if ((n = (curmbox)->send_message(curmbox, c->s, msg_num, arg2)) == -1) {
                     connection_sendresponse(c, 0, _("Oops."));
                     return close_connection;
                 }
+                c->nwr += n; /* Record bytes sent. */
+
                 /* That might have taken a long time. */
                 c->idlesince = time(NULL);
                 if (verbose)
@@ -507,8 +519,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
 
 /* connection_start_transaction:
  * Set up the connection into the "transaction" state. Returns 1 on success or
- * 0 on failure.
- */
+ * 0 on failure. */
 int connection_start_transaction(connection c) {
     if (!c) return 0;
     

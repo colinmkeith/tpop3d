@@ -26,6 +26,7 @@ char *cfgdirectives[] = {
     "strip-domain",
     "timeout-seconds",
     "log-facility",
+    "apop-only",
     "mailbox",
 
 #ifdef AUTH_PAM

@@ -59,6 +59,7 @@ stringmap config;
 /* Various configuration options. */
 extern int append_domain;           /* Do we automatically try user@domain if user alone fails to authenticate? In pop3.c. */
 extern int strip_domain;            /* Do we automatically try user if user@domain fails to authenticate? */
+extern int apop_only;               /* Quit after receiving USER. */
 int log_stderr;                     /* Are log messages also sent to standard error? */
 int verbose;                        /* Should we be verbose about data going to/from the client? */
 int timeout_seconds = 30;           /* How long a period of inactivity may elapse before a client is dropped. */
@@ -337,7 +338,7 @@ void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfd
                         pop3command_delete(p);
                         switch (act) {
                             case close_connection:
-                                log_print(LOG_INFO, _("connections_post_select: client %s: disconnected"), c->idstr);
+                                log_print(LOG_INFO, _("connections_post_select: client %s: disconnected; %d/%d bytes read/written"), c->idstr, c->nrd, c->nwr);
                                 remove_connection(c);
                                 connection_delete(c);
                                 *I = c = NULL;
@@ -702,6 +703,10 @@ retry_pid_file:
 
     if (append_domain && strip_domain)
         log_print(LOG_WARNING, _("%s: specifying append-domain and strip-domain does not make much sense"));
+
+    /* Should we disconnect any client which sends a USER command? */
+    if (config_get_bool("apop-only"))
+        apop_only = 1;
 
     /* Find out how long we wait before timing out.... */
     switch (config_get_int("timeout-seconds", &timeout_seconds)) {

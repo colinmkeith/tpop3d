@@ -352,7 +352,7 @@ int mailspool_send_message(const mailbox M, int sck, const int i, int n) {
 
 /* mailspool_apply_changes:
  * Apply deletions to a mailspool by mapping it and copying it in blocks.
- * Returns 1 on succes or 0 on failure.
+ * Returns 1 on success or 0 on failure.
  *
  * This is messy. Apart from the special cases of all messages to be deleted,
  * and no messages to be deleted, we need to cope with an arbitrary set of

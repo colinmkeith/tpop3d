@@ -78,6 +78,10 @@ equivalent and served from the same machine.
 This option only takes effect when \fIusername\fP contains a separator,
 which may be `@', `%' or `!'.
 .TP
+\fBapop-only\fP: (\fByes\fP|\fBtrue\fP)
+Disconnect any client which sends a USER command. The intention of this option
+is to discourage users from sending plaintext passwords over the network.
+.TP
 \fBtimeout-seconds\fP: \fInumber\fP
 This is the number of seconds for which a connection may be idle for before it
 is closed.  If it is set to 0, then timeouts are disabled.  The default value
@@ -130,7 +134,6 @@ to support both.
 Some authentication drivers will set the mailbox explicitly, overriding this
 option. Those that do not also have a specific option, of the form
 \fBauth-foo-mailbox:\fP which overrides the global setting.
-
 .TP
 .nf
 \fBmailspool-index:\fP \fIpath-spec\fP
@@ -165,7 +168,6 @@ best choice. \fBtpop3d\fP will overwrite any file whose name is the same as
 the specified cache file for a given mailspool; therefore, it is recommended
 that the mailspool index files be stored in a directory to which users would
 not customarily have access, for instance /var/spool/tpop3d.
-
 .TP
 .nf
 \fBtcp-wrappers-name:\fP \fIname\fP
@@ -255,7 +257,6 @@ Enable authentication using Pluggable Authentication Modules.
 \fBauth-pam-facility\fP: \fIfacility\fP
 Sets the PAM facility name used by \fBtpop3d\fP to \fIfacility\fP. Defaults to
 \fBtpop3d\fP.
-
 .TP
 \fBauth-pam-mail-group\fP: (\fIgroup-name\fP | \fIgid\fP)
 The group name or gid under which access to the mailspool will take place. The
@@ -267,7 +268,6 @@ may not work. You will normally want to set this to `mail'.
 These are only available if you compiled \fBtpop3d\fP with \fBauth-passwd\fP
 support. \fBauth-passwd\fP authenticates Unix users by direct lookups in
 /etc/passwd and, if configured at compile time, /etc/shadow.
-
 .TP
 \fBauth-passwd-enable\fP: (\fByes\fP|\fBtrue\fP)
 Enable authentication using /etc/passwd.
@@ -393,7 +393,6 @@ Filter template to use when searching for a user's account.
 .TP
 \fBauth-ldap-scope\fP: (\fBsubtree\fP|\fBbase\fP|\fBonelevel\fP)
 Scope of LDAP searches. If not specified, the default is `subtree'.
-
 .TP
 \fBauth-ldap-mailbox\fP: [\fImailbox-driver\fP:]\fIpath-spec\fP ...
 User mailbox location, as described above.
@@ -407,7 +406,6 @@ LDAP attributes which contains the name of a user's mailbox, and its type.
 If the type is not specified, or if the attribute is not present for a given
 user, the driver will guess that mailbox names which end `/' are of type
 maildir, otherwise of type bsd.
-
 .TP
 \fBauth-ldap-mail-user\fP: (\fIuser-name\fP | \fIuid\fP)
 .TP

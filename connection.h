@@ -32,6 +32,7 @@ typedef struct _connection {
     int s;                  /* connected socket                 */
     struct sockaddr_in sin; /* name of peer                     */
     char *idstr;            /* some identifying information     */
+    size_t nrd, nwr;        /* number of bytes read/written     */
     
     char *domain;           /* associated domain suffix         */
     char *buffer;           /* buffer from peer                 */

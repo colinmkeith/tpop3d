@@ -75,8 +75,7 @@ int daemon(int nochdir, int noclose) {
 #ifndef HAVE_INET_ATON
 /* inet_aton:
  * Implementation of inet_aton for machines (Solaris [cough]) which do not
- * have it.
- */
+ * have it. */
 int inet_aton(const char *s, struct in_addr *ip) {                              
     in_addr_t i = inet_addr(s);                                                 
     if (i == ((in_addr_t)-1)) return 0;                                         
@@ -90,7 +89,8 @@ int inet_aton(const char *s, struct in_addr *ip) {
  * which begins at offset msgoffset + skip in the file referenced by fd, which
  * is assumed to be a mappable object. Lines which begin . are escaped as
  * required by RFC1939, and each line is terminated with `\r\n'. If n is -1,
- * the whole message is sent. Returns 1 on success or 0 on failure.
+ * the whole message is sent. Returns the number of bytes written on success
+ * or 0 on failure.
  *
  * XXX Assumes that the message on disk uses only '\n' to indicate EOL.
  */
@@ -98,6 +98,7 @@ int write_file(int fd, int sck, size_t msgoffset, size_t skip, size_t msglength,
     char *filemem;
     char *p, *q, *r;
     size_t length, offset;
+    ssize_t nwritten = 0;
     
     offset = msgoffset - (msgoffset % PAGESIZE);
     length = (msgoffset + msglength + PAGESIZE) ;
@@ -106,7 +107,7 @@ int write_file(int fd, int sck, size_t msgoffset, size_t skip, size_t msglength,
     filemem = mmap(0, length, PROT_READ, MAP_PRIVATE, fd, offset);
     if (filemem == MAP_FAILED) {
         log_print(LOG_ERR, "write_file: mmap: %m");
-        return 0;
+        return -1;
     }
 
     /* Find the beginning of the message headers */
@@ -119,11 +120,17 @@ int write_file(int fd, int sck, size_t msgoffset, size_t skip, size_t msglength,
         q = memchr(p, '\n', r - p);
         if (!q) q = r;
         errno = 0;
+        
         /* Escape a leading ., if present. */
-        if (*p == '.' && !try_write(sck, ".", 1)) goto write_failure;
+        if (*p == '.' && !try_write(sck, ".", 1))
+            goto write_failure;
+        ++nwritten;
+        
         /* Send line itself. */
         if (!try_write(sck, p, q - p) || !try_write(sck, "\r\n", 2))
             goto write_failure;
+        nwritten += q - p + 2;
+
         p = q + 1;
     } while (p < r && *p != '\n');
 
@@ -133,7 +140,7 @@ int write_file(int fd, int sck, size_t msgoffset, size_t skip, size_t msglength,
     if (!try_write(sck, "\r\n", 2)) {
         log_print(LOG_ERR, "write_file: write: %m");
         munmap(filemem, length);
-        return 0;
+        return -1;
     }
     
     /* Now send the message itself */
@@ -145,10 +152,14 @@ int write_file(int fd, int sck, size_t msgoffset, size_t skip, size_t msglength,
         errno = 0;
 
         /* Escape a leading ., if present. */
-        if (*p == '.' && !try_write(sck, ".", 1)) goto write_failure;
+        if (*p == '.' && !try_write(sck, ".", 1))
+            goto write_failure;
+        ++nwritten;
+        
         /* Send line itself. */
         if (!try_write(sck, p, q - p) || !try_write(sck, "\r\n", 2))
             goto write_failure;
+        nwritten += q - p + 2;
 
         p = q + 1;
     }
@@ -158,13 +169,13 @@ int write_file(int fd, int sck, size_t msgoffset, size_t skip, size_t msglength,
     errno = 0;
     if (!try_write(sck, ".\r\n", 3)) {
         log_print(LOG_ERR, "write_file: write: %m");
-        return 0;
-    } else return 1;
+        return -1;
+    } else return nwritten + 3;
 
 write_failure:
     log_print(LOG_ERR, "write_file: write: %m");
     munmap(filemem, length);
-    return 0;
+    return -1;
 }
 
 /* parse_uid:

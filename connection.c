@@ -69,8 +69,7 @@ static char *make_timestamp(const char *domain) {
     if (n != sizeof(buffer)) {
         /* OK, we need to get some pseudo-random data from rand(3).
          * FIXME This is bad from a security PoV, and should be replaced by
-         * hashing some rapidly-changing data.
-         */
+         * hashing some rapidly-changing data. */
         unsigned char *p;
         for (p = buffer; p < buffer + sizeof(buffer); ++p)
             *p = (unsigned char)(rand() & 0xff);
@@ -90,7 +89,7 @@ static char *make_timestamp(const char *domain) {
 /* connection_new:
  * Create a connection object from a socket. */
 connection connection_new(int s, const struct sockaddr_in *sin, const char *domain) {
-    connection c = 0;
+    connection c = NULL;
 
     c = xcalloc(1, sizeof *c);
 
@@ -161,7 +160,10 @@ ssize_t connection_read(connection c) {
     do {
         n = read(c->s, c->p, c->buffer + c->bufferlen - c->p);
     } while (n == -1 && errno == EINTR);
-    if (n > 0) c->p += n;
+    if (n > 0) {
+        c->p += n;
+        c->nrd += n;    /* Keep track of data transferred. */
+    }
     return n;
 }
 
@@ -312,6 +314,8 @@ int connection_sendresponse(connection c, const int success, const char *s) {
     xfree(x);
     if (verbose)
         log_print(LOG_DEBUG, _("connection_sendresponse: client %s: sent `%s %s'"), c->idstr, success? "+OK" : "-ERR", s);
+    if (m > 0)
+        c->nwr += m;
     return (m == l);
 }
 
@@ -326,6 +330,8 @@ int connection_sendline(connection c, const char *s) {
     snprintf(x, l, "%s\r\n", s);
     m = xwrite(c->s, x, l = strlen(x));
     xfree(x);
+    if (m > 0)
+        c->nwr += m;
     return (m == l);
 }
 
