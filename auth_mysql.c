@@ -1,0 +1,319 @@
+/*
+ * auth_mysql.c: authenticate users against a MySQL database
+ *
+ * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
+ *
+ * $Log$
+ * Revision 1.1  2000/09/26 22:23:36  chris
+ * Initial revision
+ *
+ *
+ */
+
+static const char rcsid[] = "$Id$";
+
+#include <pwd.h>
+#include <mysql.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <syslog.h>
+
+#include "auth_mysql.h"
+#include "authswitch.h"
+#include "md5.h"
+
+MYSQL *mysql;
+
+/* auth_mysql_init:
+ * Initialise the database connection driver.
+ */
+int auth_mysql_init() {
+    mysql = mysql_init(NULL);
+    if (!mysql) {
+        syslog(LOG_ERR, "auth_mysql_init: mysql_init: failed");
+        return 0;
+    }
+
+    if (mysql_real_connect(mysql, AUTH_MYSQL_HOSTNAME, AUTH_MYSQL_USERNAME, AUTH_MYSQL_PASSWORD, AUTH_MYSQL_DATABASE, 0, NULL, 0) != mysql) {
+        syslog(LOG_ERR, "auth_mysql_init: mysql_real_connect: %s", mysql_error(mysql));
+        mysql_close(mysql);
+        mysql = NULL;
+        return 0;
+    }
+}
+
+/* auth_mysql_new_apop:
+ * Attempt to authenticate a user via APOP, using a SELECT statement of the
+ * form
+ *   SELECT domain.path, popbox.mbox_name, domain.unix_user,
+ *          popbox.apop_password
+ *           FROM popbox, domain
+ *          WHERE popbox.mbox_user = $local_part
+ *            AND popbox.domain_name = $domain
+ *            AND popbox.domain_name = domain.domain_name
+ */
+const char apop_query_template[] =
+    "SELECT domain.path, popbox.mbox_name, domain.unix_user, popbox.apop_password "
+      "FROM popbox, domain "
+     "WHERE popbox.mbox_user = %s "
+       "AND popbox.domain_name = %s "
+       "AND popbox.domain_name = domain.domain_name";
+authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const unsigned char *digest) {
+    char *query, *x, *y;
+    authcontext a = NULL;
+    char *local_part;
+    const char *domain;
+
+    if (!mysql) return NULL;
+
+    domain = name + strcspn(name, "@%!");
+    if (domain == name || !*domain) return NULL;
+    ++domain;
+    
+    local_part = (char*)malloc(domain - name);
+    if (!local_part) return NULL;
+    memset(local_part, 0, domain - name);
+    strncpy(local_part, name, domain - name - 1);
+    
+    if (mysql_ping(mysql) == -1) {
+        syslog(LOG_ERR, "auth_mysql_new_apop: mysql_ping: %s", mysql_error(mysql));
+        return NULL;
+    }
+
+    query = (char*)malloc(sizeof(apop_query_template) + strlen(name) * 2 + 1);
+    x = (char*)malloc(strlen(local_part) * 2 + 1);
+    y = (char*)malloc(strlen(domain) * 2 + 1);
+    if (!query || !x || !y) goto fail;
+
+    mysql_escape_string(x, local_part, strlen(local_part) * 2 + 1);
+    mysql_escape_string(y, domain, strlen(domain) * 2 + 1);
+
+    sprintf(query, apop_query_template, x, y);
+
+    if (mysql_query(mysql, query) == 0) {
+        MYSQL_RES *result = mysql_store_result(mysql);
+        int i;
+
+        if (!result) {
+            syslog(LOG_ERR, "auth_mysql_new_apop: mysql_store_result: %s", mysql_error(mysql));
+            goto fail;
+        }
+
+        switch (i = mysql_num_rows(result)) {
+        case 0:
+            syslog(LOG_WARNING, "auth_mysql_new_apop: attempted login by nonexistent user %s@%s", local_part, domain);
+            break;
+        case 1: {
+                MYSQL_ROW row = mysql_fetch_row(result);
+                unsigned long *lengths;
+                char *mailbox;
+                struct passwd *pw;
+                uid_t uid;
+                unsigned char this_digest[16];
+                MD5_CTX ctx;
+
+                /* These are "can't happen" errors */
+                if (!row || !(lengths = mysql_fetch_lengths(result))) break;
+                
+                /* Calculate our idea of the digest */
+                MD5Init(&ctx);
+                MD5Update(&ctx, (unsigned char*)timestamp, strlen(timestamp));
+                MD5Update(&ctx, (unsigned char*)row[3], lengths[3]);
+                MD5Final(this_digest, &ctx);
+
+                /* User was lying */
+                if (memcmp(this_digest, digest, 16)) {
+                    syslog(LOG_WARNING, "auth_mysql_new_apop: failed login for %s@%s", local_part, domain);
+                    break;
+                }
+
+                /* User was not lying (about her password) */
+                pw = getpwnam((const char*)row[2]);
+
+                if (!pw) {
+                    syslog(LOG_ERR, "auth_mysql_new_apop: getpwnam(%s): %m", (const char*)row[2]);
+                    break;
+                }
+
+                /* It would be bad to allow a virtual domain user to log in as
+                 * root....
+                 */
+                if (!pw->pw_uid) {
+                    syslog(LOG_ERR, "auth_mysql_new_apop: unix user for domain is root");
+                    break;
+                }
+
+                mailbox = (char*)malloc(lengths[0] + lengths[1] + 2);
+                sprintf(mailbox, "%s/%s", row[0], row[1]);
+
+                a = authcontext_new(pw->pw_uid,
+#ifndef AUTH_MYSQL_MAIL_GID
+                                    pw->pw_gid,
+#else
+                                    AUTH_MYSQL_MAIL_GID,
+#endif
+                                    mailbox);
+
+                free(mailbox);
+            }
+
+        default:
+            syslog(LOG_ERR, "auth_mysql_new_apop: database inconsistency: query for %s returned %d rows", name, i);
+            break;
+        }
+
+        mysql_free_result(result);
+        
+    } else {
+        syslog(LOG_ERR, "auth_mysql_new_apop: mysql_query: %s", mysql_error(mysql));
+    }
+
+fail:
+    if (local_part) free(local_part);
+    if (x) free(x);
+    if (y) free(y);
+    if (query) free(query);
+
+    return a;
+}
+
+/* auth_mysql_new_user_pass:
+ * Attempt to authenticate a user via USER/PASS, using a SELECT statement of
+ * the form
+ *   SELECT domain.path, popbox.mbox_name, domain.unix_user
+ *          FROM popbox, domain
+ *          WHERE popbox.mbox_user = $local_part
+ *            AND popbox.password_hash = $hash_of_password
+ *            AND popbox.domain_name = $domain
+ *            AND popbox.domain_name = domain.domain_name
+ */
+char user_pass_query_template[] =
+    "SELECT domain.path, popbox.mbox_name, domain.unix_user "
+      "FROM popbox, domain "
+     "WHERE popbox.mbox_user = %s "
+       "AND popbox.domain = %s "
+       "AND popbox.password_hash = '%s' "
+       "AND popbox.domain_name = domain.domain_name";
+authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
+    char *query, *x, *y;
+    authcontext a = NULL;
+    char *local_part;
+    const char *domain;
+    unsigned char digest[16];
+    char hexdigest[33] = {0};
+    char *p;
+    unsigned char *q;
+    MD5_CTX ctx;
+
+    if (!mysql) return NULL;
+
+    domain = user + strcspn(user, "@%!");
+    if (domain == user || !*domain) return NULL;
+    ++domain;
+    
+    local_part = (char*)malloc(domain - user);
+    if (!local_part) return NULL;
+    memset(local_part, 0, domain - user);
+    strncpy(local_part, user, domain - user - 1);
+    
+    if (mysql_ping(mysql) == -1) {
+        syslog(LOG_ERR, "auth_mysql_new_user_pass: mysql_ping: %s", mysql_error(mysql));
+        return NULL;
+    }
+
+    query = (char*)malloc(sizeof(user_pass_query_template) + strlen(user) * 2 + 1 + 34);
+    x = (char*)malloc(strlen(local_part) * 2 + 1);
+    y = (char*)malloc(strlen(domain) * 2 + 1);
+    if (!query || !x || !y) goto fail;
+
+    MD5Init(&ctx);
+    MD5Update(&ctx, (unsigned char*)pass, strlen(pass));
+    MD5Final(digest, &ctx);
+
+    for (p = hexdigest, q = digest; q < digest + 16; ++q, p += 2) sprintf(p, "%02x", (unsigned)*q);
+
+    mysql_escape_string(x, local_part, strlen(local_part) * 2 + 1);
+    mysql_escape_string(y, domain, strlen(domain) * 2 + 1);
+
+    sprintf(query, user_pass_query_template, x, hexdigest, y);
+
+    if (mysql_query(mysql, query) == 0) {
+        MYSQL_RES *result = mysql_store_result(mysql);
+        int i;
+
+        if (!result) {
+            syslog(LOG_ERR, "auth_mysql_new_user_pass: mysql_store_result: %s", mysql_error(mysql));
+            goto fail;
+        }
+
+        switch (i = mysql_num_rows(result)) {
+        case 0:
+            syslog(LOG_WARNING, "auth_mysql_new_user_pass: failed login for %s@%s", local_part, domain);
+            break;
+        case 1: {
+                MYSQL_ROW row = mysql_fetch_row(result);
+                unsigned long *lengths;
+                char *mailbox;
+                struct passwd *pw;
+                uid_t uid;
+                unsigned char this_digest[16];
+                MD5_CTX ctx;
+
+                /* These are "can't happen" errors */
+                if (!row || !(lengths = mysql_fetch_lengths(result))) break;
+                
+                pw = getpwnam((const char*)row[2]);
+
+                if (!pw) {
+                    syslog(LOG_ERR, "auth_mysql_new_user_pass: getpwnam(%s): %m", (const char*)row[2]);
+                    break;
+                }
+
+                /* It would be bad to allow a virtual domain user to log in as
+                 * root....
+                 */
+                if (!pw->pw_uid) {
+                    syslog(LOG_ERR, "auth_mysql_new_user_pass: unix user for domain is root");
+                    break;
+                }
+
+                mailbox = (char*)malloc(lengths[0] + lengths[1] + 2);
+                sprintf(mailbox, "%s/%s", row[0], row[1]);
+
+                a = authcontext_new(pw->pw_uid,
+#ifndef AUTH_MYSQL_MAIL_GID
+                                    pw->pw_gid,
+#else
+                                    AUTH_MYSQL_MAIL_GID,
+#endif
+                                    mailbox);
+
+                free(mailbox);
+            }
+
+        default:
+            syslog(LOG_ERR, "auth_mysql_new_user_pass: database inconsistency: query for %s@%s returned %d rows", local_part, domain, i);
+            break;
+        }
+
+        mysql_free_result(result);
+        
+    } else {
+        syslog(LOG_ERR, "auth_mysql_new_user_pass: mysql_query: %s", mysql_error(mysql));
+    }
+
+fail:
+    if (local_part) free(local_part);
+    if (x) free(x);
+    if (y) free(y);
+    if (query) free(query);
+
+    return a;
+}
+
+/* auth_mysql_close:
+ * Close the database connection.
+ */
+void auth_mysql_close() {
+    if (mysql) mysql_close(mysql);
+}
