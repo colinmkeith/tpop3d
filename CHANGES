@@ -4,6 +4,8 @@ $Id$
 Fixed some omissions in the man page. Fixed a bug which caused bind(2) to fail
 on some systems. Corrected a small error in README.bulletins.
 
+Added the log-bad-passwords option, inspired by a patch from Kevin Bonner.
+
 1.5.1
 
 tpop3d now supports the WHOSON protocol (http://whoson.sourceforge.net/) for

@@ -49,6 +49,7 @@ stringmap config;
 extern int append_domain;           /* Do we automatically try user@domain if user alone fails to authenticate? In pop3.c. */
 extern int strip_domain;            /* Do we automatically try user if user@domain fails to authenticate? */
 extern int apop_only;               /* Quit after receiving USER. */
+extern int log_bad_pass;            /* Log failing passwords. */
 int log_stderr;                     /* Are log messages also sent to standard error? */
 int verbose;                        /* Should we be verbose about data going to/from the client? */
 
@@ -507,6 +508,12 @@ retry_pid_file:
     /* Should we disconnect any client which sends a USER command? */
     if (config_get_bool("apop-only"))
         apop_only = 1;
+
+    /* Should we log failing passwords? */
+    if (config_get_bool("log-bad-passwords")) {
+        log_print(LOG_WARNING, _("%s: I hope you realise that use of the log-bad-passwords option is an invasion of privacy"), configfile);
+        log_bad_pass = 1;
+    }
 
     /* Find out how long we wait before timing out.... */
     switch (config_get_int("timeout-seconds", &timeout_seconds)) {

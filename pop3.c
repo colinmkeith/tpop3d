@@ -32,6 +32,7 @@ extern int verbose;
 int append_domain;  /* Do we automatically try user@domain if user alone fails to authenticate? */
 int strip_domain;   /* Automatically try user if user@domain fails? */
 int apop_only;      /* Disconnect any client which says USER. */
+int log_bad_pass;   /* Log bad passwords for support purposes. */
 
 /* do_capa CONNECTION COMMAND
  * CAPA command; list capabilities. */
@@ -474,6 +475,14 @@ enum connection_action connection_do(connection c, const pop3command p) {
             } else {
                 enum connection_action act;
 
+                /*
+                 * It is useful for ISPs to be able to log failing passwords
+                 * sent by misconfigured clients. This is an invasion of
+                 * privacy, but there we go.
+                 */
+                if (log_bad_pass)
+                    log_print(LOG_INFO, _("connection_do: client `%s': username `%s': failing password is `%s'"), c->idstr, c->user, c->pass);
+                            
                 connection_freeze(c);
                 ++c->n_auth_tries;
                 if (c->n_auth_tries == MAX_AUTH_TRIES) {

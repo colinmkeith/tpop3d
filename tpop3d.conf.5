@@ -323,7 +323,7 @@ then authentication will be attempted using:
 .Sp
 In this case, no alternative attempt will be made if authentication fails.
 
-Two global options apply to all authenticators:
+These global options apply to all authenticators:
 .TP
 \fBpermit-empty-password\fP: (\fByes\fP|\fBtrue\fP)
 If enabled, users may log in with an empty password. (Note that their client
@@ -335,6 +335,11 @@ a user logs in, the user's mailbox won't be opened until \fIafter\fP the
 onlogin action completes (otherwise, the child does not block in this way).
 This is intended to allow you to use the onlogin feature to implement server
 bulletins and similar features.
+.TP
+\fBlog-bad-passwords\fP: (\fByes\fP|\fBtrue\fP)
+Log incorrect passwords supplied by users who fail to log in. Use of this
+option is an invasion of privacy, but may be useful for debugging client
+configuration problems.
 
 .SS PAM authentication options
 
