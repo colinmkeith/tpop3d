@@ -46,23 +46,23 @@ void print_log(int priority, const char *fmt, ...) {
 }
 
 /* xwrite:
- * Write some data, taking account of short writes.
+ * Write some data, taking account of short writes and signals.
  */
 ssize_t xwrite(int fd, const void *buf, size_t count) {
     size_t c = count;
     const char *b = (const char*)buf;
     while (c > 0) {
-        int e = write(fd, b, count);
-        if (e > 0) {
+        int e = write(fd, b, c);
+        if (e >= 0) {
             c -= e;
             b += e;
-        } else return e;
+        } else if (errno != EINTR) return e;
     } while (c > 0);
     return count;
 }
 
 /* daemon:
- * Become a daemon. From "The Unix Programming FAQ", Andrew Gierth et al.
+ * Become a daemon. From `The Unix Programming FAQ', Andrew Gierth et al.
  */
 int daemon(int nochdir, int noclose) {
     switch (fork()) {

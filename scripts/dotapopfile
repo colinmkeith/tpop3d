@@ -74,7 +74,7 @@ sub apopauth ($) {
 }
 
 # if running under auth_other, start main loop.
-if ($ENV{TPOP3D_CONTEXT} = 'auth_other') {
+if ($ENV{TPOP3D_CONTEXT} eq 'auth_other') {
     $auth->run();
     exit 0;
 }

@@ -317,8 +317,18 @@ void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfd
  */
 volatile int foad = 0, restart = 0; /* Flags used to indicate that we should exit or should re-exec. */
 
+#ifdef AUTH_OTHER
+extern pid_t authchild_died;
+extern int authchild_status;
+#endif /* AUTH_OTHER */
+
 void net_loop() {
     listitem J;
+#ifdef AUTH_OTHER
+    sigset_t chmask;
+    sigemptyset(&chmask);
+    sigaddset(&chmask, SIGCHLD);
+#endif /* AUTH_OTHER */
 
     connections = list_new();
 
@@ -346,6 +356,19 @@ void net_loop() {
             /* Monitor existing connections */
             connections_post_select(&readfds, NULL, NULL);
         }
+
+#ifdef AUTH_OTHER
+        /* It may be that the authentication child died; log the message here
+         * to avoid doing something we shouldn't in the signal handler. We
+         * block SIGCHLD while doing this.
+         */
+        sigprocmask(SIG_BLOCK, &chmask, NULL);
+        if (authchild_died) {
+            print_log(LOG_WARNING, _("net_loop: authentication child %d terminated with status %d"), (int)authchild_died, authchild_status);
+            authchild_died = 0;
+        }
+        sigprocmask(SIG_UNBLOCK, &chmask, NULL);
+#endif /* AUTH_OTHER */
     }
 
     /* Termination request received; we should close all connections in an orderly fashion. */

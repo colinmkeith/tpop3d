@@ -52,31 +52,38 @@ stringmap read_config_file(const char *f) {
 
         key = strpbrk(line, "#\n");
         if (key) *key = 0;
-        
+        /*    foo  : bar baz quux
+         * key^    ^value
+         */
         key = line + strspn(line, " \t");
         value = strchr(line, ':');
 
         if (value) {
+            /*    foo  : bar baz quux
+             * key^  ^r ^value
+             */
             ++value;
 
             r = key + strcspn(key, " \t:");
             if (r != key) {
+                item *I;
                 *r = 0;
 
+                /*    foo\0: bar baz quux
+                 * key^      ^value      ^r
+                 */
                 value += strspn(value, " \t");
                 r = value + strlen(value) - 1;
                 while (strchr(" \t", *r) && r > value) --r;
                 *(r + 1) = 0;
 
-                if (r >= value) {
-                    item *I;
+                /* (Removed check for zero length value.) */
 
-                    /* Check that this is a valid key. */
-                    if (!is_cfgdirective_valid(key))
-                        fprintf(stderr, _("%s:%d: warning: unknown directive `%s'\n"), f, i, key);
-                    else if ((I = stringmap_insert(S, key, item_ptr(strdup(value)))))
-                        fprintf(stderr, _("%s:%d: warning: repeated directive `%s'\n"), f, i, key);
-                }
+                /* Check that this is a valid key. */
+                if (!is_cfgdirective_valid(key))
+                    fprintf(stderr, _("%s:%d: warning: unknown directive `%s'\n"), f, i, key);
+                else if ((I = stringmap_insert(S, key, item_ptr(strdup(value)))))
+                    fprintf(stderr, _("%s:%d: warning: repeated directive `%s'\n"), f, i, key);
             }
         }
 

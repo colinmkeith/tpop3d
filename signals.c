@@ -146,13 +146,16 @@ void die_signal_handler(const int i) {
 extern int num_running_children; /* in main.c */
 
 #ifdef AUTH_OTHER
-extern pid_t authchild_pid; /* in auth_other.c */
-extern int authchild_wr, authchild_rd;
+extern pid_t authchild_pid, authchild_died; /* in auth_other.c */
+extern int authchild_wr, authchild_rd, authchild_status;
 #endif /* AUTH_OTHER */
 
 void child_signal_handler(const int i) {
     pid_t pid;
-    int status;
+    int e, status;
+
+    /* Save errno. */
+    e = errno;
 
     while (1) {
         pid = waitpid(-1, &status, WNOHANG);
@@ -160,20 +163,22 @@ void child_signal_handler(const int i) {
 #ifdef AUTH_OTHER
             if (pid == authchild_pid) {
                 authchild_pid = 0;
-                /* XXX this is bad, since print_log uses malloc(3). */
-                print_log(LOG_WARNING, _("child_signal_handler: authentication child %d terminated; exit status was %d"), (int)pid, status);
+                authchild_died = pid;
+                authchild_status = status;
                 close(authchild_wr);
                 close(authchild_rd);
             } else
 #endif /* AUTH_OTHER */
                 --num_running_children;
-        } else if (pid == 0 || (pid == -1 && errno != EINTR))
+        } else if (pid == 0 || (pid == -1 && errno != EINTR)) {
+            errno = e;
             return;
+        }
     }
 }
 
 /* restart_signal_handler:
- * Signal handler to restart the server on receivinga SIGHUP.
+ * Signal handler to restart the server on receiving a SIGHUP.
  */
 extern int restart, post_fork;              /* in main.c */
 

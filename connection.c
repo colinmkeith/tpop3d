@@ -157,7 +157,9 @@ ssize_t connection_read(connection c) {
         errno = ENOBUFS;
         return -1;
     }
-    n = read(c->s, c->p, c->buffer + c->bufferlen - c->p);
+    do {
+        n = read(c->s, c->p, c->buffer + c->bufferlen - c->p);
+    } while (n == -1 && errno == EINTR);
     if (n > 0) c->p += n;
     return n;
 }

@@ -72,11 +72,12 @@ char *auth_program;
 time_t authchild_start_time;
 uid_t authchild_uid;
 gid_t authchild_gid;
-volatile pid_t authchild_pid;
+volatile pid_t authchild_pid, authchild_died;
+volatile int authchild_status;
 struct timeval authchild_timeout;
 
 /* File descriptors used to talk to child. */
-int authchild_wr, authchild_rd;
+volatile int authchild_wr, authchild_rd;
 
 /* dump:
  * Debugging method.
@@ -140,7 +141,7 @@ int tvcmp(const struct timeval *t1, const struct timeval *t2) {
 int auth_other_start_child() {
     int p1[2], p2[2];
     char *argv[2] = {auth_program, NULL};
-    char *envp[2] = {"PATH=/bin",  /* XXX path? */
+    char *envp[3] = {"PATH=/bin",  /* XXX path? */
                      "TPOP3D_CONTEXT=auth_other", NULL};
 
     /* Generate pipes to talk to the child. */

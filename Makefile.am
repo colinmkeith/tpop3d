@@ -1,3 +1,12 @@
+#
+# Makefile.am:
+# Automake file for tpop3d.
+#
+# Copyright (c) 2001 Chris Lightfoot, Mark Longair. All rights reserved.
+#
+# $Id$
+#
+
 sbin_PROGRAMS = tpop3d
 
 tpop3d_SOURCES = auth_mysql.c \
