@@ -1,0 +1,105 @@
+#!/usr/bin/perl -w
+#
+# flat_file:
+# Authenticate users against a list of users stored in flat files.
+#
+# This script was contributed by Chris E. Stith <mischief@motion.net>.
+# Users are authenticated by looking them up in
+#   /var/spool/mail/$(domain)/users,
+# which contains lines of the form
+#   user:crypt'd password
+#
+# The relevant config section is--
+#
+#   # This must be set to yes, or we have to make all our users put
+#   # `user@domain.tld' in the username field of their mail clients instead
+#   # of just `user'.
+#   append-domain: yes
+#
+#   # The only method enabled for POP3 auth is the custom Perl script through
+#   # tpop3d's embedded Perl interpeter. All of this has to do with that.
+#   auth-perl-enable: yes
+#   auth-perl-start: do '/etc/tpop3d/tpop3d.pl';
+#   auth-perl-finish: stop();
+#   auth-perl-pass: pass
+#
+use strict;
+use TPOP3D::AuthDriver;
+use Crypt::PasswdMD5;
+use Fcntl qw{ :flock };
+
+my $maildir = '/var/spool/mail';
+
+### check on validity of username and password
+sub auth_ok {
+    my ( $user, $domain, $pass ) = @_;
+    my $file = "$maildir/$domain/users";
+    my $fh;
+    unless ( open $fh, "< $file" ) {
+	TPOP3D::print_log ("Sorry, can't read `$file'\n");
+        return 0;
+    }
+    flock( $fh, LOCK_SH );
+    while ( <$fh> ) {
+        my ( $un, $pw, undef ) = split/:/;
+        if ( $un eq $user ) {
+            my $pass1 = crypt($pass, $pw);
+            my $pass2 = Crypt::PasswdMD5::unix_md5_crypt($pass, $pw);
+            if ( ($pw eq $pass1) || ($pw eq $pass2) ) {
+                close $fh;
+                return 1;
+            }
+        }
+    }
+    close $fh;
+    return 0;
+}
+     
+### report on validity of user and password
+sub pass {
+    my $href = $_[0];
+    my ($local, $domain) = ($href->{'local_part'}, $href->{'domain'});
+    unless ( length $local ) { $local = $href->{'user'} }
+    $domain = lc $domain;
+    unless ( length $domain ) {
+        return {
+            'result' => 'NO',
+            'logmsg' => "failed auth without explicit domain, will retry"
+        };
+    }
+    my $pass = $href->{'pass'};
+    undef %{$href};
+    if ( auth_ok($local, $domain, $pass) ) {
+        # Success.
+        return {
+            'result' => 'YES',
+            'logmsg' => "authenticated $local in domain $domain",
+            'uid' => 'tpop3d',   # pop server's assigned uid
+            'gid' => 'mail',
+            'mboxtype' => 'bsd',
+            'mailbox' => "/var/spool/mail/$domain/mailboxes/$local"
+        };
+    } else {
+        # Failure.
+        return {
+            'result' => 'NO',
+            'logmsg' => "auth failed for user $local in domain $domain"
+        };
+    }
+}
+
+### let the log know we're back
+sub start {
+    TPOP3D::print_log ("Embedded Perl auth mechanism for tpop3d starting.\n");
+}
+### let the log know we're gone
+sub stop {
+    TPOP3D::print_log ("Embedded Perl auth mechanism for tpop3d ending.\n");
+}
+
+if (defined($ENV{TPOP3D_CONTEXT}) and $ENV{TPOP3D_CONTEXT} eq 'auth_other') {
+  no strict 'subs';
+  TPOP3D::AuthDriver::run(TPOP3D::AuthDriver);
+  exit 0;
+}
+
