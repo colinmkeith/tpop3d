@@ -27,6 +27,7 @@ static const char rcsid[] = "$Id$";
 #include <errno.h>
 #include <unistd.h>
 
+#include "connection.h"
 #include "mailbox.h"
 #include "util.h"
 #include "vector.h"
