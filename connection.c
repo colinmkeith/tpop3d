@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.6  2000/10/18 22:21:23  chris
+ * Added timeouts, APOP support.
+ *
  * Revision 1.5  2000/10/18 21:34:12  chris
  * Changes due to Mark Longair.
  *
@@ -30,6 +33,7 @@ static const char rcsid[] = "$Id$";
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <netinet/in.h>
@@ -98,6 +102,8 @@ connection connection_new(int s, const struct sockaddr_in *sin) {
     if (!c->timestamp) goto fail;
     
     c->state = authorisation;
+
+    c->lastcmd = time(NULL);
 
     if (!connection_sendresponse(c, 1, c->timestamp)) goto fail;
 

@@ -6,6 +6,9 @@
  * $Id$
  *
  * $Log$
+ * Revision 1.4  2000/10/18 22:21:23  chris
+ * Added timeouts, APOP support.
+ *
  * Revision 1.3  2000/10/18 21:34:12  chris
  * Changes due to Mark Longair.
  *
@@ -30,7 +33,14 @@
 #include "mailspool.h"
 #include "vector.h"
 
-#define IDLE_TIMEOUT        60    /* in seconds */
+/* How long a period of inactivity is allowed before we time a client out. The
+ * RFC states that this should not be less than ten minutes, but because we
+ * have mandatory locking on the whole mailspool, that would stop any mail
+ * delivery to a user for that period. Hence, a shorter period.
+ */
+#ifndef IDLE_TIMEOUT
+#   define IDLE_TIMEOUT     30          /* in seconds */
+#endif
 
 #define MAX_POP3_LINE       1024        /* should be sufficient */
 
@@ -49,6 +59,8 @@ typedef struct _connection {
     char *timestamp;        /* the rfc1939 "timestamp" we emit  */
 
     enum pop3_state state;  /* from rfc1939 */
+
+    time_t lastcmd;         /* used to implement timeouts */
 
     int n_auth_tries, n_errors;
     char *user, *pass;      /* state accumulated */

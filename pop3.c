@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.6  2000/10/18 22:21:23  chris
+ * Added timeouts, APOP support.
+ *
  * Revision 1.5  2000/10/18 21:34:12  chris
  * Changes due to Mark Longair.
  *
@@ -28,6 +31,7 @@ static const char rcsid[] = "$Id$";
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
+#include <time.h>
 #include <unistd.h>
 #include <sys/types.h>
 
@@ -70,6 +74,9 @@ static char *hex_digest(const unsigned char *u) {
  * what the caller should do.
  */
 enum connection_action connection_do(connection c, const pop3command p) {
+    /* This breaks the RFC, but is sensible. */
+    if (p->cmd != NOOP && p->cmd != UNKNOWN) c->lastcmd = time(NULL);
+    
     if (c->state == authorisation) {
         /* Authorisation state: gather username and password. */
         switch (p->cmd) {
@@ -100,7 +107,65 @@ enum connection_action connection_do(connection c, const pop3command p) {
             break;
             
         case APOP: {
-                connection_sendresponse(c, 0, "Not implemented yet.");
+                /* Interpret an APOP name digest command */
+                char *name, *hexdigest;
+                unsigned char digest[16], *q;
+
+                ++c->n_auth_tries;
+                if (c->n_auth_tries == MAX_AUTH_TRIES) {
+                    connection_sendresponse(c, 0, "This is ridiculous. I give up.");
+                    return close_connection;
+                }
+
+                name = trimcpy(p->tail);
+                if (!name || *name == 0) {
+                    connection_sendresponse(c, 0, "That's not right.");
+                    if (name) free(name);
+                }
+                hexdigest = name + strcspn(name, " \t");
+                *hexdigest++ = 0;
+                hexdigest += strspn(digest, " \t");
+                if (strlen(hexdigest) != 32) {
+                    free(name);
+                    connection_sendresponse(c, 0, "Try again, but get it right next time.");
+                    return do_nothing;
+                }
+
+                /* Obtain digest */
+                for (q = digest; q < digest + 16; ++q) {
+                    *q = 0;
+                    if (strchr("0123456789", *hexdigest))  *q |= ((unsigned int)*hexdigest - '0') << 4;
+                    else if (strchr("abcdef", *hexdigest)) *q |= ((unsigned int)*hexdigest - 'a' + 10) << 4;
+                    else if (strchr("ABCDEF", *hexdigest)) *q |= ((unsigned int)*hexdigest - 'A' + 10) << 4;
+                    else {
+                        free(name);
+                        connection_sendresponse(c, 0, "Clueless bunny!");
+                        return do_nothing;
+                    }
+                    ++hexdigest;
+                    if (strchr("0123456789", *hexdigest))  *q |= ((unsigned int)*hexdigest - '0');
+                    else if (strchr("abcdef", *hexdigest)) *q |= ((unsigned int)*hexdigest - 'a' + 10);
+                    else if (strchr("ABCDEF", *hexdigest)) *q |= ((unsigned int)*hexdigest - 'A' + 10);
+                    else {
+                        free(name);
+                        connection_sendresponse(c, 0, "Clueless bunny!");
+                        return do_nothing;
+                    }
+                    ++hexdigest;
+                }
+
+                c->a = authcontext_new_apop(name, c->timestamp, digest);
+
+                free(name);
+                
+                if (c->a) {
+                    c->state = transaction;
+                    return fork_and_setuid;
+                } else {
+                    connection_sendresponse(c, 0, "Lies! Try again!");
+                    return do_nothing;
+                }
+                
                 return do_nothing;
             }
             break;
@@ -126,6 +191,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
             } else {
                 free(c->user);
                 c->user = NULL;
+                memset(c->pass, 0, strlen(c->pass));
                 free(c->pass);
                 c->pass = NULL;
 

@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.9  2000/10/18 22:21:23  chris
+ * Added timeouts, APOP support.
+ *
  * Revision 1.8  2000/10/18 21:34:12  chris
  * Changes due to Mark Longair.
  *
@@ -35,7 +38,7 @@ static const char rcsid[] = "$Id$";
 
 /* Should be -D... from Makefile. */
 #ifndef TPOP3D_VERSION
-#define TPOP3D_VERSION  "(unknown version)"
+#   define TPOP3D_VERSION  "(unknown version)"
 #endif
 
 #include <errno.h>
@@ -139,7 +142,7 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
         fd_set readfds;
         item *t;
         listitem I, J;
-        struct timeval tv = {1, 0};
+        struct timeval tv = {10, 0}; /* Must be less than IDLE_TIMEOUT but otherwise value is unimportant */
         int n = 0;
 
         FD_ZERO(&readfds);
@@ -155,7 +158,7 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
             if (s > n) n = s;
         }
 
-        if (select(n + 1, &readfds, NULL, NULL, &tv) > 0) {
+        if (select(n + 1, &readfds, NULL, NULL, &tv) >= 0) {
             /* Check for new incoming connections */
             if (listen_sockets) vector_iterate(listen_sockets, t) {
                 if (FD_ISSET(t->l, &readfds)) {
@@ -290,6 +293,13 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
 
                         if (!I) break;
                     }
+                } else if (time(NULL) > (((connection)(I->d.v))->lastcmd + IDLE_TIMEOUT)) {
+                    /* Connection has timed out. */
+                    connection_sendresponse((connection)(I->d.v), 0, "You can hang around all day if you like. I have better things to do.");
+                    connection_delete((connection)(I->d.v));
+                    I = list_remove(connections, I);
+                } else {
+                    fprintf(stderr, "connection %p\n", I->d.v);
                 }
             }
         }
