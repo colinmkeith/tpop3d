@@ -39,11 +39,15 @@ static const char rcsid[] = "$Id$";
 
 /* listener_new:
  * Create a new listener object, listening on the specified address. */
+listener listener_new(const struct sockaddr_in *addr, const char *domain
 #ifdef MASS_HOSTING
-    listener listener_new(const struct sockaddr_in *addr, const char *domain, const char *regex) {
-#else
-    listener listener_new(const struct sockaddr_in *addr, const char *domain) {
+ /* leading comma-- yuk */  , const char *regex
 #endif
+#ifdef TPOP3D_TLS
+                            , tls_mode mode,
+                              const char *certfile, const char *pkeyfile
+#endif
+                        ) {
     listener L;
     struct hostent *he;
     
@@ -137,6 +141,23 @@ static const char rcsid[] = "$Id$";
             L->domain = xstrdup(u.nodename);
         }
     }
+
+#ifdef TPOP3D_TLS
+    /* Should this listener support some sort of TLS? */
+    if (mode != none) {
+        L->tls.mode = mode;
+        L->tls.ctx = tls_create_context(certfile, pkeyfile);
+        if (!L->tls.ctx) {
+            if (mode == always) {
+                log_print(LOG_ERR, _("listener_new: %s: cannot create TLS context for listener; dropping it"), inet_ntoa(addr->sin_addr));
+                goto fail;
+            } else if (mode == stls) {
+                log_print(LOG_ERR, _("listener_new: %s: cannot create TLS context; setting TLS mode to `none'"), inet_ntoa(addr->sin_addr));
+                L->tls.mode = none;
+            }
+        }
+    }
+#endif
 
     return L;
 

@@ -390,11 +390,6 @@ void authcontext_delete(authcontext a) {
 
     xfree(a->mboxdrv);
     xfree(a->mailbox);
-
-    /* Only log if this is the end of the session, not the parent freeing its
-     * copy of the data. (This is a hack, and I am ashamed.) */
-    if (post_fork) log_print(LOG_INFO, _("authcontext_delete: finished session for `%s' with %s"), a->user, a->auth);
-
     xfree(a->auth);
     xfree(a->user);
     xfree(a->local_part);

@@ -88,12 +88,24 @@ static int ioabs_tcp_post_select(connection c, fd_set *readfds, fd_set *writefds
     struct ioabs_tcp *io;
     io = (struct ioabs_tcp*)c->io;
 
-    if (FD_ISSET(c->s, readfds))
-        r |= IOABS_TRY_READ;
-    if (FD_ISSET(c->s, writefds))
-        r |= IOABS_TRY_WRITE;
+    return ioabs_generic_post_select(FD_ISSET(c->s, readfds), FD_ISSET(c->s, writefds));
+}
 
-    return r;
+/* ioabs_tcp_destroy:
+ * The only resource to be destroyed is the memory allocated for the
+ * structure. */
+static void ioabs_tcp_destroy(connection c) {
+    xfree(c->io);
+}
+
+/* ioabs_tcp_shutdown:
+ * Shut down the socket connection. */
+static int ioabs_tcp_shutdown(connection c) {
+    shutdown(c->s, 2);
+    close(c->s);
+    c->cstate = closed;
+    c->s = -1;
+    return 1;   /* assume this succeeded. */
 }
 
 /* ioabs_tcp_create:
@@ -106,6 +118,7 @@ struct ioabs_tcp *ioabs_tcp_create(void) {
     io->und.strerror    = ioabs_tcp_strerror;
     io->und.pre_select  = ioabs_tcp_pre_select;
     io->und.post_select = ioabs_tcp_post_select;
+    io->und.destroy     = ioabs_tcp_destroy;
     io->und.permit_immediate_writes = 1;
     io->x_errno = 0;
     return io;

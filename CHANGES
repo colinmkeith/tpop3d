@@ -13,14 +13,15 @@ parser. Fixed a problem in the command parsing code which could cause problems
 with Eudora's command pipelining; thanks to Shin Zukeran for this fix. Fixed a
 minor problem in the PAM code, thanks to Christian Nordmann, and also added
 facility to use auth-pam for authenticating users who have no UNIX account
-based on his patch.  Fixed a bug which could cause a crash if there were NULL
+based on his patch. Fixed a bug which could cause a crash if there were NULL
 values in a database being used by auth-mysql. Added scripts/tpop3dtraffic,
 which extracts the identity of the heaviest POP3 users from logfiles. Added a
 permit-empty-passwords option, default no, largely to protect LDAP users who
 left LDAP anonymous authentication switched on.... The I/O layer was rewritten
-to use non-blocking I/O throughout. Connections are now frozen briefly after
-a failed authentication using code adapted from a contribution by Yann Grossel,
-who also contributed support for MySQL server failover for auth-mysql.
+to use non-blocking I/O throughout. Connections are now frozen briefly after a
+failed authentication using code adapted from a contribution by Yann Grossel,
+who also contributed support for MySQL server failover for auth-mysql. tpop3d
+will now remove a stale lock files for mailspools.
 
 1.4.2
 

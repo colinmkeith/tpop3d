@@ -79,12 +79,14 @@ vector listeners;                   /* Listeners */
 connection *connections;            /* Active connections. */
 size_t max_connections;             /* Number of connection slots allocated. */
 
-/* Theory of operation:
+/* 
+ * Theory of operation:
  * The main loop is in net_loop, below; it calls listeners_ and
  * connections_pre_select, then calls select, then calls listeners_ and
  * connections_post_select. In the event that a server is forked to handle a
  * client, fork_child is called. The global variables listeners and
- * connections are used to handle this procedure. */
+ * connections are used to handle this procedure.
+ */
 
 /* find_free_connection:
  * Find a free connection slot. */
@@ -151,24 +153,12 @@ void listeners_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfds)
             } else {
                 connection *J;
                 if (num_running_children >= max_running_children || !(J = find_free_connection())) {
-                    char *m = _("-ERR Sorry, I'm too busy right now\r\n");
-                    xwrite(s, m, strlen(m));
                     shutdown(s, 2);
                     close(s);
                     log_print(LOG_WARNING, _("listeners_post_select: rejected connection from %s owing to high load"), inet_ntoa(sin.sin_addr));
                 } else {
-                    /* Find a free connection slot. */
-#ifdef MASS_HOSTING
-                    if (L->have_re) {
-                        char *domain;
-                        domain = listener_obtain_domain(L, s);
-                        *J = connection_new(s, &sin, domain);
-                        xfree(domain);
-                    } else
-#endif
-                    *J = connection_new(s, &sin, L->domain);
-
-                    if (*J)
+                    /* Create connection object. */
+                    if ((*J = connection_new(s, &sin, L)))
                         log_print(LOG_INFO, _("listeners_post_select: client %s: connected"), (*J)->idstr);
                     else
                         /* This could be really bad, but all we can do is log the failure. */
@@ -185,14 +175,18 @@ void connections_pre_select(int *n, fd_set *readfds, fd_set *writefds, fd_set *e
     connection *J;
     for (J = connections; J < connections + max_connections; ++J)
         /* Don't add frozen connections to the select masks. */
-        if (*J && (*J)->frozenuntil <= time(NULL))
+        if (*J && !connection_isfrozen(*J))
             (*J)->io->pre_select(*J, n, readfds, writefds, exceptfds);
 }
 
 /* fork_child:
  * Handle forking a child to handle an individual connection c after
- * authentication. */
-void fork_child(connection c) {
+ * authentication. Returns 1 on success or 0 on failure; the caller can determine
+ * whether they are now the child or the parent by testing the post_fork flag. On
+ * return in the parent the connection will have been destroyed and removed
+ * from the list; in the child, it will be the only remaining connection and
+ * all the listeners will have been destroyed. */
+int fork_child(connection c) {
     connection *J;
     item *t;
     sigset_t chmask;
@@ -231,8 +225,7 @@ void fork_child(connection c) {
             if (c->a->uid == 0) {
                 log_print(LOG_ERR, _("fork_child: client %s: authentication context has UID of 0"), c->idstr);
                 connection_sendresponse(c, 0, _("Everything's really bad"));
-                connection_delete(c);
-                _exit(0);
+                return 0;
             }
 
             /* Set our gid and uid to that appropriate for the mailspool, as
@@ -240,13 +233,11 @@ void fork_child(connection c) {
             if (setgid(c->a->gid) == -1) {
                 log_print(LOG_ERR, "fork_child: setgid(%d): %m", c->a->gid);
                 connection_sendresponse(c, 0, _("Something bad happened, and I just can't go on. Sorry."));
-                connection_delete(c);
-                _exit(0);
+                return 0;
             } else if (setuid(c->a->uid) == -1) {
                 log_print(LOG_ERR, "fork_child: setuid(%d): %m", c->a->uid);
                 connection_sendresponse(c, 0, _("Something bad happened, and I just can't go on. Sorry."));
-                connection_delete(c);
-                _exit(0);
+                return 0;
             }
 
             /* Get in to the `transaction' state, opening the mailbox. */
@@ -272,8 +263,7 @@ void fork_child(connection c) {
                 connection_sendresponse(c, 1, s);
             } else {
                 connection_sendresponse(c, 0, _("Unable to open mailbox; it may be locked by another concurrent session."));
-                connection_delete(c);
-                _exit(0);
+                return 0;
             }
             break;
 
@@ -281,9 +271,7 @@ void fork_child(connection c) {
             /* Error. */
             log_print(LOG_ERR, "fork_child: fork: %m");
             connection_sendresponse(c, 0, _("Everything was fine until now, but suddenly I realise I just can't go on. Sorry."));
-            remove_connection(c);
-            connection_delete(c);
-            break;
+            return 0;
 
         default:
             /* Parent. Dispose of our copy of this connection. */
@@ -292,27 +280,37 @@ void fork_child(connection c) {
             /* Began session. We log a message in a known format, and call
              * into the authentication drivers in case they want to do
              * something with the information for POP-before-SMTP relaying. */
-            log_print(LOG_INFO, _("fork_child: %s: successfully authenticated with %s; child PID is %d"), c->idstr, c->a->auth, (int)ch);
+            log_print(LOG_INFO, _("fork_child: %s: began session for `%s' with %s; child PID is %d"), c->idstr, c->a->user, c->a->auth, (int)ch);
             authswitch_onlogin(c->a, c->remote_ip, c->local_ip);
-           
-            /* Dispose of our copy of the connection. */
+
+            /* Dispose of our copy of this connection. */
             close(c->s);
-            c->s = -1; /* Don't shutdown the socket */
+            c->s = -1;
             remove_connection(c);
             connection_delete(c);
             c = NULL;
 
             ++num_running_children;
+            break;
     }
 
     /* Unblock SIGCHLD after incrementing num_running_children. */
     sigprocmask(SIG_UNBLOCK, &chmask, NULL);
+
+    /* Success. */
+    return 1;
 #undef c
 #undef I
 }
 
 /* connections_post_select:
- * Called after the main select(2) to do stuff with connections. */
+ * Called after the main select(2) to do stuff with connections.
+ *
+ * For each connection, we call its own post_select routine. This will do all sorts
+ * of stuff which is hidden to us, including pushing the running/closing/closed
+ * state machine around and reading and writing the I/O buffers. We need to try to
+ * parse commands when it's indicated that data have been read, and react to the
+ * changed state of any connection. */
 void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
     connection *I;
 
@@ -321,66 +319,61 @@ void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfd
         c = *I;
         if (c) {
             int r;
+            int doshutdown = 0; /* flag indicates that c should be shut down */
+
+            /* Handle all post-select I/O. */
             r = c->io->post_select(c, readfds, writefds, exceptfds);
-            if (!c->closing) {
-                if (r & IOABS_TRY_READ) {
-                    /* Data are available to read on this connection. */
-                    int n;
-                    n = connection_read(c);
-                    if (n == 0) {
-                        /* Peer closed the connection */
-                        log_print(LOG_INFO, _("connections_post_select: connection_read: client %s: closed connection"), c->idstr);
-                        c->closing = 1;
-                    } else if (n == IOABS_ERROR) {
-                        /* Some sort of error occurred, and we should close the connection. */
-                        log_print(LOG_ERR, _("connections_post_select: connection_read: client %s: disconnected: %s"), c->idstr, c->io->strerror(c));
-                        c->closing = 1;
-                    } else if (n > 0) {
-                        /* We read some data and should try to interpret command/s. */
-                        pop3command p;
-                        while (c && !c->closing && (p = connection_parsecommand(c))) {
-                            enum connection_action act;
-                            act = connection_do(c, p);
-                            pop3command_delete(p);
-                            switch (act) {
-                                case close_connection:
-                                    c->closing = 1;
-                                    break;
 
-                                case fork_and_setuid:
-                                    if (num_running_children >= max_running_children) {
-                                        connection_sendresponse(c, 0, _("Sorry, I'm too busy right now"));
-                                        log_print(LOG_WARNING, _("connections_post_select: client %s: rejected login owing to high load"), c->idstr);
-                                        c->closing = 1;
-                                    } else {
-                                        fork_child(c);
+            /* Error in post_select. */
+            if (r == IOABS_ERROR) {
+                log_print(LOG_ERR, _("connections_post_select: io->post_select: client %s: %s; closing connection"), c->io->strerror(c));
+                doshutdown = 1;
+            } else if (c->cstate == running) {
+                /*
+                 * Handling of POP3 commands, and forking children to handle
+                 * authenticated connections.
+                 */
+                
+                /* May be commands to be read and interpreted. */
+                if (r == 1 && !connection_isfrozen(c)) {
+                    pop3command p;
+                    /* Process as many commands as we can.... */
+                    while (c->cstate == running && (p = connection_parsecommand(c))) {
+                        enum connection_action act;
+                        
+                        act = connection_do(c, p);
+                        pop3command_delete(p);
+                        switch (act) {
+                            case close_connection:
+                                doshutdown = 1;
+                                break;
+
+                            case fork_and_setuid:
+                                if (num_running_children >= max_running_children) {
+                                    connection_sendresponse(c, 0, _("Sorry, I'm too busy right now"));
+                                    log_print(LOG_WARNING, _("connections_post_select: client %s: rejected login owing to high load"), c->idstr);
+                                    doshutdown = 1;
+                                } else {
+                                    if (!fork_child(c))
+                                        doshutdown = 1;
+                                    /* If this is the parent process, c has now been destroyed. */
+                                    if (!post_fork)
                                         c = NULL;
-                                    }
-                                    break;
+                                }
+                                break;
 
-                                default:;
-                            }
+                            default:;
                         }
-                        if (!c) continue;
+
+                        if (doshutdown || !c)
+                            break;
                     }
+
+                    if (!c)
+                        continue; /* if connection has been destroyed, do next one */
                 }
 
-                if (!c)
-                    continue;
-                
-                if (r & IOABS_TRY_WRITE) {
-                    /* We can write data to this socket. */
-                    ssize_t n;
-                    n = connection_write(c);
-                    if (n == IOABS_ERROR) {
-                        /* Some sort of error occurred, and we should close the connection. */
-                        log_print(LOG_ERR, _("connections_post_select: connection_write: client %s: disconnected: %s"), c->idstr, c->io->strerror(c));
-                        c->closing = 1;
-                    } else if (n > 0)
-                        c->idlesince = time(NULL);
-                }
-                
-                /* Handle connections which are to be timed out. */
+                /* Timeout handling. */
                 if (timeout_seconds && (time(NULL) > (c->idlesince + timeout_seconds))) {
                     /* Connection has timed out. */
 #ifndef NO_SNIDE_COMMENTS
@@ -389,20 +382,36 @@ void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfd
                     connection_sendresponse(c, 0, _("Client has been idle for too long."));
 #endif
                     log_print(LOG_INFO, _("net_loop: timed out client %s"), c->idstr);
-                    c->closing = 1;
+                    doshutdown = 1;
                 }
             }
 
-            /* Handle possibly delayed connection closing. */
-            if (c && c->closing && c->frozenuntil <= time(NULL)) {
+            /* Shut down the connection if requested, or if shutdown was
+             * requested when the connection was frozen and it is now thawed
+             * again. */
+            if ((doshutdown || (c->delayed_shutdown && !connection_isfrozen(c))) && connection_shutdown(c) == IOABS_ERROR)
+                log_print(LOG_ERR, _("connections_post_select: connection_shutdown: client %s: %s"), c->io->strerror(c));
+
+            /*
+             * At this point, we need to find out whether this connection has been
+             * closed (i.e., transport completely shut down). If so, we need to
+             * destroy the connection, and, if this is a child process, exit, since
+             * we have no more work to do.
+             */
+            if (c->cstate == closed) {
+                /* We should now log the closure of the connection and ending
+                 * of any authenticated session. */
+                if (c->a)
+                    log_print(LOG_INFO, _("connections_post_select: client %s: finished session for `%s' with %s"), c->a->user, c->a->auth);
                 log_print(LOG_INFO, _("connections_post_select: client %s: disconnected; %d/%d bytes read/written"), c->idstr, c->nrd, c->nwr);
+
                 remove_connection(c);
                 connection_delete(c);
-                *I = c = NULL;
-                if (post_fork) _exit(0);
+                /* If this is a child process, we exit now. */
+                if (post_fork)
+                    _exit(0);
             }
         }
-    }
 }
 
 /* net_loop:
@@ -504,6 +513,10 @@ void usage(FILE *fp) {
 "  -p file          Write PID to file (default: don't use a PID file)\n"
 "  -d               Do not detach from controlling terminal\n"
 "  -v               Log traffic to/from server for debugging purposes\n"
+#ifdef TPOP3D_TLS
+"  -P               Permit reading of certificate/private key pass phrases\n"
+"                   for TLS operation from the terminal on startup\n"
+#endif
 "\n"
                 ), TPOP3D_VERSION, CONFIG_DIR);
 
@@ -532,7 +545,11 @@ void usage(FILE *fp) {
 
 /* main:
  * Read config file, set up authentication and proceed to main loop. */
-char optstring[] = "+hdvf:p:";
+char optstring[] = "+hdvf:p:"
+#ifdef TPOP3D_TLS
+                    "P"
+#endif
+                    ;
 
 #if defined(MBOX_BSD) && defined(MBOX_BSD_SAVE_INDICES)
 extern int mailspool_save_indices;  /* in mailspool.c */
@@ -542,6 +559,7 @@ int main(int argc, char **argv, char **envp) {
     int nodaemon = 0;
     char *configfile = CONFIG_DIR"/tpop3d.conf", *s;
     int na, c;
+    extern int noreadpassphrase; /* in tls.c */
 
 #ifdef MTRACE_DEBUGGING
     mtrace(); /* Memory debugging on glibc systems. */
@@ -571,6 +589,12 @@ int main(int argc, char **argv, char **envp) {
             case 'p':
                 pidfile = optarg;
                 break;
+
+#ifdef TPOP3D_TLS
+            case 'P':
+                noreadpassphrase = 0;
+                break;
+#endif
 
             case '?':
             default:

@@ -26,7 +26,8 @@
 #define MAX_AUTH_TRIES      3
 #define MAX_ERRORS          8
 
-enum pop3_state {authorisation, transaction, update}; 
+enum pop3_state {authorisation, transaction, update};
+enum conn_state {running, closing, closed};
 
 struct ioabs;
 
@@ -40,7 +41,9 @@ typedef struct _connection {
     size_t nrd, nwr;        /* number of bytes read/written     */
     
     char *domain;           /* associated domain suffix         */
+    char *timestamp;        /* the rfc1939 "timestamp" we emit  */
     
+    /* i/o buffers */
     struct {
         char *buffer;       /* buffer                           */
         char *p;            /* where we've got to in the buffer */
@@ -50,16 +53,16 @@ typedef struct _connection {
 
     struct ioabs *io;       /* I/O abstraction structure        */
 
-    char *timestamp;        /* the rfc1939 "timestamp" we emit  */
+    enum conn_state cstate; /* state of underlying transport    */
 
     enum pop3_state state;  /* from rfc1939                     */
 
     time_t idlesince;       /* used to implement timeouts       */
     time_t frozenuntil;     /* used to implement freeze on wrong password. */
-    int closing;            /* implement delayed close when frozen. */
+    int delayed_shutdown;   /* shutdown after thaw?             */
 
     int n_auth_tries, n_errors;
-    char *user, *pass;      /* state accumulated                */
+    char *user, *pass;      /* authentication state accumulated */
     authcontext a;
     mailbox m;
 } *connection;
@@ -98,9 +101,23 @@ struct ioabs {
      * the flags defined below, as well as doing any I/O-layer specific
      * handling. */
     void (*pre_select)(connection c, int *n, fd_set *readfds, fd_set *writefds, fd_set *exceptfds);
-#define IOABS_TRY_READ  1
-#define IOABS_TRY_WRITE 2
+    
+    /* post_select:
+     * Do handling after select has completed. Returns 1 if new data has been
+     * read, 0 if there is not, or IOABS_ERROR if an error occured. May alter
+     * the connection_state of the associated connection. */
     int (*post_select)(connection c, fd_set *readfds, fd_set *writefds, fd_set *exceptfds);
+
+    /* shutdown:
+     * Shut down the connection. Returns zero on success, IOABS_WOULDBLOCK if
+     * the operation is in progress, and IOABS_ERROR on error. On return the
+     * connection_state of the associated connection will be set to closing or
+     * closed, even if an error occurred. */
+    int (*shutdown)(connection c);
+
+    /* destroy:
+     * Deallocate the structure and free any associated resources. */
+    void (*destroy)(connection c);
 
     /* should a write be tried immediately on connection_send, or should all
      * output be buferred? */
@@ -130,6 +147,7 @@ struct ioabs_tls {
     int x_errno, ssl_err, ssl_io_err;
     /* state */
     int read_blocked_on_write, write_blocked_on_read;
+    int shutdown_blocked_on_write, shutdown_blocked_on_read;
 };
 
 #endif /* TPOP3D_TLS */
@@ -157,6 +175,12 @@ ssize_t connection_read(connection c);
 
 /* Write data from buffer to socket. */
 ssize_t connection_write(connection c);
+
+/* Is a connection frozen? */
+int connection_isfrozen(connection c);
+
+/* Shut down a connection. */
+int connection_shutdown(connection c);
 
 /* Send arbitrary data to the client. */
 ssize_t connection_send(connection c, const char *data, const size_t l);

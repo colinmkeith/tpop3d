@@ -15,6 +15,10 @@
 #include <regex.h>
 #endif
 
+#ifdef TPOP3D_TLS
+enum { none, immediate, stls } tls_mode;
+#endif
+
 /* For virtual-domains support, we need to find the address and domain name
  * associated with a socket on which we are listening. */
 typedef struct _listener {
@@ -25,8 +29,26 @@ typedef struct _listener {
     regex_t re;
     char *regex;    /* string form of RE */
 #endif
+#ifdef TPOP3D_TLS
+    struct {
+        tls_mode tls_mode;
+        SSL_CTX *ctx;
+    } tls;
+#endif
     int s;
 } *listener;
+
+/* the arguments of the constructor vary according to the particular
+ * compile-time options. */
+listener listener_new(const struct sockaddr_in *addr, const char *domain
+#ifdef MASS_HOSTING
+ /* leading comma-- yuk */  , const char *regex
+#endif
+#ifdef TPOP3D_TLS
+                            , tls_mode mode,
+                              const char *certfile, const char *pkeyfile
+#endif
+                        );
 
 #ifdef MASS_HOSTING
     listener listener_new(const struct sockaddr_in *addr, const char *domain, const char *regex);

@@ -32,6 +32,7 @@ static const char rcsid[] = "$Id$";
 #include <sys/utsname.h>
 
 #include "connection.h"
+#include "listener.h"
 #include "util.h"
 
 extern int verbose;
@@ -90,7 +91,7 @@ static char *make_timestamp(const char *domain) {
 
 /* connection_new:
  * Create a connection object from a socket. */
-connection connection_new(int s, const struct sockaddr_in *sin, const char *domain) {
+connection connection_new(int s, const struct sockaddr_in *sin, listener L) {
     int n;
     connection c = NULL;
 
@@ -101,23 +102,29 @@ connection connection_new(int s, const struct sockaddr_in *sin, const char *doma
 
     n = sizeof(c->sin_local);
     if (getsockname(s, (struct sockaddr*)&(c->sin_local), &n) < 0) {
-      log_print(LOG_WARNING, _("connection_new: getsockname error %d"), errno);
-      goto fail;
+        log_print(LOG_WARNING, "connection_new: getsockname: %m");
+        goto fail;
     }
 
     c->remote_ip = xstrdup(inet_ntoa(c->sin.sin_addr));
     c->local_ip = xstrdup(inet_ntoa(c->sin_local.sin_addr));
 
-    if (domain) c->domain = xstrdup(domain);
-
-    if (!c->domain)
-      c->domain = xstrdup(c->local_ip);
+#ifdef MASS_HOSTING
+    if (L->have_re)
+        c->domain = listener_obtain_domain(L, s);
+#endif
+    if (!c->domain) {
+        if (L->domain)
+            c->domain = xstrdup(L->domain);
+        else
+            c->domain = xstrdup(c->local_ip);
+    }
 
     c->idstr = xmalloc(strlen(c->remote_ip) + 1 + (c->domain ? strlen(c->domain) : 0) + 16);
     if (c->domain) sprintf(c->idstr, "[%d]%s/%s", s, c->remote_ip, c->domain);
     else sprintf(c->idstr, "[%d]%s", s, c->remote_ip);
 
-    /* read and write buffers */
+    /* Read and write buffers */
     c->rdb.p = c->rdb.buffer = xmalloc(c->rdb.bufferlen = MAX_POP3_LINE);
     if (!c->rdb.buffer) goto fail;
 
@@ -127,7 +134,15 @@ connection connection_new(int s, const struct sockaddr_in *sin, const char *doma
     c->timestamp = make_timestamp(c->domain);
     if (!c->timestamp) goto fail;
 
-    /* io abstraction */
+    /* I/O abstraction layer */
+#ifdef TPOP3D_TLS
+    if (L->tls.mode == always) {
+        if (!(c->io = (struct ioabs*)ioabs_tls_create(L))) {
+            log_print(LOG_ERR, _("connection_new: could not set up TLS I/O abstraction layer for `%s'"), c->idstr);
+            goto fail;
+        }
+    } else
+#endif
     c->io = (struct ioabs*)ioabs_tcp_create();
     
     c->state = authorisation;
@@ -153,6 +168,10 @@ void connection_delete(connection c) {
     if (!c) return;
 
     if (c->s != -1) {
+        /* This is a forced shutdown of the underlying socket connection. 
+         * Calling code should normally ensure that the connection is properly
+         * shut down and that c->s is set to -1 before calling
+         * connection_delete. */
         shutdown(c->s, 2);
         close(c->s);
     }
@@ -166,6 +185,7 @@ void connection_delete(connection c) {
     if (c->idstr)      xfree(c->idstr);
     if (c->rdb.buffer) xfree(c->rdb.buffer);
     if (c->wrb.buffer) xfree(c->wrb.buffer);
+    if (c->io)         c->io->destroy(c);
     if (c->timestamp)  xfree(c->timestamp);
     if (c->user)       xfree(c->user);
     if (c->pass)       xfree(c->pass);
@@ -176,7 +196,7 @@ void connection_delete(connection c) {
  * Read data from the socket into the buffer, if available. Returns
  * IOABS_WOULDBLOCK if a read would block, IOABS_ERROR on error, zero on EOF
  * or the number of bytes read on success. */
-ssize_t connection_read(connection c) {
+static ssize_t connection_read(connection c) {
     ssize_t n;
     if (!c) return -1;
     if (c->rdb.p == c->rdb.buffer + c->rdb.bufferlen) {
@@ -196,9 +216,9 @@ ssize_t connection_read(connection c) {
  * Send pending data, if any, to the client. Returns IOABS_WOULDBLOCK if a
  * write would block, IOABS_ERROR on error or the number of bytes written on
  * success, which may be zero if the write buffer is empty. */
-ssize_t connection_write(connection c) {
+static ssize_t connection_write(connection c) {
     ssize_t n;
-    if (c->frozenuntil > time(NULL)) return 0;
+    if (connection_isfrozen(c)) return 0;
     n = c->io->write(c, c->wrb.buffer, c->wrb.p - c->wrb.buffer);
     if (n > 0) {
         c->nwr += n;
@@ -208,13 +228,42 @@ ssize_t connection_write(connection c) {
     return n;
 }
 
+/* ioabs_generic_post_select:
+ * Generic post-select handling for an I/O abstraction layer. Attempts to read
+ * and write data to and from the buffers. */
+int ioabs_generic_post_select(connection c, const int canread, const int canwrite) {
+    int r;
+    if (canwrite && c->wrb.p > c->wrb.buffer) {
+        r = connection_write(c);
+        if (r == IOABS_ERROR) {
+            c->
+            return IOABS_ERROR;
+        }
+    }
+}
+
+/* connection_isfrozen:
+ * Is a connection frozen? */
+int connection_isfrozen(connection c) {
+    return c->frozenuntil && c->frozenuntil > time(NULL);
+}
+
+/* connection_shutdown:
+ * Immediate or delayed shutdown of a connection. */
+int connection_shutdown(connection c) {
+    if (connection_isfrozen(c)) {
+        c->delayed_shutdown = 1;
+        return IOABS_WOULDBLOCK;
+    } else return c-io->shutdown(c);
+}
+
 /* connection_send_now:
  * Send the given data to the client immediately, if possible. Returns the
  * number of bytes written on success, IOABS_WOULDBLOCK if the write would
  * block, or IOABS_ERROR on error. Does not interact with the write buffer at
  * all. */
 static ssize_t connection_send_now(connection c, const char *data, const size_t len) {
-    if (!c->io->permit_immediate_writes || c->frozenuntil > time(NULL))
+    if (!c->io->permit_immediate_writes || connection_isfrozen(c))
         return 0;
     return c->io->write(c, data, len);
 }
