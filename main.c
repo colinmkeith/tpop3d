@@ -493,8 +493,8 @@ extern int mailspool_save_indices;  /* in mailspool.c */
 int main(int argc, char **argv, char **envp) {
     item *I;
     int nodaemon = 0;
-    char *configfile = "/etc/tpop3d.conf", c;
-    int na;
+    char *configfile = "/etc/tpop3d.conf";
+    int na, c;
 
     /*mtrace();*/ /* Memory debugging on glibc systems. */
 

@@ -316,7 +316,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     connection_sendresponse(c, 0, _("That message is no more."));
                 else {
                     char response[32] = {0};
-                    snprintf(response, 31, "%d %d", 1 + msg_num, curmsg->msglength - curmsg->length - 1);
+                    snprintf(response, 31, "%d %d", 1 + msg_num, (int)(curmsg->msglength - curmsg->length - 1));
                     connection_sendresponse(c, 1, response);
                 }
             } else {
@@ -326,7 +326,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 for (m = curmbox->index; m < curmbox->index + curmbox->num; ++m) {
                     if (!m->deleted) {
                         char response[32] = {0};
-                        snprintf(response, 31, "%d %d", 1 + m - curmbox->index, m->msglength - m->length - 1);
+                        snprintf(response, 31, "%d %d", 1 + m - curmbox->index, (int)(m->msglength - m->length - 1));
                         connection_sendline(c, response);
                         ++nn;
                     }
