@@ -4,55 +4,70 @@ $Id$
 
 * More portability
 
-I only use tpop3d on Linux, but would be interested in getting it running
-elsewhere. This is likely to happen only on a case-by-case basis, since I
-don't have access to that many machines to play with and my time is limited.
+  I only use tpop3d on Linux, but would be interested in getting it running
+  elsewhere. This is likely to happen only on a case-by-case basis, since I
+  don't have access to that many machines to play with and my time is limited.
 
-In addition, the mess of mailspool locking should be investigated and better
-documented for the various platforms on which tpop3d runs.
+  In addition, the mess of mailspool locking should be investigated and better
+  documented for the various platforms on which tpop3d runs.
 
 
 * More authentication schemes
 
-Virtual-domain schemes which use /etc/passwd-style flat text files seem to be
-popular, but I do not make use of anything like this. However, it would be
-relatively easy to implement such a thing.
+  Virtual-domain schemes which use /etc/passwd-style flat text files seem to be
+  popular, but I do not make use of anything like this. However, it would be
+  relatively easy to implement such a thing. (This can now be done with
+  auth_other, but it might be desirable to have it in the main program.)
 
 
 * A proper code audit
 
-tpop3d is, as far as I know, free of obvious security deficiencies. I do not
-believe that it contains any buffer overruns, and it does not make use of
-temporary files, so is unlikely to suffer from /tmp race conditions. I have
-thought about denial-of-service attacks, and I think that it is safe from the
-most obvious ones. Nevertheless, a full security audit would be desirable.
-
-
-* `Autoconfiscation'
-
-Editing Makefiles may be the way "we" did things in the good old days, but
-nowadays even people like me who don't believe in package management do
-believe in ./configure.
-
-
-* Maildir support
-
-A number of people have expressed interest in a version of tpop3d which
-supports the `maildir' mail-spool format of qmail. Maildir has the advantage
-of being lock-free (it is implemented using a set of operations which ought to
-be atomic on a POSIX system) but requires a filesystem which copes gracefully
-with directories containing thousands of files. If enough people are
-interested, I will implement this.
+  tpop3d is, as far as I know, free of obvious security deficiencies. I do not
+  believe that it contains any buffer overruns, and it does not make use of
+  temporary files, so is unlikely to suffer from /tmp race conditions. I have
+  thought about denial-of-service attacks, and I think that it is safe from the
+  most obvious ones. Nevertheless, a full security audit would be desirable.
 
 
 * Index-saving support
 
-One of the deficiencies of the BSD mailspool format is the parsing time at
-startup; a way to avoid this is to save metadata (message offsets) for each
-mailspool, and re-use this information whenever that mailbox is opened. This
-is a good optimisation for the case where a user leaves an enormous amount of
-mail on the server, and checks their mailspool more frequently than they
-receive new mail. (Some would argue that another, even more effective,
-optimisation would address the behaviour of the user rather than the
-software).
+  One of the deficiencies of the BSD mailspool format is the parsing time at
+  startup; a way to avoid this is to save metadata (message offsets) for each
+  mailspool, and re-use this information whenever that mailbox is opened. This
+  is a good optimisation for the case where a user leaves an enormous amount of
+  mail on the server, and checks their mailspool more frequently than they
+  receive new mail. (Some would argue that another, even more effective,
+  optimisation would address the behaviour of the user rather than the
+  software.)
+
+
+* Internationalisation
+
+  The long-term plan is that tpop3d should support internationalised messages
+  for server responses, log messages etc. (I have already received Polish
+  translations for the server responses, but these have not yet been
+  incorporated into the code.) This will be done with GNU gettext; hence,
+  strings should be wrapped in _("...") as described in the gettext `info'
+  documentation.
+
+  But this doesn't do anything yet :)
+
+
+* Asynchronous authentication
+
+  The major architectural problem in tpop3d is that the main server, which
+  performs authentication, is single-threaded and authenticators block its
+  execution. This is not a significant problem in most environments, but it
+  would be preferable to fix it. It is a more serious problem with auth_other,
+  since a failed external authenticator program could potentially delay all
+  authentications by auth-other-timeout.
+
+  The vague plan here is to run some authenticators in separate threads, and
+  to put connections into an intermediate `credentials received, awaiting
+  authentication' state while the authenticator does its stuff. There are a
+  couple of subtleties to do with shared data structures, which will need to
+  be reference-counted, but fundamentally this approach ought to work. Each
+  authenticator would then have a queue of connections to authenticate. This
+  means that thread-unsafe functions such as strtok should be avoided in new
+  code.
 

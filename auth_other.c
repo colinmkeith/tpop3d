@@ -72,7 +72,7 @@ char *auth_program;
 time_t authchild_start_time;
 uid_t authchild_uid;
 gid_t authchild_gid;
-pid_t authchild_pid;
+volatile pid_t authchild_pid;
 struct timeval authchild_timeout;
 
 /* File descriptors used to talk to child. */
@@ -95,8 +95,6 @@ void dump(unsigned char *b, size_t len) {
     print_log(LOG_INFO, "dump %s", str);
     free(str);
 }
-
-
 
 /* tvadd:
  * t1 += t2 on timevals.

@@ -54,6 +54,12 @@ mailbox drivers in mind.
   locking muddle and by the mmap(2) code used to make it fast.
 
 
+* Future directions
+
+  Things which are currently under consideration are listed in the TODO file in
+  the distribution.
+
+
 * Coding style
 
   (Obviously you are free to write code however you want; this is a

@@ -61,7 +61,7 @@ int verbose;                        /* Should we be verbose about data going to/
 int timeout_seconds = 30;           /* How long a period of inactivity may elapse before a client is dropped. */
 
 int max_running_children = 16;      /* How many children may exist at once. */
-int num_running_children = 0;       /* How many children are active. */
+volatile int num_running_children = 0;  /* How many children are active. */
 
 char *pidfile = NULL;               /* The name of a PID file to use; if NULL, don't use one. */
 
@@ -315,7 +315,7 @@ void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfd
  * Accept connections and put them into an appropriate state, calling
  * setuid() and fork() when appropriate.
  */
-int foad = 0, restart = 0;          /* Flags used to indicate that we should exit or should re-exec. */
+volatile int foad = 0, restart = 0; /* Flags used to indicate that we should exit or should re-exec. */
 
 void net_loop() {
     listitem J;

@@ -28,6 +28,10 @@ static const char rcsid[] = "$Id$";
 #include "auth_other.h"
 #endif /* AUTH_OTHER */
 
+#ifdef AUTH_PERL
+#include "auth_perl.h"
+#endif /* AUTH_PERL */
+
 #ifdef AUTH_PAM
 #include "auth_pam.h"
 #endif /* AUTH_PAM */
@@ -72,6 +76,12 @@ struct authdrv auth_drivers[] = {
             "other",
             "Uses an external program"},
 #endif /* AUTH_OTHER */
+
+#ifdef AUTH_PERL
+        /* This calls into perl subroutines. */
+        {auth_perl_init, auth_perl_new_apop, auth_perl_new_user_pass, auth_perl_close,
+            "perl",
+            "Uses perl code"},
 };
 
 int *auth_drivers_running;

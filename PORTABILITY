@@ -1,6 +1,9 @@
 Portability notes for tpop3d
 $Id$
 
+These notes are probably not so relevant now that tpop3d can be configured with
+autoconf. They remain here for interest:
+
 I wrote tpop3d on Linux, and that is the platform on which it has been tested
 most thoroughly. However, if you want to build it on another platform, please
 go right ahead. You may need to make some tweaks (mostly in the Makefile,

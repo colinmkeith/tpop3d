@@ -1,6 +1,13 @@
 Changes for tpop3d
 $Id$
 
+1.3.0
+
+Incorporated autoconf support from Mark Longair, maildir support from Paul
+Makepeace, a new authenticator (auth_other) which talks to external programs
+and a perl library to support it, a more general scheme for selecting
+mailspools and minor portability fixes.
+
 1.2.4
 
 Fixes for a few minor bugs, and more intelligent signal handling. tpop3d now

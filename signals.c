@@ -152,17 +152,23 @@ extern int authchild_wr, authchild_rd;
 void child_signal_handler(const int i) {
     pid_t pid;
     int status;
-    
-    while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
+
+    while (1) {
+        pid = waitpid(-1, &status, WNOHANG);
+        if (pid > 0) {
 #ifdef AUTH_OTHER
-        if (pid == authchild_pid) {
-            authchild_pid = 0;
-            print_log(LOG_WARNING, _("child_signal_handler: authentication child %d terminated; exit status was %d"), (int)pid, status);
-            close(authchild_wr);
-            close(authchild_rd);
-        } else
+            if (pid == authchild_pid) {
+                authchild_pid = 0;
+                /* XXX this is bad, since print_log uses malloc(3). */
+                print_log(LOG_WARNING, _("child_signal_handler: authentication child %d terminated; exit status was %d"), (int)pid, status);
+                close(authchild_wr);
+                close(authchild_rd);
+            } else
 #endif /* AUTH_OTHER */
-            --num_running_children;
+                --num_running_children;
+        } else if (pid == 0 || pid == -1 && errno != EINTR)
+            return;
+    }
 }
 
 /* restart_signal_handler:
