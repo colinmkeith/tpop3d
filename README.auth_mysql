@@ -9,7 +9,7 @@ out how it works), these notes should help:
 tpop3d communicates with the database using the standard libmysqlclient
 interface. The database name, username and password are set in the
 configuration file -- see tpop3d.conf(5) for more information. In the given
-database, there are two tables relecant to POP3 operations:
+database, there are two tables relevant to POP3 operations:
 
 # this is the table which holds information about this domain
 create table domain (
@@ -32,10 +32,10 @@ create table popbox (
 (Only the fields domain_name, unix_user and path in the domain table are used
 directly by tpop3d.)
 
-The model of use here is that a virtual email domain is owned by a single unix
+The model of use here is that a virtual email domain is owned by a single Unix
 user. This is so that you can apply, for instance, file quotas to the domain
 using the standard mechanisms. Within the domain, there exist a number of
-`popboxes', i.e., mail spools; these are desribed by rows in the popbox table.
+`popboxes', i.e., mail spools; these are described by rows in the popbox table.
 
 Each domain has a path associated with it. In our configuration, this is
 something like /var/spool/mail/SERVERS/$domain. Under this path, mailspools
@@ -81,7 +81,7 @@ similar):
    {crypt} is the format of the system crypt(3) function-- two salt characters
    and a password hash produced using DES. {crypt_md5} is the new-style BSD
    MD5 password (also used on Linux) which looks like $1$<salt>$<password
-   hash>$; on BSD/linux systems, the libc will automatically detect this case
+   hash>$; on BSD/Linux systems, the libc will automatically detect this case
    in crypt(3), but for portability it is included as a separate case.
    {plaintext} is a password saved in plain text; this format is useful if you
    want to support authentication by the APOP shared-secret mechanism. {md5}
