@@ -1,0 +1,111 @@
+#!/usr/bin/perl -w
+#
+# oraclevmail:
+# tpop3d auth-perl script to authenticate users against an Oracle database.
+#
+# The relevant tpop3d.conf lines are--
+#
+#   auth-perl-enable: yes
+#   auth-perl-start: do '/etc/tpop3d/tpop3d.pl'
+#   auth-perl-finish: auth_finish()
+#   auth-perl-pass: auth
+#
+# The database schema in use should be fairly self-evident, and is similar to
+# that used by vmail-sql.
+#
+# (The #! line is for testing on the command line.)
+#
+# Copyright (c) 2001 Paul Makepeace (realprogrammers.com).
+# All rights reserved.
+#
+
+use strict;
+
+use Data::Dumper;
+use DBI;
+use Digest::MD5;
+
+warn scalar(localtime), ": Perl started...\n";
+
+my @DSN = qw(dbi:Oracle:vmail postmaster postmaster);
+
+my $dbh = DBI->connect(@DSN)
+        or die "Unable to connect to DSN '@DSN': ", DBI->errstr, "\n";
+
+# These keys are named based on the authentication method
+# passwd into auth() below by auth_perl.c
+
+my %sql = (
+        PASS => <<SQL,
+        SELECT d.path, p.password_hash, p.mbox_name, p.mbox_driver,
+d.unix_user
+          FROM popbox p, domain d
+          WHERE p.local_part = ?
+            AND p.domain_name = ?
+            AND d.domain_name = p.domain_name
+SQL
+        APOP => <<SQL,
+        SELECT d.path, p.password_hash, p.mbox_name, p.mbox_driver,
+d.unix_user
+          FROM popbox p, domain d
+          WHERE p.local_part = ?
+            AND p.domain_name = ?
+            AND p.domain_name = d.domain_name
+SQL
+);
+
+# Prepare the SQL statements above for execution later.
+
+my %sth;
+
+foreach my $auth_type (keys %sql) {
+        $sth{$auth_type} = $dbh->prepare($sql{$auth_type})
+                or die "Unable to prepare SQL '$sql{$auth_type}': ",
+DBI->errstr, "\n";
+}
+
+### END of start-up code
+
+# auth($)
+# Called by tpop3d with a hashref containing keys:
+# { method => (PASS, APOP), user => 'user@domain.example', pass =>
+# 'letmein' }
+# Returns hashref with { result => YES, ... } for a successful
+# authentication
+# match or { result => NO }
+sub auth {
+        my $packet = shift;
+        my ($local_part, $domain) = $packet->{user} =~ /(.*?)\@(.*)/;
+        my $passwd = $packet->{pass};
+
+        warn Dumper([$packet]), "\n";
+
+        my $sth = $sth{$packet->{method}};
+        $sth ->execute($local_part, $domain)
+                or die "Couldn't execute $sql{$packet}: ", DBI->errstr,
+"\n";
+
+        my ($path, $password_hash, $mbox_name, $mbox_driver, $unix_user) = $sth->fetchrow_array;
+        if (Digest::MD5::md5_hex($passwd) eq $password_hash) {
+                $packet = {
+                        result  => 'YES', 
+                        uid     => (getpwnam($unix_user))[2],
+                        gid     => (getgrnam($unix_user))[2],
+                        mailbox => "$path/$mbox_name",
+                        mboxtype=> $mbox_driver,
+                        domain  => $domain,
+                }
+        } else {
+                $packet = { result => 'NO' };
+        };
+        warn Dumper([$packet]), "\n";
+        $packet;
+}
+
+# auth_finish():
+# Clean up statement handles and then disconnect
+sub auth_finish {
+        $_->finish for values %sth;
+        $dbh->disconnect();
+}
+
