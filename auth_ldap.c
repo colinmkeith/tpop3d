@@ -16,6 +16,7 @@ static const char rcsid[] = "$Id$";
 
 #include <sys/types.h> /* BSD needs this here, apparently. */
 
+#include <lber.h>
 #include <ldap.h>
 #include <pwd.h>
 #include <stdio.h>
@@ -237,11 +238,11 @@ static char *ldap_strerror(void) {
 
 /* try_ldap_connect_bind:
  * Try to connect to the LDAP server and bind. */
-static int try_ldap_connect_bind(LDAP *ld, char *who, char *passwd) {
+static int try_ldap_connect_bind(char *who, char *passwd) {
     int ret, i;
     for (i = 0; i < 3; ++i) {
         if (auth_ldap_connect()) {
-            ret = ldap_simple_bind_s(ld, who, passwd);
+            ret = ldap_simple_bind_s(ldapinfo.ldap, who, passwd);
             if (ret == LDAP_SUCCESS)
                 return LDAP_SUCCESS;
             else {
@@ -265,6 +266,7 @@ static int try_ldap_bind(LDAP *ld, char *who, char *passwd) {
         if (ret == LDAP_SUCCESS)
             return LDAP_SUCCESS;
     }
+    return ret;
 }
 
 /* auth_ldap_new_user_pass:
@@ -275,12 +277,12 @@ authcontext auth_ldap_new_user_pass(const char *username, const char *local_part
     char *filter = NULL, *who;
     LDAPMessage *ldapres = NULL, *user_attr = NULL;
     char *user_dn = NULL;
-    int nentries, ret, i;
+    int nentries, ret;
 
     who = username_string(username, local_part, domain);
 
     /* Connect to the server. */
-    if (try_ldap_connect_bind(ldapinfo.ldap, ldapinfo.searchdn, ldapinfo.password) != LDAP_SUCCESS) {
+    if (try_ldap_connect_bind(ldapinfo.searchdn, ldapinfo.password) != LDAP_SUCCESS) {
         log_print(LOG_ERR, _("auth_ldap_new_user_pass: unable to connect and bind to LDAP server"));
         goto fail;
     }
@@ -297,7 +299,7 @@ authcontext auth_ldap_new_user_pass(const char *username, const char *local_part
         log_print(LOG_ERR, "auth_ldap_new_user_pass: ldap_search_s: %s", ldap_err2string(ret));
         goto fail;
     }
- 
+
     /* There must be only one result. */
     switch (nentries = ldap_count_entries(ldapinfo.ldap, ldapres)) {
         case 1:
@@ -311,7 +313,6 @@ authcontext auth_ldap_new_user_pass(const char *username, const char *local_part
             goto fail;
     }
 
-    /* Obtain attributes of search result. */
     if (!(user_attr = ldap_first_entry(ldapinfo.ldap, ldapres))) {
         log_print(LOG_ERR, "auth_ldap_new_user_pass: ldap_first_entry: %s", ldap_strerror());
         goto fail;
@@ -322,7 +323,7 @@ authcontext auth_ldap_new_user_pass(const char *username, const char *local_part
         log_print(LOG_ERR, "auth_ldap_new_user_pass: ldap_get_dn: %s", ldap_strerror());
         goto fail;
     }
-
+printf("user_dn=%s/pass=%s\n", user_dn, pass);
     /* Now attempt authentication by binding with the user's credentials. */
     if ((ret = try_ldap_bind(ldapinfo.ldap, user_dn, pass)) != LDAP_SUCCESS) {
         /* Bind failed; user has failed to log in. */
@@ -339,7 +340,7 @@ authcontext auth_ldap_new_user_pass(const char *username, const char *local_part
         char *mailbox = NULL, *mboxtype = NULL, *user = NULL, *group = NULL;
         char *attr;
         BerElement *ber;
-
+printf("***\n");
         for (attr = ldap_first_attribute(ldapinfo.ldap, user_attr, &ber); attr; attr = ldap_next_attribute(ldapinfo.ldap, user_attr, ber)) {
             char **vals;
 
