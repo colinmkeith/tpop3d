@@ -211,14 +211,15 @@ void net_loop(vector listen_addrs) {
         fd_set readfds;
         item *t;
         listitem I, J;
-        struct timeval tv = {1, 0}; /* Must be less than IDLE_TIMEOUT but otherwise value is unimportant */
-        int n = 0;
+        struct timeval tv = {10, 0}; /* Must be less than IDLE_TIMEOUT but otherwise value is unimportant */
+        int n = 0, e;
 
         FD_ZERO(&readfds);
 
         if (listen_addrs) vector_iterate(listen_addrs, t) {
-            FD_SET(((listener)t->v)->s, &readfds);
-            if (((listener)t->v)->s > n) n = ((listener)t->v)->s;
+            int s = ((listener)t->v)->s;
+            FD_SET(s, &readfds);
+            if (s > n) n = s;
         }
 
         list_iterate(connections, I) {
@@ -227,7 +228,10 @@ void net_loop(vector listen_addrs) {
             if (s > n) n = s;
         }
 
-        if (select(n + 1, &readfds, NULL, NULL, &tv) >= 0) {
+        e = select(n + 1, &readfds, NULL, NULL, &tv);
+        if (e == -1) {
+            print_log(LOG_WARNING, "net_loop: select: %m");
+        } else if (e > 0) {
             /* Check for new incoming connections */
             if (listen_addrs) vector_iterate(listen_addrs, t) {
                 listener L = (listener)t->v;
