@@ -23,6 +23,7 @@ char *cfgdirectives[] = {
     "listen-address",
     "max-children",
     "append-domain",
+    "strip-domain",
     "timeout-seconds",
     "log-facility",
     "mailbox",

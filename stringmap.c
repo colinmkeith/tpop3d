@@ -47,8 +47,8 @@ void stringmap_delete(stringmap S) {
  * they are pointers to memory allocated by xmalloc(3). */
 void stringmap_delete_free(stringmap S) {
     if (!S) return;
-    if (S->l) stringmap_delete(S->l);
-    if (S->g) stringmap_delete(S->g);
+    if (S->l) stringmap_delete_free(S->l);
+    if (S->g) stringmap_delete_free(S->g);
 
     xfree(S->key);
     xfree(S->d.v);

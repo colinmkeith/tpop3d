@@ -44,7 +44,7 @@ int auth_pam_conversation(int num_msg, const struct pam_message **msg, struct pa
     /* Assume that any prompt is asking for a password */
     for (m = msg, r = *resp; m < msg + num_msg; ++m, ++r) {
         if ((*m)->msg_style == PAM_PROMPT_ECHO_OFF) {
-            r->resp = strdup((char*)appdata_ptr);
+            r->resp = xstrdup((char*)appdata_ptr);
             r->resp_retcode = 0;
         }
     }

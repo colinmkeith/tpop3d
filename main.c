@@ -58,6 +58,7 @@ stringmap config;
 
 /* Various configuration options. */
 extern int append_domain;           /* Do we automatically try user@domain if user alone fails to authenticate? In pop3.c. */
+extern int strip_domain;            /* Do we automatically try user if user@domain fails to authenticate? */
 int log_stderr;                     /* Are log messages also sent to standard error? */
 int verbose;                        /* Should we be verbose about data going to/from the client? */
 int timeout_seconds = 30;           /* How long a period of inactivity may elapse before a client is dropped. */
@@ -694,8 +695,14 @@ retry_pid_file:
             max_running_children = 16;
     }
 
-    /* Should we automatically append domain names and retry authentication? */
-    if (config_get_bool("append-domain")) append_domain = 1;
+    /* Should we automatically append or strip domain names and retry authentication? */
+    if (config_get_bool("append-domain"))
+        append_domain = 1;
+    if (config_get_bool("strip-domain"))
+        strip_domain = 1;
+
+    if (append_domain && strip_domain)
+        log_print(LOG_WARNING, _("%s: specifying append-domain and strip-domain does not make much sense"));
 
     /* Find out how long we wait before timing out.... */
     switch (config_get_int("timeout-seconds", &timeout_seconds)) {

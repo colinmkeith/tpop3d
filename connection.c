@@ -97,7 +97,7 @@ connection connection_new(int s, const struct sockaddr_in *sin, const char *doma
     c->s = s;
     memcpy(&(c->sin), sin, sizeof(struct sockaddr_in));
 
-    if (domain) c->domain = strdup(domain);
+    if (domain) c->domain = xstrdup(domain);
 
     c->idstr = xmalloc(strlen(inet_ntoa(sin->sin_addr)) + 1 + (domain ? strlen(domain) : 0) + 16);
     if (domain) sprintf(c->idstr, "[%d]%s/%s", s, inet_ntoa(sin->sin_addr), domain);

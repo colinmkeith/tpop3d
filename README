@@ -22,10 +22,12 @@ mechanisms:
 
     auth-mysql          a vmail-sql style MySQL database; see
                             http://www.ex-parrot.com/~chris/vmail-sql/
+                        or another database with user-specified SQL queries
+    auth-ldap           an LDAP directory
     auth-other          an external program
     auth-perl           embedded perl subroutines
 
-The latter three options provide virtual domain support; the first two are
+The latter four options provide virtual domain support; the first two are
 designed to authenticate local (Unix) users.
 
 The following mailbox formats are supported:

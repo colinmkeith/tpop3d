@@ -36,18 +36,8 @@ tokens tokens_new(const char *str, const char *seps) {
     T = xcalloc(1, sizeof *T);
     if (!T) return NULL;
 
-    T->str = strdup(str);
-    if (!(T->str)) {
-        xfree(T);
-        return NULL;
-    }
-    
+    T->str = xstrdup(str);
     T->toks = xcalloc(nn, sizeof *T->toks);
-    if (!(T->toks)) {
-        xfree(T);
-        xfree(T->str);
-        return NULL;
-    }
     
     p = strtok_r(T->str, seps, &r);
     while (p) {
@@ -67,7 +57,7 @@ tokens tokens_new(const char *str, const char *seps) {
  * Free a tokens object. */
 void tokens_delete(tokens T) {
     if (!T) return;
-    if (T->str) xfree(T->str);
-    if (T->toks) xfree(T->toks);
+    xfree(T->str);
+    xfree(T->toks);
     xfree(T);
 }

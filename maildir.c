@@ -19,7 +19,7 @@ static const char rcsid[] = "$Id$";
 #include <dirent.h>        /* DIR, etc */
 #include <syslog.h>        /* LOG_* */
 #include <unistd.h>        /* chdir() */
-#include <string.h>        /* strdup() */
+#include <string.h>
 #include <stdlib.h>
 #include <sys/fcntl.h>     /* O_RDONLY */
 #include <sys/time.h>
@@ -35,7 +35,7 @@ static const char rcsid[] = "$Id$";
 static void maildir_make_indexpoint(struct indexpoint *m, const char *filename, off_t size, time_t mtime) {
     memset(m, 0, sizeof(struct indexpoint));
 
-    m->filename = strdup(filename);
+    m->filename = xstrdup(filename);
     if (!m->filename) {
         return;
     }
@@ -134,12 +134,8 @@ mailbox maildir_new(const char *dirname) {
         if (errno == ENOENT) failM = MBOX_NOENT;
         else log_print(LOG_ERR, "maildir_new: chdir(%s): %m", dirname);
         goto fail;
-    } else {
-        if(!(M->name = strdup(dirname))) {
-            log_print(LOG_ERR, "maildir_new: strdup: %m");
-            goto fail;
-        }
-    }
+    } else
+        M->name = xstrdup(dirname);
     
     gettimeofday(&tv1, NULL);
     

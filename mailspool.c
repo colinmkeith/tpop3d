@@ -155,7 +155,7 @@ mailbox mailspool_new_from_file(const char *filename) {
         if (errno == ENOENT) failM = MBOX_NOENT;
         else log_print(LOG_INFO, "mailspool_new_from_file: stat(%s): %m", filename);
         goto fail;
-    } else M->name = strdup(filename);
+    } else M->name = xstrdup(filename);
     
     /* Naive locking strategy. */
     for (i = 0; i < MAILSPOOL_LOCK_TRIES; ++i) {
@@ -537,10 +537,10 @@ char *mailspool_find_index(mailbox m) {
      * In either case, the path in which the index is saved needs to have
      * permissions which allow the user who owns the mailspool to write a new
      * file to it. 1777 would be traditional. */
-    path = strdup(m->name);
+    path = xstrdup(m->name);
     p = strrchr(path, '/');
     if (p) *p = 0;
-    file = strdup(p + 1);
+    file = xstrdup(p + 1);
     escaped_name = xcalloc(strlen(m->name) * 3 + 2, 1);
 
     /* Form HTTP-style escaped version of name. Only escape % and /, though. */

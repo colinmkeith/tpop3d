@@ -1,8 +1,9 @@
 .TH TPOP3D.CONF 5
 .\"
-.\" tpop3d.conf.5: manual page for tpop3d configuration file
+.\" tpop3d.conf.5:
+.\" Manual page for tpop3d configuration file.
 .\"
-.\" Copyright (c) 2001 Chris Lightfoot. All rights reserved.
+.\" Copyright (c) 2001-2 Chris Lightfoot. All rights reserved.
 .\"
 .\" $Id$
 .\"
@@ -64,6 +65,18 @@ be used where multiple virtual domains are served from multiple IP addresses.
 This option only takes effect when \fIusername\fP does not contain a
 separator, which may be `@', `%', `:' or `!'. See below for a more detailed
 description.
+.TP
+\fBstrip-domain\fP: (\fByes\fP|\fBtrue\fP)
+If authentication does not succeed for a given \fIusername\fP, and the
+\fIusername\fP supplied is in the form \fIusername\fP@\fIdomain\fP, try the
+authentication again with a bare \fIusername\fP.  \fIdomain\fP need not be
+the domain name associated with the address on which the connection was
+received. This is intended to be used where multiple domains are served
+by a single authenticator with the same username, such as when
+\fIusername\fP@\fIdomain.com\fP and \fIusername\fP@\fIdomain.net\fP are
+equivalent and served from the same machine.   
+This option only takes effect when \fIusername\fP contains a separator,
+which may be `@', `%' or `!'.
 .TP
 \fBtimeout-seconds\fP: \fInumber\fP
 This is the number of seconds for which a connection may be idle for before it
@@ -341,7 +354,11 @@ intended to allow you to insert a record into a database table used to
 permit relaying in a `POP-before-SMTP' scheme. For this query, the additional
 value \fB$(clienthost)\fP indicates the connected client host, as a numeric IP
 address. This statement will be executed for any successful login, not only
-\fBauth-mysql\fP logins.
+\fBauth-mysql\fP logins. Note that \fB$(local_part)\fP may not be supplied for
+a given login, so you should only use it if you are sure that all relevant
+logins will specify it. See the description of authentication, above, for
+more information. If more flexibility is required, consider using
+\fBauth-other\fP or \fBauth-perl\fP instead.
 
 Note that the username and password supplied in the configuration file
 are privileged information, in the sense that they would allow an
@@ -595,7 +612,8 @@ they may call \fBTPOP3D::print_log\fP with a single scalar argument to write a
 message via \fBtpop3d\fP's logging facility. The \fBauth-perl-onlogin\fP
 subroutine is called after any successful login (not just logins mediated
 by \fBauth-perl\fP) and is intended to be used to implement POP-before-SMTP
-relaying; the return value from this subroutine is ignored.
+relaying; the return value from this subroutine is ignored, except for any
+\fBlogmsg\fP hash element, which is logged in the normal way.
 
 .SH FILES
 .B /etc/tpop3d.conf

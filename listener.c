@@ -76,13 +76,13 @@ listener listener_new(const struct sockaddr_in *addr, const char *domain) {
             char **a, *b;
             b = strchr(he->h_name, '.');
             if (b && *(b + 1)) {
-                L->domain = strdup(b + 1);
+                L->domain = xstrdup(b + 1);
             } else 
                 for (a = he->h_aliases; *a; ++a) {
                     char *b;
                     fprintf(stderr, "%s\n", *a);
                     if ((b = strchr(*a, '.')) && *(b + 1)) {
-                        L->domain = strdup(b + 1);
+                        L->domain = xstrdup(b + 1);
                         break;
                     }
                 }
@@ -90,7 +90,7 @@ listener listener_new(const struct sockaddr_in *addr, const char *domain) {
             if (!L->domain)
                 log_print(LOG_WARNING, _("listener_new: %s: no suitable domain suffix found for this address"), inet_ntoa(addr->sin_addr));
         }
-    } else L->domain = strdup(domain);
+    } else L->domain = xstrdup(domain);
 
     /* Last try; use the nodename from uname(2). */
     if (!L->domain) {

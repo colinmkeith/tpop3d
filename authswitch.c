@@ -155,10 +155,17 @@ authcontext authcontext_new_apop(const char *user, const char *local_part, const
 
     l = local_part;
     d = domain;
-    
+ 
+    /* If no local-part has been explicitly supplied, then we try to construct
+     * one by splitting up the username over one of the characters listed in
+     * DOMAIN_SEPARATORS. This is distinct from the append-domain
+     * functionality, which will attempt to use the user's supplied username
+     * as a local-part, with the listener domain as the domain, and the
+     * strip-domain functionality, which will suppress the domain supplied by
+     * the user. */
     if (!local_part && domain) {
         int n;
-        n = strcspn(user, "@%!:");
+        n = strcspn(user, DOMAIN_SEPARATORS);
         if (n > 0 && user[n]) {
             x = xstrdup(user);
             x[n] = 0;
@@ -197,9 +204,10 @@ authcontext authcontext_new_user_pass(const char *user, const char *local_part, 
     l = local_part;
     d = domain;
     
+    /* Maybe split local part and domain (see above). */
     if (!local_part && domain) {
         int n;
-        n = strcspn(user, "@%!:");
+        n = strcspn(user, DOMAIN_SEPARATORS);
         if (n > 0 && user[n]) {
             x = xstrdup(user);
             x[n] = 0;
@@ -211,8 +219,8 @@ authcontext authcontext_new_user_pass(const char *user, const char *local_part, 
 
     for (aa = auth_drivers, aar = auth_drivers_running; aa < auth_drivers_end; ++aa, ++aar)
         if (*aar && aa->auth_new_user_pass && (a = aa->auth_new_user_pass(user, l, d, pass, host))) {
-            a->auth = strdup(aa->name);
-            a->user = strdup(user);
+            a->auth = xstrdup(aa->name);
+            a->user = xstrdup(user);
             if (!a->local_part) {
                 if (l)
                     a->local_part = xstrdup(l);
@@ -272,7 +280,6 @@ void authswitch_close() {
 authcontext authcontext_new(const uid_t uid, const gid_t gid, const char *mboxdrv, const char *mailbox, const char *home) {
     authcontext a;
     a = xcalloc(1, sizeof *a);
-    if (!a) return NULL;
 
     a->uid = uid;
     a->gid = gid;
@@ -298,17 +305,18 @@ extern int post_fork;   /* in main.c */
 void authcontext_delete(authcontext a) {
     if (!a) return;
 
-    if (a->mboxdrv) xfree(a->mboxdrv);
-    if (a->mailbox) xfree(a->mailbox);
+    xfree(a->mboxdrv);
+    xfree(a->mailbox);
 
     /* Only log if this is the end of the session, not the parent freeing its
      * copy of the data. (This is a hack, and I am ashamed.) */
     if (post_fork) log_print(LOG_INFO, _("authcontext_delete: finished session for `%s' with %s"), a->user, a->auth);
 
-    if (a->auth) xfree(a->auth);
-    if (a->user) xfree(a->user);
-    if (a->domain) xfree(a->domain);
-    if (a->home) xfree(a->home);
+    xfree(a->auth);
+    xfree(a->user);
+    xfree(a->local_part);
+    xfree(a->domain);
+    xfree(a->home);
     
     xfree(a);
 }

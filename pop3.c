@@ -31,9 +31,9 @@ extern int verbose;
 
 /* connection_do:
  * Makes a command do something on a connection, returning a code indicating
- * what the caller should do.
- */
+ * what the caller should do. */
 int append_domain;  /* Do we automatically try user@domain if user alone fails to authenticate? */
+int strip_domain; /* Automatically try user if user@domain fails? */
 
 enum connection_action connection_do(connection c, const pop3command p) {
     /* This breaks the RFC, but is sensible. */
@@ -50,7 +50,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 connection_sendresponse(c, 0, _("But you already said `USER'."));
                 return do_nothing;
             } else {
-                c->user = strdup((char*)p->toks->toks[1]);
+                c->user = xstrdup((char*)p->toks->toks[1]);
                 if (!c->user) {
 #ifndef NO_SNIDE_COMMENTS
                     connection_sendresponse(c, 0, _("Tell me your name, knave!"));
@@ -70,7 +70,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 connection_sendresponse(c, 0, _("But you already said `PASS'."));
                 return do_nothing;
             } else {
-                c->pass = strdup(p->toks->toks[1]);
+                c->pass = xstrdup(p->toks->toks[1]);
                 if (!c->pass) {
                     connection_sendresponse(c, 0, _("You must give a password."));
                     return do_nothing;
@@ -126,10 +126,25 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 }
 
                 c->a = authcontext_new_apop(name, NULL, c->domain, c->timestamp, digest, inet_ntoa(c->sin.sin_addr));
-                
-                if (!c->a && append_domain && c->domain && strcspn(name, "@%!:") == strlen(name))
-                    /* OK, if we have a domain name, try appending that. */
-                    c->a = authcontext_new_apop(name, name, c->domain, c->timestamp, digest, inet_ntoa(c->sin.sin_addr));
+ 
+                /* Maybe retry authentication with an added or removed domain
+                 * name. */
+                if (!c->a && (strip_domain || append_domain)) {
+                    int n, len;
+                    len = strlen(name);
+                    n = strcspn(name, DOMAIN_SEPARATORS);
+                    if (append_domain && c->domain && n == len)
+                        /* OK, if we have a domain name, try appending that. */
+                        c->a = authcontext_new_apop(name, name, c->domain, c->timestamp, digest, inet_ntoa(c->sin.sin_addr));
+                    else if (strip_domain && n != len) {
+                        /* Try stripping off the supplied domain name. */
+                        char *u;
+                        u = xstrdup(name);
+                        u[n] = 0;
+                        c->a = authcontext_new_apop(u, NULL, NULL, c->timestamp, digest, inet_ntoa(c->sin.sin_addr));
+                        xfree(u);
+                    }
+                }
 
                 if (c->a) {
                     /* Now save a new ID string for this client. */
@@ -186,8 +201,24 @@ enum connection_action connection_do(connection c, const pop3command p) {
         /* Do we now have enough information to authenticate using USER/PASS? */
         if (!c->a && c->user && c->pass) {
             c->a = authcontext_new_user_pass(c->user, NULL, c->domain, c->pass, inet_ntoa(c->sin.sin_addr));
-            if (!c->a && append_domain && c->domain && strcspn(c->user, "@%!") == strlen(c->user)) 
-                c->a = authcontext_new_user_pass(c->user, c->user, c->domain, c->pass, inet_ntoa(c->sin.sin_addr));
+            
+            /* Maybe retry authentication with an added or removed domain name. */
+            if (!c->a && (append_domain || strip_domain)) {
+                int n, len;
+                len = strlen(c->user);
+                n = strcspn(c->user, DOMAIN_SEPARATORS);
+                if (append_domain && c->domain && n == len)
+                    /* OK, if we have a domain name, try appending that. */
+                    c->a = authcontext_new_user_pass(c->user, c->user, c->domain, c->pass, inet_ntoa(c->sin.sin_addr));
+                else if (strip_domain && n != len) {
+                    /* Try stripping off the supplied domain name. */
+                    char *u;
+                    u = xstrdup(c->user);
+                    u[n] = 0;
+                    c->a = authcontext_new_user_pass(u, NULL, NULL, c->pass, inet_ntoa(c->sin.sin_addr));
+                    xfree(u);
+                }
+            }
 
             if (c->a) {
                 /* Now save a new ID string for this client. */

@@ -10,7 +10,7 @@ some sort of table which can be read by your MTA. When a client connects to
 the POP server and authenticates successfully, their address is put into the
 table; some other process then cleans old records out of the table after a
 short interval. Then, after checking mail with a POP3 client, the user will be
-allowed -- for a little while at least -- to relay through the associated SMTP
+allowed -- for a little while at least -- to relay through an associated SMTP
 server.
 
 In tpop3d, POP-before-SMTP relaying is supported via hooks which are called

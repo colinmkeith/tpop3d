@@ -54,7 +54,7 @@ char *substitute_variables(const char *spec, struct sverr *err, const int nvars,
     
     var = xcalloc(nvars, sizeof *var);
     val = xcalloc(nvars, sizeof *val);
-    res = strdup("");
+    res = xstrdup("");
 
     va_start(ap, nvars);
     for (n = 0; n < nvars; ++n) {

@@ -44,7 +44,7 @@ void appalling_backtrace_hack() {
     log_print(LOG_ERR, _("appalling_backtrace_hack: stack trace of program ends"));
     log_print(LOG_ERR, _("appalling_backtrace_hack: use addr2line(1) to resolve the addresses"));
 }
-#endif
+#endif /* APPALLING_BACKTRACE_HACK */
 
 /* set_signals:
  * Set the relevant signals to be ignored/handled. */

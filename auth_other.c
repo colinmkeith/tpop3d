@@ -453,7 +453,7 @@ stringmap auth_other_recv_response() {
         s = memchr(r + 1, 0, p - (r + 1));
         if (!s) goto formaterror;
 
-        stringmap_insert(S, q, item_ptr(strdup(r + 1)));
+        stringmap_insert(S, q, item_ptr(xstrdup(r + 1)));
 
         q = s + 1;
         continue;

@@ -97,7 +97,7 @@ int auth_perl_init(void) {
     }
 
     /* Put a useful string into the environment. */
-    putenv(strdup("TPOP3D_CONTEXT=auth_perl"));
+    putenv(xstrdup("TPOP3D_CONTEXT=auth_perl"));
 
     /* Create and start up perl interpreter. */
     perl_interp = perl_alloc();
@@ -204,7 +204,7 @@ stringmap auth_perl_callfn(const char *perlfn, const int nvars, ...) {
         /* Yet a third sort of error. */
         log_print(LOG_ERR, _("auth_perl_callfn: perl function %s: returned value was not a reference to a hash"), perlfn);
     } else {
-        /* Damn and all, it worked! (Maybe) */
+        /* Damn and all, it worked! (Maybe.) */
         char *key;
         I32 len;
         SV *val;
@@ -214,10 +214,8 @@ stringmap auth_perl_callfn(const char *perlfn, const int nvars, ...) {
         /* Transfer contents of hash into s. */
         hv_iterinit(hash_out);
         while ((val = hv_iternextsv(hash_out, &key, &len))) {
-            char *k = xmalloc(len + 1);
             STRLEN len2;
-            strcpy(k, key);
-            stringmap_insert(s, k, item_ptr(strdup(SvPV(val, len2))));
+            stringmap_insert(s, key, item_ptr(xstrdup(SvPV(val, len2))));
         }
     }
 

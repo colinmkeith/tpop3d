@@ -28,6 +28,10 @@
 #   define PAGESIZE        getpagesize()
 #endif
 
+#ifndef DOMAIN_SEPARATORS
+#   define DOMAIN_SEPARATORS    "@%!:"
+#endif
+
 #if 0
 /* Primitive memory-leak debugging. */
 char *mystrdup(char *f, int l, const char *s);
@@ -87,11 +91,22 @@ char *hex_digest(const unsigned char *u);
 int unhex_digest(const char *from, unsigned char *to);
 
 /* Memory allocation wrappers. */
+#ifndef MTRACE_DEBUGGING
 void *xmalloc(size_t n);
 void *xcalloc(size_t n, size_t m);
 void *xrealloc(void *w, size_t n);
 void xfree(void *v);
 char *xstrdup(const char *s);
+#else
+/* Malloc wrappers are incompatible with mtrace debugging because the log file
+ * produced by mtrace records only the innermost calling stack frame, and
+ * therefore reports all leaks as occurring in xmalloc, xcalloc etc. */
+#   define xmalloc  malloc
+#   define xcalloc  calloc
+#   define xrealloc realloc
+#   define xfree    free
+#   define xstrdup  strdup
+#endif /* !MTRACE_DEBUGGING */
 
 /* MD5 digests. */
 void md5_digest(const void *v, const size_t n, unsigned char *md5);

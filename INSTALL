@@ -23,22 +23,22 @@ also review the contents of README.darwin.
 
   A number of authentication mechanisms are available:
 
-    auth_pam
+    auth-pam
     --enable-auth-pam
       Uses Pluggable Authentication Modules, with a configurable facility name
       (by default, `tpop3d').
 
-    auth_passwd
+    auth-passwd
     --enable-auth-passwd, --enable-shadow-passwords
       Uses /etc/passwd (and, by a compile time option, /etc/shadow) to
       authenticate local users.
 
-    auth_mysql
+    auth-mysql
     --enable-auth-mysql, --with-mysql-root
       Uses a MySQL database, allowing authentication of users in virtual
       domains.
 
-      auth_mysql now supports password hashes in a variety of formats in
+      auth-mysql now supports password hashes in a variety of formats in
       addition to the straight MD5 hashes used in `classic' vmail-sql. These
       are still the default, but other formats are detected by the presence of
       a prefixed token enclosed in { } at the beginning of the password hash
@@ -54,12 +54,19 @@ also review the contents of README.darwin.
       a user, but this does not stop them logging in via any other method with
       the same password.
 
-    auth_other
+    auth-ldap
+    --enable-auth-ldap, --with-openldap-root
+      Uses an LDAP directory, allowing authentication of users in virtual
+      domains. auth-ldap uses the OpenLDAP client library, version 2, which
+      must be installed on your system in order to compile tpop3d with
+      auth-ldap support.
+
+    auth-other
     --enable-auth-other
       Passes authentication requests to an external program; designed to allow
       custom virtual domains authentication schemes.
 
-    auth_perl
+    auth-perl
     --enable-auth-perl
       Authenticates users via perl subroutines run in an embedded perl
       interpreter. Note that enabling this may increase the size of the tpop3d
@@ -67,7 +74,7 @@ also review the contents of README.darwin.
 
   For tpop3d to be useful, you must enable at least one authentication driver.
   By default, only PAM is switched on; this is correct for most modern Unix
-  systems. Older systems should use auth_passwd.
+  systems. Older systems should use auth-passwd.
 
 
 * Mailbox formats
@@ -229,7 +236,7 @@ also review the contents of README.darwin.
 
   A sample System V init.d script is in the init.d/ subdirectory. This script
   is usable on Linux and easily modifiable for other systems. If you use
-  auth_mysql and find that your system comes up sufficiently quickly that
+  auth-mysql and find that your system comes up sufficiently quickly that
   tpop3d fails to connect to MySQL on startup, you may want to apply the patch
   in init.d/initscript_wait-for-mysqld.patch to the script; this tests for the
   existence of the unix socket which MySQL clients use to communicate with
@@ -256,9 +263,8 @@ also review the contents of README.darwin.
 
   For reference (and in lieu of reading mailspool.c and maildir.c for the gory
   details), for BSD mailspools, the unique ID is generated from an MD5 message
-  digest of the first part of the message; for maildir, the filename of the
-  message (which is supposed to be unique for a given maildir) is used, though
-  it is presented as a 32-digit hexadecimal number.
+  digest of the first part of the message; for maildir, the MD5 hash of the
+  filename of the message is used.
 
   tpop3d does not use the Message-ID field in the message header, for a number
   of reasons.

@@ -89,7 +89,7 @@ stringmap read_config_file(const char *f) {
                 /* Check that this is a valid key. */
                 if (!is_cfgdirective_valid(key))
                     fprintf(stderr, _("%s:%d: warning: unknown directive `%s'\n"), f, i, key);
-                else if ((I = stringmap_insert(S, key, item_ptr(strdup(value)))))
+                else if ((I = stringmap_insert(S, key, item_ptr(xstrdup(value)))))
                     fprintf(stderr, _("%s:%d: warning: repeated directive `%s'\n"), f, i, key);
             }
         }
