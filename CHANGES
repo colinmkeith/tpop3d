@@ -22,6 +22,9 @@ tpop3d will now remove a stale PID file on startup, rather than exiting.
 Support for the MySQL PASSWORD() function as a password-hashing method was
 added.
 
+A bug in the supplied TPOP3D::AuthDriver perl module was fixed, thanks to
+Steve Benson.
+
 1.3.4
 
 Minor changes, and addition of metadata caching for BSD mailspools; in

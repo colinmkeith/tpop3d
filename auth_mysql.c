@@ -48,7 +48,7 @@ static const char rcsid[] = "$Id$";
  */
 char *user_pass_query_template =
     "SELECT concat(domain.path, '/', popbox.mbox_name), popbox.password_hash, "
-            "domain.unix_user, 'mailspool' "
+            "domain.unix_user, 'bsd' "
       "FROM popbox, domain "
      "WHERE popbox.local_part = '$(local_part)' "
        "AND popbox.domain_name = '$(domain)' "
@@ -56,7 +56,7 @@ char *user_pass_query_template =
        
 char *apop_query_template =
     "SELECT concat(domain.path, '/', popbox.mbox_name), popbox.password_hash, "
-            "domain.unix_user, 'mailspool' "
+            "domain.unix_user, 'bsd' "
       "FROM popbox, domain "
      "WHERE popbox.local_part = '$(local_part)' "
        "AND popbox.domain_name = '$(domain)' "
