@@ -6,7 +6,8 @@ $Id$
 tpop3d now accepts passwords containing spaces. auth-pam now passes the client
 host information to the authentication stack. A fix to the logging code to work
 around PAM brokenness was made. A memory leak in auth-ldap was fixed. The
-amount of data transferred to/from the client is recorded.
+amount of data transferred to/from the client is recorded. Fixed some bugs
+which caused crashes on old versions of Solaris.
 
 1.4.1
 

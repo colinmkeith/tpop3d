@@ -104,7 +104,8 @@ int *auth_drivers_running;
 #define auth_drivers_end    auth_drivers + NUM_AUTH_DRIVERS
 
 /* username_string:
- * Return a string describing the name of a user. */
+ * Return a string describing the name of a user, of the form
+ *   [<user>; <local-part>@<domain>] */
 char *username_string(const char *user, const char *local_part, const char *domain) {
     static char *buf;
     static size_t nbuf;

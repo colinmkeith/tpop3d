@@ -323,7 +323,7 @@ authcontext auth_ldap_new_user_pass(const char *username, const char *local_part
         log_print(LOG_ERR, "auth_ldap_new_user_pass: ldap_get_dn: %s", ldap_strerror());
         goto fail;
     }
-printf("user_dn=%s/pass=%s\n", user_dn, pass);
+
     /* Now attempt authentication by binding with the user's credentials. */
     if ((ret = try_ldap_bind(ldapinfo.ldap, user_dn, pass)) != LDAP_SUCCESS) {
         /* Bind failed; user has failed to log in. */
@@ -340,7 +340,7 @@ printf("user_dn=%s/pass=%s\n", user_dn, pass);
         char *mailbox = NULL, *mboxtype = NULL, *user = NULL, *group = NULL;
         char *attr;
         BerElement *ber;
-printf("***\n");
+
         for (attr = ldap_first_attribute(ldapinfo.ldap, user_attr, &ber); attr; attr = ldap_next_attribute(ldapinfo.ldap, user_attr, ber)) {
             char **vals;
 
@@ -419,7 +419,7 @@ fail:
 
     xfree(filter);
 
-    auth_ldap_close();
+/*    auth_ldap_close();*/
 
     return a;
 }
