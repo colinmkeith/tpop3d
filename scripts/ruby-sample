@@ -1,0 +1,324 @@
+#!/usr/bin/ruby -w
+#
+# Copyright (c) 2002 Mark Longair.
+#
+# $Id$
+#
+# This script is an example authenticator for tpop3d.  It has not been
+# heavily tested; the intention is to provide a skeleton which you
+# might want to use to write real Ruby-based authenticators.
+#
+# Authentication is based on the contents of /etc/tpop3d.users.  Lines
+# of that file are dealt with in the following way:
+#
+#    - If the line is empty or entirely whitespace, it is ignored.
+#
+#    - If the first non whitespace character of the line is # then the
+#      line is ignored.
+#
+#    - If the line is of the form <email address>:<password>, the two 
+#      parts constitute a valid username / password pair.
+#
+# There's no APOP support at the moment, because Digest::MD5 is only
+# distributed with Ruby 1.7, which isn't released yet.  In view of
+# that, adding MD5 hashing just for this script doesn't seem
+# worthwhile...
+#
+# For more details on auth_other authenticators, see tpop3d.conf(5)
+#
+#-----------------------------------------------------------------------
+
+# The mail spools are accessed by the user and group specified here:
+
+spool_user = "vmail"
+spool_group = "vmail"
+
+# You can alter the location of the password file with this:
+
+$password_file = "/etc/tpop3d.users"
+
+# mailbox_dir has /<domain>/user appended to it to find the mail spool
+# of an authenticated user.  If you make mailbox_dir nil, then the
+# normal mechanism (via configuration directives mailbox: and
+# auth-other-mailbox:) is used to find the mailbox.
+
+mailbox_dir = "/var/spool/vmail"
+# mailbox_dir = nil
+
+#-----------------------------------------------------------------------
+
+# A usage message, to remind people what the program is for...
+
+def usage
+  
+  print <<EOF
+This script is an authenticator for tpop3d.  It is not a useful standalone
+program.  See tpop3d.conf(5) for more information.
+EOF
+  
+end
+
+# Add some useful methods to the IO class for dealing with null
+# separated and terminated key / value pairs:
+
+class IO
+  
+  def put_zero
+    putc 0
+  end
+  
+  def write_pair( key, value )
+    write key
+    put_zero
+    write value
+    put_zero
+  end
+
+# Call the supplied iterator on each key / value pair in the file.
+# Each pair is of the form <key>\0<value>\0 If <key> is empty
+# (i.e. the first character read is null) the method returns
+# immediately.  If at any point end of file is reached, the method
+# returns.
+
+  def each_pair
+
+    loop do
+
+      key = ""
+      value = ""
+      
+      # Get key...
+
+      loop do
+	c = getc
+
+	# Check for EOF...
+	if ! c
+	  return
+	end
+
+	if c == 0
+	  if key.empty? # ... and we haven't read any characters yet
+	    return
+	  else
+	    break # That's the end of the key.
+	  end
+	end
+
+	key << c
+	
+      end
+      
+      # Get value...
+
+      loop do
+	
+	c = getc
+	
+	# Check for EOF...
+	if ! c
+	  return
+	end
+	
+	if c == 0
+
+	  # Then we've found a complete pair. (n.b. value is allowed
+	  # to be empty...)
+
+	  yield key, value
+	  break
+	end
+	
+	value << c
+	
+      end
+      
+    end
+  end
+  
+end
+
+# Call this with a reason string to refuse authentication and
+# exit...
+
+def refuse ( reason )
+
+  $stdout.write_pair "result", "NO"
+  $stdout.write_pair "logmsg", reason
+  $stdout.put_zero
+  exit
+
+end
+
+# Look up a user, domain and password combination in the password
+# file.  Returns true if the combination is in the file, and nil
+# otherwise.  Can throw exceptions if the password file is missing,
+# etc. etc.
+
+def authenticates_correctly? ( user, domain, password )
+
+  open( $password_file, "r" ) do |f| 
+
+    f.each do |line|
+      
+      line.chomp!
+      
+      next if line =~ '^\s*$'
+      next if line =~ '^\s*#'
+      
+      if line =~ '^\s*([\w\.\-]+)@([\w\.\-]+)\s*:\s*([\w\.\-]+)\s*$'
+	
+	file_user = $1
+	file_domain = $2
+	file_password = $3
+	
+	if (user == file_user) and 
+	    (domain == file_domain) and
+	    (password == file_password)
+	  
+	  return TRUE
+	  
+	end
+	
+      else
+	
+	refuse "A line in the users file is badly formed: `#{line}'"
+	
+      end
+      
+    end
+    
+    return nil
+    
+  end
+
+end
+
+#-----------------------------------------------------------------------
+
+# The main body of the code...
+
+# Largely pointless argument parsing; in here because you might
+# plausibly want to add some options to allow testing...
+
+require "getoptlong"
+
+options = GetoptLong.new(
+
+  [ "--help", "-h", GetoptLong::NO_ARGUMENT  ]
+
+)
+
+begin
+  
+  options.each do |opt, arg|
+    
+    case opt
+    when "--help"
+      usage
+      exit
+    end
+    
+  end
+  
+rescue
+  
+  print "Unknown command line option.\n"
+  usage
+  exit
+  
+end
+
+# Now parse the authentication request...
+
+method = nil
+timestamp = nil
+user = nil
+password = nil
+digest = nil
+clienthost = nil
+local_part = nil
+domain = nil
+
+$stdin.each_pair do |key, value|
+  
+  case key
+
+  when "method"
+    method = value
+  when "timestamp"
+    timestamp = value
+  when "user"
+    user = value
+  when "pass"
+    password = value
+  when "digest"
+    digest = value
+  when "clienthost"
+    clienthost = value
+  when "local_part"
+    local_part = value
+  when "domain"
+    domain = value
+  else
+    refuse "Unknown key `#{key}' in pair: (#{key},#{value})"
+  end
+
+end
+
+refuse "No method specified" unless method
+refuse "No local-part specified" unless local_part
+refuse "No domain specified" unless domain
+
+if method == "APOP"
+
+  refuse "APOP chosen, but no timestamp provided." unless timestamp
+  refuse "APOP chosen, but no digest provided." unless digest
+  refuse "APOP chosen, but a password was provided." if password
+
+  refuse "APOP is not currently supported by this autheticator."
+
+elsif method == "PASS"
+
+  refuse "PASS authentication was chosen, but a timestamp was provided" if timestamp
+  refuse "PASS authentication was chosen, but a digest was provided" if digest
+
+  begin
+  
+    if authenticates_correctly?( local_part, domain, password )
+
+      $stdout.write_pair "result", "YES"
+      $stdout.write_pair "logmsg", "Authentication succeeded for user #{user}"
+      $stdout.write_pair "uid", spool_user
+      $stdout.write_pair "gid", spool_group
+      $stdout.write_pair "domain", domain
+      if mailbox_dir
+	$stdout.write_pair "mailbox", "#{mailbox_dir}/#{domain}/#{local_part}"
+      end
+      $stdout.put_zero
+      
+    else
+      
+      refuse "Authentication failed for user #{user}" 
+      
+    end
+
+  rescue
+
+    refuse "There was an error during authentication: " + $!
+    
+  end
+
+elsif method == "ONLOGIN"
+
+  # We don't do anything with the ONLOGIN information, so return an
+  # empty packet.
+
+  $stdout.put_zero
+
+else
+
+  refuse "Method was `#{method}' - should be `PASS', `APOP' or `ONLOGIN'"
+
+end
+
