@@ -690,10 +690,10 @@ int mailspool_load_index(mailbox m) {
     if (fstat(fileno(fp), &st) == -1) {
         log_print(LOG_ERR, "mailspool_load_index(%s): %m", indexfile);
         goto fail;
-    } else if ((st.st_mode & 0777) != 0600 || m->st.st_uid != getuid()) {
+    } else if ((st.st_mode & 0777) != 0600 || st.st_uid != getuid()) {
         log_print(LOG_ERR, _("mailspool_load_index(%s): possible security problem: index exists, but it has the wrong owner or file permissions"), indexfile);
-        log_print(LOG_ERR, _("mailspool_load_index(%s): owner is %d, should be %d; mode 0%o, should be 0600"), indexfile,
-                            m->st.st_uid, getuid(), m->st.st_mode & 0777);
+        log_print(LOG_ERR, _("mailspool_load_index(%s): owner is %d, should be %d; mode 0%03o, should be 0600"), indexfile,
+                            (int)st.st_uid, (int)getuid(), st.st_mode & 0777);
         goto fail;
     }
 
