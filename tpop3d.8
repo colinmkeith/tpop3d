@@ -7,6 +7,9 @@
 .\" $Id$
 .\"
 .\" $Log$
+.\" Revision 1.3  2001/01/13 02:51:14  chris
+.\" *** empty log message ***
+.\"
 .\" Revision 1.2  2001/01/11 21:23:35  chris
 .\" Minor changes.
 .\"
@@ -50,7 +53,7 @@ read configuration from \fIfile\fP, instead of from \fB/etc/tpop3d\fP.
 
 .SH CONFIGURATION FILE
 
-The configuration file, \fB/etc/tpop3d.conf\fP, expresses a number of
+The configuration file, \fB/etc/tpop3d.conf\fP, consists of a number of
 \fIkey\fP:\ \fIvalue\fP pairs. Blank lines and comments introduced by `#' are ignored.
 
 Presently-recognised configuration directives are:
@@ -75,8 +78,8 @@ is sufficient. There is no default for this option.
 
 .TP
 \fBmax-children\fP: \fInumber\fP
-The maximum number of child processes which may be activelyserving connections
-at any given time. Consists of a single number.
+The maximum number of child processes which may be actively serving
+connections at any given time. Consists of a single number.
 
 .TP
 \fBappend-domain\fP: (\fByes\fP|\fBtrue\fP)
@@ -89,6 +92,7 @@ separator, which may be `@', `%' or `!'.
 
 
 .SS PAM authentication options
+
 
 .TP
 \fBauth-pam-enable\fP: (\fByes\fP|\fBtrue\fP)
@@ -185,8 +189,10 @@ users.
 
 .SH BUGS
 
-\fBtpop3d\fP does not use a locking scheme which works well with NFS. In
-addition, it locks the mailspool for exclusive access, so that an MTA cannot
+Locking of mailspools under Unix is problematic, mostly becuase of past
+brokenness which has now been fixed. \fBtpop3d\fP's locking scheme should
+suffice in most cases (and should work reliably over NFS) but it is naive: it
+locks the mailspool for exclusive access, so that an MTA cannot
 deliver mail to the mailspool whilst it is being accessed by a \fBtpop3d\fP
 user. As a result, it is configured by default to time out users rather
 rapidly (after 30s of inactivity). This is one of several places where it is

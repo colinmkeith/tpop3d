@@ -30,8 +30,6 @@ vector vector_new();
 void vector_delete(vector);
 void vector_delete_free(vector);
 
-vector vector_new_from_string(const char*);
-
 void  vector_push_back(vector, const item);
 void  vector_pop_back(vector);
 item vector_back(const vector);

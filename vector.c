@@ -14,16 +14,6 @@ static const char rcsid[] = "$Id$";
 #include "vector.h"
 #include "util.h"
 
-static char *strndup(const char *s, const size_t n) {
-    char *t;
-    if (!s) return NULL;
-    t = (char*)malloc(n + 1);
-    if (!t) return NULL;
-    strncpy(t, s, n);
-    t[n] = 0;
-    return t;
-}
-
 vector vector_new() {
     vector v = (vector)malloc(sizeof(struct _vector));
     if (!v) return NULL;
@@ -46,42 +36,6 @@ void vector_delete_free(vector v) {
     }
     free(v->ary);
     free(v);
-}
-
-vector vector_new_from_string(const char *s) {
-    vector v;
-    const char *p, *q;
-
-    if (!s) return NULL;
-    v = vector_new();
-    if (!v) return NULL;
-
-    p = s + strspn(s, " \t\r\n");
-    while (p && *p) {
-        switch(*p) {
-            case '\"':
-                ++p;
-                q = strchr(p, '\"');
-                break;
-            case '\'':
-                ++p;
-                q = strchr(p, '\'');
-                break;
-            default:
-                q = p + strcspn(p, " \t\r\n");
-        }
-
-        if (q && q > p) {
-            char *x = strndup(p, q - p);
-            if (!x) return NULL; /* this should never happen, and if it does, things are really bad anyway */
-            vector_push_back(v, item_ptr(x));
-            if (*q) ++q;
-            else break;
-            p = q + strspn(q, " \t\r\n");
-        }
-    }
-
-    return v;
 }
 
 void vector_push_back(vector v, const item t) {
