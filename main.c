@@ -23,12 +23,6 @@ static const char rcsid[] = "$Id$";
 #include <time.h>
 #include <unistd.h>
 
-#ifdef USE_TCP_WRAPPERS
-#include <tcpd.h>
-int allow_severity = LOG_INFO;
-int deny_severity  = LOG_NOTICE;
-#endif
-
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
@@ -60,12 +54,15 @@ int verbose;                        /* Should we be verbose about data going to/
 
 
 char *pidfile = NULL;               /* The name of a PID file to use; if NULL, don't use one. */
-char *tcpwrappersname;              /* The daemon name to give to TCP Wrappers. */
 
 /* Various things in netloop.c */
 extern vector listeners;
 extern int max_running_children, post_fork, timeout_seconds;
 extern sig_atomic_t foad, restart;
+
+#ifdef USE_TCP_WRAPPERS
+extern char *tcpwrappersname;
+#endif
 
 void net_loop(void);
 
@@ -267,7 +264,12 @@ int parse_listeners(const char *stmt) {
                     continue;
                 } else sin.sin_port = se->s_port;
             } else sin.sin_port = htons(sin.sin_port);
-        } else sin.sin_port = htons(tls == immediate ? 995 : 110); /* pop-3 */
+        } else
+#ifdef USE_TLS
+            sin.sin_port = htons(tls == immediate ? 995 : 110); /* pop-3 */
+#else
+            sin.sin_port = htons(110);
+#endif
 
         /* Address. */
         if (!inet_aton(host, &(sin.sin_addr))) {

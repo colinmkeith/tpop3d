@@ -22,6 +22,10 @@ static const char rcsid[] = "$Id$";
 #include <syslog.h>
 #include <unistd.h>
 
+#ifdef USE_TCP_WRAPPERS
+#   include <tcpd.h>
+#endif
+
 #include <sys/socket.h>
 #include <sys/time.h>
 
@@ -50,9 +54,9 @@ int timeout_seconds = 30;           /* How long a period of inactivity may elaps
 extern stringmap config;            /* in main.c */
 
 #ifdef USE_TCP_WRAPPERS
-#include <tcpd.h>
 int allow_severity = LOG_INFO;
 int deny_severity  = LOG_NOTICE;
+char *tcpwrappersname;
 #endif
 
 vector listeners;                   /* Listeners */
@@ -100,6 +104,7 @@ static void listeners_pre_select(int *n, fd_set *readfds, fd_set *writefds, fd_s
 /* listeners_post_select:
  * Called after the main select(2) to allow listening sockets to sort
  * themselves out. */
+
 static void listeners_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
     item *t;
     vector_iterate(listeners, t) {
@@ -160,7 +165,7 @@ static void connections_pre_select(int *n, fd_set *readfds, fd_set *writefds, fd
     connection *J;
     for (J = connections; J < connections + max_connections; ++J)
         /* Don't add frozen connections to the select masks. */
-        if (*J && !connection_isfrozen(*J))
+        if (*J && !connection_isfrozen(*J) && !(*J)->cstate == closed)
             (*J)->io->pre_select(*J, n, readfds, writefds, exceptfds);
 }
 

@@ -37,6 +37,8 @@ static ssize_t ioabs_tcp_immediate_write(connection c, const void *buf, size_t c
     ssize_t n;
     struct ioabs_tcp *io;
     io = (struct ioabs_tcp*)c->io;
+    if (c->cstate == closed)
+        return IOABS_ERROR;
     n = xwrite(c->s, buf, count);
     if (n > 0)
         c->nwr += n;

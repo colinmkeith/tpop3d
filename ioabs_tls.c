@@ -113,6 +113,8 @@ static ssize_t ioabs_tls_read(connection c, void *buf, size_t count) {
     struct ioabs_tls *io;
     io = (struct ioabs_tls*)c->io;
 
+    if (c->cstate == closed) return IOABS_ERROR;
+    
     n = SSL_read(io->ssl, buf, count);
 
     if (n > 0) return n;

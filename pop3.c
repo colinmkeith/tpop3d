@@ -205,7 +205,6 @@ static enum connection_action do_apop(connection c, const pop3command p) {
     }
 }
 
-
 /* do_list CONNECTION MSGNUM
  * LIST command; MSGNUM is the argument or -1 if none was specified. */
 void do_list(connection c, const int msg_num) {
@@ -223,12 +222,14 @@ void do_list(connection c, const int msg_num) {
     } else {
         struct indexpoint *m;
         int nn = 0;
-        connection_sendresponse(c, 1, _("Scan list follows:"));
+        if (!(connection_sendresponse(c, 1, _("Scan list follows:"))))
+            return;
         for (m = c->m->index; m < c->m->index + c->m->num; ++m) {
             if (!m->deleted) {
                 char response[32] = {0};
                 snprintf(response, 31, "%d %d", 1 + m - c->m->index, (int)(m->msglength - m->length - 1));
-                connection_sendline(c, response);
+                if (!(connection_sendline(c, response)))
+                    return;
                 ++nn;
             }
         }
@@ -236,7 +237,7 @@ void do_list(connection c, const int msg_num) {
         /* That might have taken a long time. */
         c->idlesince = time(NULL);
         if (verbose)
-            log_print(LOG_DEBUG, _("connection_do: client %s: sent %d-line scan list"), c->idstr, nn + 1);
+            log_print(LOG_DEBUG, _("do_list: client %s: sent %d-line scan list"), c->idstr, nn + 1);
     }
 }
 
@@ -258,12 +259,14 @@ static void do_uidl(connection c, const int msg_num) {
     } else {
         struct indexpoint *m;
         int nn = 0;
-        connection_sendresponse(c, 1, _("ID list follows:"));
+        if (!(connection_sendresponse(c, 1, _("ID list follows:"))))
+            return;
         for (m = c->m->index; m < c->m->index + c->m->num; ++m) {
             if (!m->deleted) {
                 char response[64] = {0};
                 snprintf(response, 63, "%d %s", 1 + m - c->m->index, hex_digest(m->hash));
-                connection_sendline(c, response);
+                if (!connection_sendline(c, response))
+                    return;
                 ++nn;
             }
         }
@@ -271,7 +274,8 @@ static void do_uidl(connection c, const int msg_num) {
         /* That might have taken a long time. */
         c->idlesince = time(NULL);
         if (verbose)
-            log_print(LOG_DEBUG, _("connection_do: client %s: sent %d-line unique ID list"), c->idstr, nn + 1);
+            log_print(LOG_DEBUG, _("do_uidl: client %s: sent %d-line unique ID list"), c->idstr, nn + 1);
+        return;
     }
 }
 
@@ -289,7 +293,8 @@ static enum connection_action do_retr(connection c, const int msg_num) {
             if (verbose)
                 log_print(LOG_DEBUG, _("connection_do: client %s: sending message %d (%d bytes)"),
                         c->idstr, msg_num + 1, (int)curmsg->msglength);
-            connection_sendresponse(c, 1, _("Message follows:"));
+            if (!(connection_sendresponse(c, 1, _("Message follows:"))))
+                return close_connection;
             if ((n = c->m->sendmessage(c->m, c, msg_num, -1)) == -1) {
                 connection_sendresponse(c, 0, _("Oops"));
                 return close_connection;
@@ -321,7 +326,8 @@ static enum connection_action do_top(connection c, const int msg_num, const int 
         if (verbose)
             log_print(LOG_DEBUG, _("connection_do: client %s: sending headers and up to %d lines of message %d (< %d bytes)"),
                     c->idstr, nlines, msg_num + 1, (int)curmsg->msglength);
-        connection_sendresponse(c, 1, _("Message follows:"));
+        if (!(connection_sendresponse(c, 1, _("Message follows:"))))
+            return close_connection;
 
         if (c->m->sendmessage(c->m, c, msg_num, nlines) == -1) {
             connection_sendresponse(c, 0, _("Oops."));
@@ -395,7 +401,8 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     return do_nothing;
                 } else if (c->l->tls.mode == stls) {
                     struct ioabs_tls *newio;
-                    connection_sendresponse(c, 1, _("Begin TLS negotiation"));
+                    if (!(connection_sendresponse(c, 1, _("Begin TLS negotiation"))))
+                        return close_connection;
                     if ((newio = ioabs_tls_create(c, c->l))) {
                         log_print(LOG_INFO, _("connection_do: client %s: negotiating TLS connection"), c->idstr);
                         c->io->destroy(c);
