@@ -38,7 +38,7 @@ static const char rcsid[] = "$Id$";
  * position that we send so much data that the client will not have received
  * all of it before we time them out.
  */
-#define MAX_DATA_IN_FLIGHT      1024
+#define MAX_DATA_IN_FLIGHT      8192
 
 #ifdef __SVR4
 /* inet_aton:
@@ -54,6 +54,22 @@ int inet_aton(const char *s, struct in_addr *ip) {
     return 1;                                                                   
 }                                                                               
 #endif
+
+/* xwrite:
+ * Write some data, taking account of short writes.
+ */
+ssize_t xwrite(int fd, const void *buf, size_t count) {
+    size_t c = count;
+    const char *b = (const char*)buf;
+    while (c > 0) {
+        int e = write(fd, b, count);
+        if (e > 0) {
+            c -= e;
+            b += e;
+        } else return e;
+    } while (c > 0);
+    return count;
+}
 
 /* daemon:
  * Become a daemon. From "The Unix Programming FAQ", Andrew Gierth et al.
@@ -258,7 +274,7 @@ void net_loop(vector listen_addrs) {
                     } else {
                         if (num_running_children >= max_running_children) {
                             char m[] = "-ERR Sorry, I'm too busy right now\r\n";
-                            write(s, m, strlen(m));
+                            xwrite(s, m, strlen(m));
                             shutdown(s, 2);
                             print_log(LOG_INFO, "net_loop: rejected connection from %s owing to high load", inet_ntoa(sin.sin_addr));
                         } else {

@@ -257,7 +257,7 @@ int connection_sendresponse(connection c, const int success, const char *s) {
     x = (char*)malloc(l = (4 + strlen(s) + 3 + 1));
     if (!x) return 0;
     snprintf(x, l, "%s %s\r\n", success ? "+OK" : "-ERR", s);
-    m = write(c->s, x, l = strlen(x));
+    m = xwrite(c->s, x, l = strlen(x));
     free(x);
     return (m == l);
 }
@@ -272,7 +272,7 @@ int connection_sendline(connection c, const char *s) {
     x = (char*)malloc(l = (3 + strlen(s)));
     if (!x) return 0;
     snprintf(x, l, "%s\r\n", s);
-    m = write(c->s, x, l = strlen(x));
+    m = xwrite(c->s, x, l = strlen(x));
     free(x);
     return (m == l);
 }

@@ -274,8 +274,8 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 connection_sendresponse(c, 1, "Scan list follows");
                 vector_iterate(c->m->index, J) {
                     if (!((indexpoint)J->v)->deleted) {
-                        char response[48];
-                        snprintf(response, 47, "%d %d", 1 + J - c->m->index->ary, ((indexpoint)J->v)->msglength - ((indexpoint)J->v)->length - 1);
+                        char response[32];
+                        snprintf(response, 31, "%d %d", 1 + J - c->m->index->ary, ((indexpoint)J->v)->msglength - ((indexpoint)J->v)->length - 1);
                         connection_sendline(c, response);
                     }
                 }

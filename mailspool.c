@@ -435,7 +435,7 @@ int mailspool_send_message(const mailspool M, int sck, const int i, int n) {
     indexpoint x;
     char *p, *q, *r;
     int A;
-    
+
     if (!M) return 0;
     if (i < 0 || i >= M->index->n_used) return 0;
     x = (indexpoint)M->index->ary[i].v;
@@ -460,7 +460,7 @@ int mailspool_send_message(const mailspool M, int sck, const int i, int n) {
         q = memchr(p, '\n', r - p);
         if (!q) q = r;
         errno = 0;
-        if ((*p == '.' && write(sck, ".", 1) != 1) || write(sck, p, q - p) != (q - p) || write(sck, "\r\n", 2) != 2) {
+        if ((*p == '.' && xwrite(sck, ".", 1) != 1) || xwrite(sck, p, q - p) != (q - p) || xwrite(sck, "\r\n", 2) != 2) {
             print_log(LOG_ERR, "mailspool_send_message: write: %m");
             munmap(filemem, length);
             return 0;
@@ -470,12 +470,11 @@ int mailspool_send_message(const mailspool M, int sck, const int i, int n) {
     ++p;
 
     errno = 0;
-    if (write(sck, "\r\n", 2) != 2) {
+    if (xwrite(sck, "\r\n", 2) != 2) {
         print_log(LOG_ERR, "mailspool_send_message: write: %m");
         munmap(filemem, length);
         return 0;
     }
-
     /* Now send the message itself */
     while (p < r && n) {
         if (n > 0) --n;
@@ -483,18 +482,17 @@ int mailspool_send_message(const mailspool M, int sck, const int i, int n) {
         q = memchr(p, '\n', r - p);
         if (!q) q = r;
         errno = 0;
-        if ((*p == '.' && write(sck, ".", 1) != 1) || write(sck, p, q - p) != (q - p) || write(sck, "\r\n", 2) != 2) {
+        if ((*p == '.' && xwrite(sck, ".", 1) != 1) || xwrite(sck, p, q - p) != (q - p) || xwrite(sck, "\r\n", 2) != 2) {
             print_log(LOG_ERR, "mailspool_send_message: write: %m");
             munmap(filemem, length);
             return 0;
         }
         p = q + 1;
     }
-
     if (munmap(filemem, length) == -1)
         print_log(LOG_ERR, "mailspool_send_message: munmap: %m");
     errno = 0;
-    if ((A = write(sck, ".\r\n", 3)) != 3) {
+    if ((A = xwrite(sck, ".\r\n", 3)) != 3) {
         print_log(LOG_ERR, "mailspool_send_message: write: %d %m", A);
         return 0;
     } else return 1;
