@@ -552,44 +552,45 @@ void usage(FILE *fp) {
 stringmap config;
 extern int append_domain; /* Do we automatically try user@domain if user alone fails to authenticate? In pop3.c. */
 
+char optstring[] = "+hdvf::";
+
 int main(int argc, char **argv) {
     vector listeners;
     item *I;
-    char **p;
     int nodaemon = 0;
-    char *configfile = "/etc/tpop3d.conf";
+    char *configfile = "/etc/tpop3d.conf", c;
     int na;
 
     /* Read the options. */
-    for (p = argv + 1; *p; ++p) {
-        if (**p == '-') {
-            switch (*(*p + 1)) {
-                case 'h':
-                    usage(stdout);
-                    return 0;
+    opterr = 0;
+    while ((c = getopt(argc, argv, optstring)) != EOF) {
+        switch(c) {
+            case 'h':
+                usage(stdout);
+                return 0;
 
-                case 'd':
-                    nodaemon = 1;
-                    log_stderr = 1;
-                    break;
+            case 'd':
+                nodaemon = 1;
+                log_stderr = 1;
+                break;
 
-                case 'f':
-                    ++p;
-                    configfile = *p;
-                    break;
+            case 'v':
+                verbose = 1;
+                break;
 
-                case 'v':
-                    verbose = 1;
-                    break;
-
-                default:
-                    fprintf(stderr, "Unrecognised option -%c\n", *(*p + 1));
+            case 'f':
+                if (!optarg) {
+                    fprintf(stderr, "tpop3d: option -f requires an argument\n");
                     usage(stderr);
                     return 1;
-            }
-        } else {
-            usage(stderr);
-            return 1;
+                } else configfile = optarg;
+                break;
+
+            case '?':
+            default:
+                fprintf(stderr, "tpop3d: unrecognised option -%c\n", optopt);
+                usage(stderr);
+                return 1;
         }
     }
 
@@ -600,7 +601,7 @@ int main(int argc, char **argv) {
     /* Detach from controlling tty etc. */
     if (!nodaemon) daemon(0, 0);
 
-    /* Start logging */
+    /* Start logging. */
     openlog("tpop3d", LOG_PID | LOG_NDELAY, LOG_MAIL);
 
     /* Identify addresses on which to listen.

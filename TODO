@@ -28,9 +28,19 @@ thought about denial-of-service attacks, and I think that it is safe from the
 most obvious ones. Nevertheless, a full security audit would be desirable.
 
 
-* "Autoconfiscation"
+* `Autoconfiscation'
 
 Editing Makefiles may be the way "we" did things in the good old days, but
 nowadays even people like me who don't believe in package management do
 believe in ./configure.
+
+
+* Maildir support
+
+A number of people have expressed interest in a version of tpop3d which
+supports the `maildir' mail-spool format of qmail. Maildir has the advantage
+of being lock-free (it is implemented using a set of operations which ought to
+be atomic on a POSIX system) but requires a filesystem which copes gracefully
+with directories containing thousands of files. If enough people are
+interested, I will implement this.
 

@@ -403,6 +403,8 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 if (I->deleted)
                     connection_sendresponse(c, 0, "That message is no more.");
                 else {
+                    if (verbose)
+                        print_log(LOG_DEBUG, "connection_do: client %s: sending message %d (%d bytes)", c->idstr, msg_num + 1, ((indexpoint)c->m->index->ary[msg_num].v)->msglength);
                     connection_sendresponse(c, 1, "Message follows:");
                     if (!mailspool_send_message(c->m, c->s, msg_num, -1)) {
                         connection_sendresponse(c, 0, "Oops");
@@ -430,7 +432,9 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     connection_sendresponse(c, 0, "But how much do you want to see?");
                     break;
                 }
-
+                
+                if (verbose)
+                    print_log(LOG_DEBUG, "connection_do: client %s: sending headers and up to %d lines of message %d (part of %d bytes)", c->idstr, arg2, msg_num + 1, ((indexpoint)c->m->index->ary[msg_num].v)->msglength);
                 connection_sendresponse(c, 1, "Message follows:");
 
                 if (!mailspool_send_message(c->m, c->s, msg_num, arg2)) {

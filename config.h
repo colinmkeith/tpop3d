@@ -14,5 +14,6 @@
 #include "stringmap.h"
 
 stringmap read_config_file(const char *f);
+int is_cfgdirective_valid(const char *s);
 
 #endif /* __CONFIG_H_ */

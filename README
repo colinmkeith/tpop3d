@@ -52,7 +52,10 @@ to review the authentication schemes available; at present, these are
         (or clear-text passwords for APOP authentication). By applying the
         patches in mysql_crypt.patch, you can alter this to use passwords
         which are hashed using crypt(3) (as in /etc/passwd on most Unix
-        systems). This patch was contributed by Dom Gallagher.
+        systems); if you apply this patch, you will have to modify the SQL
+        schema for the database, creating a crypt_pw column to store the
+        password hashes (rather than password_hash). This patch was
+        contributed by Dom Gallagher.
 
         Not enabled in the distribution makefile.
 
@@ -81,6 +84,14 @@ to use PAM if your system supports it.
 
 auth_mysql.[ch] gives an example of an authentication driver for virtual
 domains.
+
+If you add a new authentication driver, it will probably have configuration
+options; tpop3d now warns about the presence of unknown configuration
+directives, and discards them. You will need to add your new directives to
+cfgdirectives.c. (I hope to make this process automatic, but have not quite
+decided which ugly C-preprocessor incantation to use. Note that the problem
+is not quite as trivial as grepping for `stringmap_find', since the set of
+valid directives changes based on various macro definitions.)
 
 Virtual domains are supported via users logging in with names such as
 `user@example.com'. The server supports adding `@example.com' based on the
