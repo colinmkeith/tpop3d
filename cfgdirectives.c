@@ -24,6 +24,7 @@ char *cfgdirectives[] = {
     "max-children",
     "append-domain",
     "timeout-seconds",
+    "log-facility",
     "mailbox",
 
 #ifdef AUTH_PAM

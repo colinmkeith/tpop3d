@@ -1,6 +1,11 @@
 Changes for tpop3d
 $Id$
 
+1.3.6
+
+The facility as which tpop3d logs messages may now be changed from the
+configuration file.
+
 1.3.5
 
 A bug in the log printing code which caused trouble on some architectures was

@@ -95,7 +95,7 @@ void dump(unsigned char *b, size_t len) {
             q += 4;
         }
     *q = 0;
-    print_log(LOG_INFO, "dump %s", str);
+    log_print(LOG_INFO, "dump %s", str);
     xfree(str);
 }
 
@@ -148,7 +148,7 @@ int auth_other_start_child() {
 
     /* Generate pipes to talk to the child. */
     if (pipe(p1) == -1 || pipe(p2) == -1) {
-        print_log(LOG_ERR, "auth_other_start_child: pipe: %m");
+        log_print(LOG_ERR, "auth_other_start_child: pipe: %m");
         return 0;
     }
 
@@ -157,7 +157,7 @@ int auth_other_start_child() {
      * We want p1[1] to be non-blocking.
      */
     if (fcntl(p1[1], F_SETFL, O_NONBLOCK) == -1) {
-        print_log(LOG_ERR, "auth_other_start_child: fcntl: %m");
+        log_print(LOG_ERR, "auth_other_start_child: fcntl: %m");
         close(p1[0]); close(p1[1]); close(p2[0]); close(p2[1]);
         return 0;
     }
@@ -165,10 +165,10 @@ int auth_other_start_child() {
     switch (authchild_pid = fork()) {
         case 0:
             if (setgid(authchild_gid) == -1) {
-                print_log(LOG_ERR, "auth_other_start_child: setgid(%d): %m", (int)authchild_gid);
+                log_print(LOG_ERR, "auth_other_start_child: setgid(%d): %m", (int)authchild_gid);
                 _exit(1);
             } else if (setuid(authchild_uid) == -1) {
-                print_log(LOG_ERR, "auth_other_start_child: setuid(%d): %m", (int)authchild_uid);
+                log_print(LOG_ERR, "auth_other_start_child: setuid(%d): %m", (int)authchild_uid);
                 _exit(1);
             }
             
@@ -188,7 +188,7 @@ int auth_other_start_child() {
             
         case -1:
             /* Error. */
-            print_log(LOG_ERR, "auth_other_start_child: fork: %m");
+            log_print(LOG_ERR, "auth_other_start_child: fork: %m");
 
             close(p1[0]); close(p1[1]); close(p2[0]); close(p2[1]);
             return 0;
@@ -201,7 +201,7 @@ int auth_other_start_child() {
             close(p1[0]);
             close(p2[1]);
 
-            print_log(LOG_INFO, "auth_other_start_child: started authentication child `%s'", auth_program);
+            log_print(LOG_INFO, "auth_other_start_child: started authentication child `%s'", auth_program);
 
             return 1;
     }
@@ -228,7 +228,7 @@ void auth_other_kill_child() {
     }
 
     if (authchild_pid) {
-        print_log(LOG_WARNING, _("auth_other_kill_child: child failed to die; killing with SIGKILL"));
+        log_print(LOG_WARNING, _("auth_other_kill_child: child failed to die; killing with SIGKILL"));
         kill(authchild_pid, SIGKILL);
         /* Assume this works; it ought to! */
     }
@@ -245,16 +245,16 @@ int auth_other_init() {
     float f;
 
     if (!(I = stringmap_find(config, "auth-other-program"))) {
-        print_log(LOG_ERR, _("auth_other_init: no program specified"));
+        log_print(LOG_ERR, _("auth_other_init: no program specified"));
         return 0;
     } else {
         struct stat st;
         auth_program = (char*)I->v;
         if (*auth_program != '/') {
-            print_log(LOG_ERR, _("auth_other_init: auth-program %s should be an absolute path"), auth_program);
+            log_print(LOG_ERR, _("auth_other_init: auth-program %s should be an absolute path"), auth_program);
             return 0;
         } else if (stat(auth_program, &st) == -1) {
-            print_log(LOG_ERR, _("auth_other_init: auth-program %s: %m"), auth_program);
+            log_print(LOG_ERR, _("auth_other_init: auth-program %s: %m"), auth_program);
             return 0;
         }
         /* XXX should fail if it turns out that the program is not executable
@@ -265,12 +265,12 @@ int auth_other_init() {
     /* Find out the timeout for talking to the program. */
     switch (config_get_float("auth-other-timeout", &f)) {
         case -1:
-            print_log(LOG_ERR, _("auth_other_init: value given for auth-other-timeout does not make sense"));
+            log_print(LOG_ERR, _("auth_other_init: value given for auth-other-timeout does not make sense"));
             return 0;
 
         case 1:
             if (f < 0.0 || f > 10.0) {
-                print_log(LOG_ERR, _("auth_other_init: value %f for auth-other-timeout is out of range"), f);
+                log_print(LOG_ERR, _("auth_other_init: value %f for auth-other-timeout is out of range"), f);
                 return 0;
             }
             break;
@@ -284,25 +284,25 @@ int auth_other_init() {
 
     /* Find out user and group under which program will run. */
     if (!(I = stringmap_find(config, "auth-other-user"))) {
-        print_log(LOG_ERR, _("auth_other_init: no user specified"));
+        log_print(LOG_ERR, _("auth_other_init: no user specified"));
         return 0;
     } else if (!parse_uid(I->v, &authchild_uid)) {
-        print_log(LOG_ERR, _("auth_other_init: auth-other-user directive `%s' does not make sense"), I->v);
+        log_print(LOG_ERR, _("auth_other_init: auth-other-user directive `%s' does not make sense"), I->v);
         return 0;
     }
 
     if (!(I = stringmap_find(config, "auth-other-group"))) {
-        print_log(LOG_ERR, _("auth_other_init: no group specified"));
+        log_print(LOG_ERR, _("auth_other_init: no group specified"));
         return 0;
     } else if (!parse_gid(I->v, &authchild_gid)) {
-        print_log(LOG_ERR, _("auth_other_init: auth-other-group directive `%s' does not make sense"), I->v);
+        log_print(LOG_ERR, _("auth_other_init: auth-other-group directive `%s' does not make sense"), I->v);
         return 0;
     }
 
-    print_log(LOG_INFO, "auth_other_init: %s: will run as uid %d, gid %d", auth_program, (int)authchild_uid, (int)authchild_gid);
+    log_print(LOG_INFO, "auth_other_init: %s: will run as uid %d, gid %d", auth_program, (int)authchild_uid, (int)authchild_gid);
 
     if (!auth_other_start_child()) {
-        print_log(LOG_ERR, _("auth_other_init: failed to start authentication child for first time"));
+        log_print(LOG_ERR, _("auth_other_init: failed to start authentication child for first time"));
         return 0;
     }
 
@@ -348,7 +348,7 @@ int auth_other_send_request(const int nvars, ...) {
 
     ++nn; /* Terminating \0 */
     if (nn > sizeof(buffer)) {
-        print_log(LOG_ERR, _("auth_other_send_request: total size of request would exceed %d bytes"), sizeof(buffer));
+        log_print(LOG_ERR, _("auth_other_send_request: total size of request would exceed %d bytes"), sizeof(buffer));
         goto fail;
     }
 
@@ -359,9 +359,9 @@ int auth_other_send_request(const int nvars, ...) {
     if (try_write(authchild_wr, buffer, nn)) ret = 1;
     else {
         if (errno == EAGAIN)
-            print_log(LOG_ERR, _("auth_other_send_request: write: write on pipe blocked; killing child"));
+            log_print(LOG_ERR, _("auth_other_send_request: write: write on pipe blocked; killing child"));
         else
-            print_log(LOG_ERR, _("auth_other_send_request: write: %m; killing child"));
+            log_print(LOG_ERR, _("auth_other_send_request: write: %m; killing child"));
         auth_other_kill_child();
     }
     
@@ -396,7 +396,7 @@ stringmap auth_other_recv_response() {
         FD_SET(authchild_rd, &readfds);
         gettimeofday(&tt, NULL);
         if (tvcmp(&deadline, &tt) == -1) {
-            print_log(LOG_ERR, _("auth_other_recv_response: timed out waiting for a response; killing child"));
+            log_print(LOG_ERR, _("auth_other_recv_response: timed out waiting for a response; killing child"));
             goto fail;
         }
         tvsub(&timeout, &tt);
@@ -407,19 +407,19 @@ stringmap auth_other_recv_response() {
 
                 switch (rr) {
                     case 0:
-                        print_log(LOG_ERR, _("auth_other_recv_response: read: child closed pipe; killing child"));
+                        log_print(LOG_ERR, _("auth_other_recv_response: read: child closed pipe; killing child"));
                         goto fail;
 
                     case -1:
                         if (errno != EINTR) {
-                            print_log(LOG_ERR, _("auth_other_recv_response: read: %m; killing child"));
+                            log_print(LOG_ERR, _("auth_other_recv_response: read: %m; killing child"));
                             goto fail;
                         } else break;
 
                     default:
                         p += rr;
                         if (p == buffer + sizeof(buffer)) {
-                            print_log(LOG_ERR, _("auth_other_recv_response: total size of response exceeds %d bytes; killing child"), sizeof(buffer));
+                            log_print(LOG_ERR, _("auth_other_recv_response: total size of response exceeds %d bytes; killing child"), sizeof(buffer));
                             goto fail;
                         }
                 }
@@ -427,7 +427,7 @@ stringmap auth_other_recv_response() {
 
             case -1:
                 if (errno != EINTR) {
-                    print_log(LOG_ERR, _("auth_other_recv_repsonse: select: %m; killing child"));
+                    log_print(LOG_ERR, _("auth_other_recv_repsonse: select: %m; killing child"));
                     goto fail;
                 }
 
@@ -459,7 +459,7 @@ stringmap auth_other_recv_response() {
         continue;
 
 formaterror:
-        print_log(LOG_ERR, _("auth_other_recv_response: response data not correctly formatted; killing child"));
+        log_print(LOG_ERR, _("auth_other_recv_response: response data not correctly formatted; killing child"));
         stringmap_delete_free(S);
         S = NULL;
     }
@@ -473,8 +473,8 @@ fail:
  * Attempt to authenticate a user using APOP, via the child program.
  */
 authcontext auth_other_new_apop(const char *name, const char *timestamp, const unsigned char *digest, const char *host) {
-#define MISSING(k)     do { print_log(LOG_ERR, _("auth_other_new_apop: missing key `%s' in response"), (k)); goto fail; } while(0)
-#define INVALID(k, v)  do { print_log(LOG_ERR, _("auth_other_new_apop: invalid value `%s' for key `%s' in response"), (v), (k)); goto fail; } while(0)
+#define MISSING(k)     do { log_print(LOG_ERR, _("auth_other_new_apop: missing key `%s' in response"), (k)); goto fail; } while(0)
+#define INVALID(k, v)  do { log_print(LOG_ERR, _("auth_other_new_apop: invalid value `%s' for key `%s' in response"), (v), (k)); goto fail; } while(0)
     char digeststr[33];
     char *p;
     const unsigned char *q;
@@ -491,7 +491,7 @@ authcontext auth_other_new_apop(const char *name, const char *timestamp, const u
         return NULL;
 
     I = stringmap_find(S, "logmsg");
-    if (I) print_log(LOG_INFO, "auth_other_new_apop: child: %s", (char*)I->v);
+    if (I) log_print(LOG_INFO, "auth_other_new_apop: child: %s", (char*)I->v);
 
     I = stringmap_find(S, "result");
     if (!I) MISSING("result");
@@ -536,8 +536,8 @@ fail:
  * Attempt to authenticate a user using USER/PASS, via the child program.
  */
 authcontext auth_other_new_user_pass(const char *user, const char *pass, const char *host) {
-#define MISSING(k)     do { print_log(LOG_ERR, _("auth_other_new_user_pass: missing key `%s' in response"), (k)); goto fail; } while(0)
-#define INVALID(k, v)  do { print_log(LOG_ERR, _("auth_other_new_user_pass: invalid value `%s' for key `%s' in response"), (v), (k)); goto fail; } while(0)
+#define MISSING(k)     do { log_print(LOG_ERR, _("auth_other_new_user_pass: missing key `%s' in response"), (k)); goto fail; } while(0)
+#define INVALID(k, v)  do { log_print(LOG_ERR, _("auth_other_new_user_pass: invalid value `%s' for key `%s' in response"), (v), (k)); goto fail; } while(0)
     stringmap S;
     item *I;
     authcontext a = NULL;
@@ -549,7 +549,7 @@ authcontext auth_other_new_user_pass(const char *user, const char *pass, const c
         return NULL;
     
     I = stringmap_find(S, "logmsg");
-    if (I) print_log(LOG_INFO, "auth_other_new_user_pass: child: %s", (char*)I->v);
+    if (I) log_print(LOG_INFO, "auth_other_new_user_pass: child: %s", (char*)I->v);
 
     I = stringmap_find(S, "result");
     if (!I) MISSING("result");

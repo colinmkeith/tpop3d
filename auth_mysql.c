@@ -274,19 +274,19 @@ int auth_mysql_init() {
 
     if ((I = stringmap_find(config, "auth-mysql-username"))) username = (char*)I->v;
     else {
-        print_log(LOG_ERR, _("auth_mysql_init: no auth-mysql-username directive in config"));
+        log_print(LOG_ERR, _("auth_mysql_init: no auth-mysql-username directive in config"));
         goto fail;
     }
 
     if ((I = stringmap_find(config, "auth-mysql-password"))) password = (char*)I->v;
     else {
-        print_log(LOG_WARNING, _("auth_mysql_init: no auth-mysql-password directive in config; using blank password"));
+        log_print(LOG_WARNING, _("auth_mysql_init: no auth-mysql-password directive in config; using blank password"));
         password = "";
     }
 
     if ((I = stringmap_find(config, "auth-mysql-database"))) database = (char*)I->v;
     else {
-        print_log(LOG_ERR, _("auth_mysql_init: no auth-mysql-database directive in config"));
+        log_print(LOG_ERR, _("auth_mysql_init: no auth-mysql-database directive in config"));
         goto fail;
     }
 
@@ -298,12 +298,12 @@ int auth_mysql_init() {
 
     mysql = mysql_init(NULL);
     if (!mysql) {
-        print_log(LOG_ERR, _("auth_mysql_init: mysql_init: failed"));
+        log_print(LOG_ERR, _("auth_mysql_init: mysql_init: failed"));
         goto fail;
     }
 
     if (mysql_real_connect(mysql, hostname, username, password, database, 0, NULL, 0) != mysql) {
-        print_log(LOG_ERR, "auth_mysql_init: mysql_real_connect: %s", mysql_error(mysql));
+        log_print(LOG_ERR, "auth_mysql_init: mysql_real_connect: %s", mysql_error(mysql));
         mysql_close(mysql);
         mysql = NULL;
         goto fail;
@@ -340,7 +340,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
     /* Obtain gid to use */
     if ((I = stringmap_find(config, "auth-mysql-mail-group"))) {
         if (!parse_gid((char*)I->v, &gid)) {
-            print_log(LOG_ERR, _("auth_mysql_new_apop: auth-mysql-mail-group directive `%s' does not make sense"), (char*)I->v);
+            log_print(LOG_ERR, _("auth_mysql_new_apop: auth-mysql-mail-group directive `%s' does not make sense"), (char*)I->v);
             return NULL;
         }
         use_gid = 1;
@@ -356,7 +356,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
     strncpy(local_part, name, domain - name - 1);
     
     if (mysql_ping(mysql) == -1) {
-        print_log(LOG_ERR, "auth_mysql_new_apop: mysql_ping: %s", mysql_error(mysql));
+        log_print(LOG_ERR, "auth_mysql_new_apop: mysql_ping: %s", mysql_error(mysql));
         return NULL;
     }
 
@@ -365,19 +365,19 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
     if (!query) goto fail;
 
     if (verbose)
-        print_log(LOG_DEBUG, "auth_mysql_new_apop: SQL query: %s", query);
+        log_print(LOG_DEBUG, "auth_mysql_new_apop: SQL query: %s", query);
 
     if (mysql_query(mysql, query) == 0) {
         MYSQL_RES *result = mysql_store_result(mysql);
         int i;
 
         if (!result) {
-            print_log(LOG_ERR, "auth_mysql_new_apop: mysql_store_result: %s", mysql_error(mysql));
+            log_print(LOG_ERR, "auth_mysql_new_apop: mysql_store_result: %s", mysql_error(mysql));
             goto fail;
         }
 
         if (mysql_field_count(mysql) != 4) {
-            print_log(LOG_ERR, "auth_mysql_new_apop: %d fields returned by query, should be 4: mailbox location, password hash, unix user, mailbox type", mysql_field_count(mysql));
+            log_print(LOG_ERR, "auth_mysql_new_apop: %d fields returned by query, should be 4: mailbox location, password hash, unix user, mailbox type", mysql_field_count(mysql));
             goto fail;
         }
 
@@ -397,7 +397,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
 
                 /* Verify that this user has a plaintext password. */
                 if (strncmp(row[1], "{plaintext}", 11) != 0) {
-                    print_log(LOG_WARNING, _("auth_mysql_new_apop: attempted APOP login by %s@%s, who does not have a plaintext password"), local_part, domain);
+                    log_print(LOG_WARNING, _("auth_mysql_new_apop: attempted APOP login by %s@%s, who does not have a plaintext password"), local_part, domain);
                     break;
                 }
                 
@@ -409,20 +409,20 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
 
                 /* User was lying */
                 if (memcmp(this_digest, digest, 16)) {
-                    print_log(LOG_WARNING, _("auth_mysql_new_apop: failed login for %s@%s"), local_part, domain);
+                    log_print(LOG_WARNING, _("auth_mysql_new_apop: failed login for %s@%s"), local_part, domain);
                     break;
                 }
 
                 /* User was not lying (about her password) */
                 if (!parse_uid((const char*)row[2], &uid)) {
-                    print_log(LOG_ERR, _("auth_mysql_new_apop: unix user `%s' for %s@%s does not make sense"), row[3], local_part, domain);
+                    log_print(LOG_ERR, _("auth_mysql_new_apop: unix user `%s' for %s@%s does not make sense"), row[3], local_part, domain);
                     break;
                 }
 
                 pw = getpwuid(uid);
 
                 if (!pw) {
-                    print_log(LOG_ERR, "auth_mysql_new_apop: getpwuid(%d): %m", (int)uid);
+                    log_print(LOG_ERR, "auth_mysql_new_apop: getpwuid(%d): %m", (int)uid);
                     break;
                 }
 
@@ -436,14 +436,14 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
             }
 
         default:
-            print_log(LOG_ERR, _("auth_mysql_new_apop: database inconsistency: query for %s returned %d rows"), name, i);
+            log_print(LOG_ERR, _("auth_mysql_new_apop: database inconsistency: query for %s returned %d rows"), name, i);
             break;
         }
 
         mysql_free_result(result);
         
     } else {
-        print_log(LOG_ERR, "auth_mysql_new_apop: mysql_query: %s", mysql_error(mysql));
+        log_print(LOG_ERR, "auth_mysql_new_apop: mysql_query: %s", mysql_error(mysql));
     }
 
 fail:
@@ -472,7 +472,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const c
     /* Obtain gid to use */
     if ((I = stringmap_find(config, "auth-mysql-mail-group"))) {
         if (!parse_gid((char*)I->v, &gid)) {
-            print_log(LOG_ERR, _("auth_mysql_new_apop: auth-mysql-mail-group directive `%s' does not make sense"), (char*)I->v);
+            log_print(LOG_ERR, _("auth_mysql_new_apop: auth-mysql-mail-group directive `%s' does not make sense"), (char*)I->v);
             return NULL;
         }
         use_gid = 1;
@@ -488,7 +488,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const c
     strncpy(local_part, user, domain - user - 1);
     
     if (mysql_ping(mysql) == -1) {
-        print_log(LOG_ERR, "auth_mysql_new_user_pass: mysql_ping: %s", mysql_error(mysql));
+        log_print(LOG_ERR, "auth_mysql_new_user_pass: mysql_ping: %s", mysql_error(mysql));
         return NULL;
     }
 
@@ -497,19 +497,19 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const c
     if (!query) goto fail;
 
     if (verbose)
-        print_log(LOG_DEBUG, "auth_mysql_new_user_pass: SQL query: %s", query);
+        log_print(LOG_DEBUG, "auth_mysql_new_user_pass: SQL query: %s", query);
 
     if (mysql_query(mysql, query) == 0) {
         MYSQL_RES *result = mysql_store_result(mysql);
         int i;
 
         if (!result) {
-            print_log(LOG_ERR, "auth_mysql_new_user_pass: mysql_store_result: %s", mysql_error(mysql));
+            log_print(LOG_ERR, "auth_mysql_new_user_pass: mysql_store_result: %s", mysql_error(mysql));
             goto fail;
         }
 
         if (mysql_field_count(mysql) != 4) {
-            print_log(LOG_ERR, "auth_mysql_new_user_pass: %d fields returned by query, should be 4: mailbox location, password hash, unix user, mailbox type", mysql_field_count(mysql));
+            log_print(LOG_ERR, "auth_mysql_new_user_pass: %d fields returned by query, should be 4: mailbox location, password hash, unix user, mailbox type", mysql_field_count(mysql));
             goto fail;
         }
 
@@ -556,7 +556,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const c
                             break;
 
                         default:
-                            print_log(LOG_ERR, _("auth_mysql_new_user_pass: %s@%s has mysql password type, but hash is of incorrect length %d"), local_part, domain, n);
+                            log_print(LOG_ERR, _("auth_mysql_new_user_pass: %s@%s has mysql password type, but hash is of incorrect length %d"), local_part, domain, n);
                             break;
                     }
                 } else if (strncmp(pwhash, "{md5}", 4) == 0 || *pwhash != '{') {
@@ -573,24 +573,24 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const c
                     if (strcasecmp(hexhash, pwhash + 5) == 0 || strcasecmp(hexhash, pwhash) == 0) authok = 1;
                 } else {
                     /* Unknown format. */
-                    print_log(LOG_ERR, _("auth_mysql_new_user_pass: %s@%s has unknown password format `%.*s'"), local_part, domain, 2 + strcspn(pwhash + 1, "}"), pwhash);
+                    log_print(LOG_ERR, _("auth_mysql_new_user_pass: %s@%s has unknown password format `%.*s'"), local_part, domain, 2 + strcspn(pwhash + 1, "}"), pwhash);
                     break;
                 }
 
                 if (!authok) {
-                    print_log(LOG_ERR, _("auth_mysql_new_user_pass: %s@%s failed login with wrong password"), local_part, domain);
+                    log_print(LOG_ERR, _("auth_mysql_new_user_pass: %s@%s failed login with wrong password"), local_part, domain);
                     break;
                 }
 
                 if (!parse_uid((const char*)row[2], &uid)) {
-                    print_log(LOG_ERR, _("auth_mysql_new_user_pass: unix user `%s' for %s@%s does not make sense"), row[3], local_part, domain);
+                    log_print(LOG_ERR, _("auth_mysql_new_user_pass: unix user `%s' for %s@%s does not make sense"), row[3], local_part, domain);
                     break;
                 }
 
                 pw = getpwuid(uid);
 
                 if (!pw) {
-                    print_log(LOG_ERR, "auth_mysql_new_user_pass: getpwuid(%d): %m", (int)uid);
+                    log_print(LOG_ERR, "auth_mysql_new_user_pass: getpwuid(%d): %m", (int)uid);
                     break;
                 }
 
@@ -600,13 +600,13 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const c
             }
 
         default:
-            print_log(LOG_ERR, _("auth_mysql_new_user_pass: database inconsistency: query for %s@%s returned %d rows"), local_part, domain, i);
+            log_print(LOG_ERR, _("auth_mysql_new_user_pass: database inconsistency: query for %s@%s returned %d rows"), local_part, domain, i);
             break;
         }
 
         mysql_free_result(result);
     } else {
-        print_log(LOG_ERR, "auth_mysql_new_user_pass: mysql_query: %s", mysql_error(mysql));
+        log_print(LOG_ERR, "auth_mysql_new_user_pass: mysql_query: %s", mysql_error(mysql));
     }
 
 fail:
@@ -645,7 +645,7 @@ static char *substitute_query_params(const char *template, const char *local_par
     /* Do the substitution. */
     query = substitute_variables(template, &err, 2, "local_part", l, "domain", d);
     if (!query)
-        print_log(LOG_ERR, _("substitute_query_params: %s near `%.16s'"), err.msg, template + err.offset);
+        log_print(LOG_ERR, _("substitute_query_params: %s near `%.16s'"), err.msg, template + err.offset);
     
     xfree(l);
     xfree(d);

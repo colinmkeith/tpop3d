@@ -63,7 +63,7 @@ int maildir_build_index(mailbox M, const char *subdir, time_t time) {
 
     dir = opendir(subdir);
     if (!dir) {
-        print_log(LOG_ERR, "maildir_build_index: opendir(%s): %m", subdir);
+        log_print(LOG_ERR, "maildir_build_index: opendir(%s): %m", subdir);
         return -1;
     }
     
@@ -88,7 +88,7 @@ int maildir_build_index(mailbox M, const char *subdir, time_t time) {
     closedir(dir);
     
     if (d) {
-        print_log(LOG_ERR, "maildir_build_index: readdir(%s): %m", subdir);
+        log_print(LOG_ERR, "maildir_build_index: readdir(%s): %m", subdir);
         return -1;
     }
 
@@ -128,11 +128,11 @@ mailbox maildir_new(const char *dirname) {
     
     if (chdir(dirname) == -1) {
         if (errno == ENOENT) failM = MBOX_NOENT;
-        else print_log(LOG_ERR, "maildir_new: chdir(%s): %m", dirname);
+        else log_print(LOG_ERR, "maildir_new: chdir(%s): %m", dirname);
         goto fail;
     } else {
         if(!(M->name = strdup(dirname))) {
-            print_log(LOG_ERR, "maildir_new: strdup: %m");
+            log_print(LOG_ERR, "maildir_new: strdup: %m");
             goto fail;
         }
     }
@@ -148,7 +148,7 @@ mailbox maildir_new(const char *dirname) {
 
     gettimeofday(&tv2, NULL);
     f = (float)(tv2.tv_sec - tv1.tv_sec) + 1e-6 * (float)(tv2.tv_usec - tv1.tv_usec);
-    print_log(LOG_DEBUG, "maildir_new: scanned maildir %s (%d messages) in %0.3fs", dirname, (int)M->num, f);
+    log_print(LOG_DEBUG, "maildir_new: scanned maildir %s (%d messages) in %0.3fs", dirname, (int)M->num, f);
     
     return M;
 
@@ -176,10 +176,10 @@ int maildir_send_message(const mailbox M, int sck, const int i, int n) {
     m = M->index +i;
     fd = open(m->filename, O_RDONLY);
     if (fd == -1) {
-        print_log(LOG_ERR, "maildir_send_message: open(%s): %m", m->filename);
+        log_print(LOG_ERR, "maildir_send_message: open(%s): %m", m->filename);
         return 0;
     }
-    print_log(LOG_INFO, "maildir_send_message: sending message %d (%s) size %d bytes", i+1, m->filename, m->msglength);
+    log_print(LOG_INFO, "maildir_send_message: sending message %d (%s) size %d bytes", i+1, m->filename, m->msglength);
     status = write_file(fd, sck, 0 /* offset */, 0 /* skip */, m->msglength, n);
     close(fd);
 
@@ -196,7 +196,7 @@ int maildir_apply_changes(mailbox M) {
     for (m = M->index; m < M->index + M->num; ++m) {
         if (m->deleted) {
             if (unlink(m->filename) == -1) {
-                print_log(LOG_ERR, "maildir_apply_changes: unlink(%s): %m", m->filename);
+                log_print(LOG_ERR, "maildir_apply_changes: unlink(%s): %m", m->filename);
                 return 0;
             }
         } else {

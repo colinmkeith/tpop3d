@@ -153,7 +153,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                         connection_sendresponse(c, 0, _("Too many authentication attempts."));
 #endif
 
-                        print_log(LOG_ERR, _("connection_do: client `%s' failed to log in after %d attempts"), c->idstr, MAX_AUTH_TRIES);
+                        log_print(LOG_ERR, _("connection_do: client `%s' failed to log in after %d attempts"), c->idstr, MAX_AUTH_TRIES);
                         return close_connection;
                     } else {
 #ifndef NO_SNIDE_COMMENTS
@@ -161,7 +161,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
 #else
                         connection_sendresponse(c, 0, _("Authentication failed."));
 #endif
-                        print_log(LOG_ERR, _("connection_do: client `%s': %d authentication failures"), c->idstr, c->n_auth_tries);
+                        log_print(LOG_ERR, _("connection_do: client `%s': %d authentication failures"), c->idstr, c->n_auth_tries);
                         return do_nothing;
                     }
                 }
@@ -225,7 +225,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
 #else
                     connection_sendresponse(c, 0, _("Too many authentication attempts."));
 #endif
-                    print_log(LOG_ERR, _("connection_do: client `%s' failed to log in after %d attempts"), c->idstr, MAX_AUTH_TRIES);
+                    log_print(LOG_ERR, _("connection_do: client `%s' failed to log in after %d attempts"), c->idstr, MAX_AUTH_TRIES);
                     return close_connection;
                 } else {
 #ifndef NO_SNIDE_COMMENTS
@@ -233,7 +233,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
 #else
                     connection_sendresponse(c, 0, _("Authentication failed."));
 #endif
-                    print_log(LOG_ERR, _("connection_do: client `%s': %d authentication failures"), c->idstr, c->n_auth_tries);
+                    log_print(LOG_ERR, _("connection_do: client `%s': %d authentication failures"), c->idstr, c->n_auth_tries);
                     return do_nothing;
                 }
             }
@@ -334,7 +334,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 /* That might have taken a long time. */
                 c->idlesince = time(NULL);
                 if (verbose)
-                    print_log(LOG_DEBUG, _("connection_do: client %s: sent %d-line scan list"), c->idstr, nn + 1);
+                    log_print(LOG_DEBUG, _("connection_do: client %s: sent %d-line scan list"), c->idstr, nn + 1);
             }
             break;
 
@@ -347,14 +347,14 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     connection_sendresponse(c, 0, _("That message is no more."));
                 else {
                     char response[64] = {0};
-                    print_log(LOG_INFO, "UIDL %d (hash = %s)", 1 + msg_num, hex_digest(curmsg->hash));
+                    log_print(LOG_INFO, "UIDL %d (hash = %s)", 1 + msg_num, hex_digest(curmsg->hash));
                     snprintf(response, 63, "%d %s", 1 + msg_num, hex_digest(curmsg->hash));
                     connection_sendresponse(c, 1, response);
                 }
             } else {
                 struct indexpoint *J;
                 int nn = 0;
-                print_log(LOG_INFO, "UIDL");
+                log_print(LOG_INFO, "UIDL");
                 connection_sendresponse(c, 1, _("ID list follows:"));
                 for (J = curmbox->index; J < curmbox->index + curmbox->num; ++J) {
                     if (!J->deleted) {
@@ -368,7 +368,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 /* That might have taken a long time. */
                 c->idlesince = time(NULL);
                 if (verbose)
-                    print_log(LOG_DEBUG, _("connection_do: client %s: sent %d-line unique ID list"), c->idstr, nn + 1);
+                    log_print(LOG_DEBUG, _("connection_do: client %s: sent %d-line unique ID list"), c->idstr, nn + 1);
             }
             break;
 
@@ -387,7 +387,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     connection_sendresponse(c, 0, _("That message is no more."));
                 else {
                     if (verbose)
-                        print_log(LOG_DEBUG, _("connection_do: client %s: sending message %d (%d bytes)"),
+                        log_print(LOG_DEBUG, _("connection_do: client %s: sending message %d (%d bytes)"),
                                     c->idstr, msg_num + 1, (int)curmsg->msglength);
                     connection_sendresponse(c, 1, _("Message follows:"));
                     if (!(curmbox)->send_message(curmbox, c->s, msg_num, -1)) {
@@ -397,7 +397,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     /* That might have taken a long time. */
                     c->idlesince = time(NULL);
                     if (verbose)
-                        print_log(LOG_DEBUG, _("connection_do: client %s: sent message %d"), c->idstr, msg_num + 1);
+                        log_print(LOG_DEBUG, _("connection_do: client %s: sent message %d"), c->idstr, msg_num + 1);
                 }
                 break;
             } else {
@@ -418,7 +418,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 }
                 
                 if (verbose)
-                    print_log(LOG_DEBUG, _("connection_do: client %s: sending headers and up to %d lines of message %d (< %d bytes)"),
+                    log_print(LOG_DEBUG, _("connection_do: client %s: sending headers and up to %d lines of message %d (< %d bytes)"),
                                 c->idstr, arg2, msg_num + 1, (int)curmsg->msglength);
                 connection_sendresponse(c, 1, _("Message follows:"));
 
@@ -429,7 +429,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 /* That might have taken a long time. */
                 c->idlesince = time(NULL);
                 if (verbose)
-                    print_log(LOG_DEBUG, _("connection_do: client %s: sent headers and up to %d lines of message %d"), c->idstr, arg2, msg_num + 1);
+                    log_print(LOG_DEBUG, _("connection_do: client %s: sent headers and up to %d lines of message %d"), c->idstr, arg2, msg_num + 1);
                 break;
             }
                 
@@ -491,11 +491,11 @@ int connection_start_transaction(connection c) {
     if (!c) return 0;
     
     if (c->a->gid != getgid()) {
-        print_log(LOG_ERR, _("connection_start_transaction: wrong gid"));
+        log_print(LOG_ERR, _("connection_start_transaction: wrong gid"));
         return 0;
     }
     if (c->a->uid != getuid()) {
-        print_log(LOG_ERR, _("connection_start_transaction: wrong uid"));
+        log_print(LOG_ERR, _("connection_start_transaction: wrong uid"));
         return 0;
     }
     

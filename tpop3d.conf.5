@@ -60,7 +60,7 @@ If authentication does not succeed for a given \fIusername\fP, retry with
 with the address on which the connection was received. This is intended to
 be used where multiple virtual domains are served from multiple IP addresses.
 This option only takes effect when \fIusername\fP does not contain a
-separator, which may be `@', `%' or `!'.
+separator, which may be `@', `%', `:' or `!'.
 .TP
 \fBtimeout-seconds\fP: \fInumber\fP
 This is the number of seconds for which a connection may be idle for before it
@@ -69,6 +69,13 @@ is 30 seconds (see the section on BUGS in \fBtpop3d\fP(8)). If you wish to
 have \fBtpop3d\fP comply explicitly with the RFC (which demands a ten-minute
 timeout), then specify 600 seconds. This may be necessary with some clients
 which pause randomly whilst downloading messages.
+.TP
+\fBlog-facility\fP: \fIfacility\fP
+This selects the `facility' as which \fBtpop3d\fP emits system log messages.
+Possible values for \fIfacility\fP are: \fBmail\fP, \fBauthpriv\fP,
+\fBdaemon\fP, \fBuser\fP, and \fBlocal0\fP through \fBlocal7\fP inclusive.
+(Although other possibilities are mentioned in \fBopenlog\fP(3), they don't
+make much sense for a POP3 server.)
 .TP
 .nf
 \fBmailbox\fP: [\fImailbox-driver\fP:]\fIpath-spec\fP ...

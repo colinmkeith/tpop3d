@@ -82,7 +82,7 @@ mailbox mailbox_new(const char *filename, const char *type) {
     for (mr = mbox_drivers; mr < mbox_drivers_end; ++mr)
         if (strcmp(type, mr->name) == 0) return mr->m_new(filename);
     
-    print_log(LOG_ERR, _("mailbox_new(%s): request for unknown mailbox type %s"), filename, type);
+    log_print(LOG_ERR, _("mailbox_new(%s): request for unknown mailbox type %s"), filename, type);
     return MBOX_NOENT;
 }
 
@@ -164,7 +164,7 @@ mailbox try_mailbox_locations(const char *specs, const char *user, const char *d
         path = substitute_variables(subspec, &err, 3, "user", user, "domain", domain, "home", home);
         if (!path)
             /* Some sort of syntax error. */
-            print_log(LOG_ERR, _("try_mailbox_locations: %s near `%.16s'"), err.msg, subspec + err.offset);
+            log_print(LOG_ERR, _("try_mailbox_locations: %s near `%.16s'"), err.msg, subspec + err.offset);
         else {
             m = mailbox_new(path, mdrv);
             xfree(path);
@@ -224,7 +224,7 @@ mailbox find_mailbox(authcontext a) {
     /* No good. Give the user an empty mailbox. */
     if (m == MBOX_NOENT) {
         m = emptymbox_new(NULL);
-        print_log(LOG_WARNING, _("find_mailbox: using empty mailbox for user %s"), a->user);
+        log_print(LOG_WARNING, _("find_mailbox: using empty mailbox for user %s"), a->user);
     }
     
     return m;

@@ -37,13 +37,13 @@ void appalling_backtrace_hack() {
 
     n = backtrace(func_addr, BT_LEVELS);
 
-    print_log(LOG_ERR, _("appalling_backtrace_hack: stack trace of program begins"));
+    log_print(LOG_ERR, _("appalling_backtrace_hack: stack trace of program begins"));
     
     for (i = 0; i < n; ++i)
-        print_log(LOG_ERR, "appalling_backtrace_hack:    [%d]: %p", i, func_addr[i]);
+        log_print(LOG_ERR, "appalling_backtrace_hack:    [%d]: %p", i, func_addr[i]);
 
-    print_log(LOG_ERR, _("appalling_backtrace_hack: stack trace of program ends"));
-    print_log(LOG_ERR, _("appalling_backtrace_hack: use addr2line(1) to resolve the addresses"));
+    log_print(LOG_ERR, _("appalling_backtrace_hack: stack trace of program ends"));
+    log_print(LOG_ERR, _("appalling_backtrace_hack: use addr2line(1) to resolve the addresses"));
 }
 #endif
 
@@ -125,8 +125,8 @@ extern int post_fork;    /* in main.c */
 
 void die_signal_handler(const int i) {
     struct sigaction sa;
-/*    print_log(LOG_ERR, "quit: %s", sys_siglist[i]); */
-    print_log(LOG_ERR, _("quit: signal %d post_fork = %d"), i, post_fork); /* Some systems do not have sys_siglist. */
+/*    log_print(LOG_ERR, "quit: %s", sys_siglist[i]); */
+    log_print(LOG_ERR, _("quit: signal %d post_fork = %d"), i, post_fork); /* Some systems do not have sys_siglist. */
 #ifdef APPALLING_BACKTRACE_HACK
     appalling_backtrace_hack();
 #endif /* APPALLING_BACKTRACE_HACK */

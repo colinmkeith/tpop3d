@@ -91,7 +91,7 @@ authcontext auth_pam_new_user_pass(const char *user, const char *pass, const cha
     /* Obtain gid to use */
     if ((I = stringmap_find(config, "auth-pam-mail-group"))) {
         if (!parse_gid((char*)I->v, &gid)) {
-            print_log(LOG_ERR, _("auth_pam_new_user_pass: auth-pam-mail-group directive `%s' does not make sense"), (char*)I->v);
+            log_print(LOG_ERR, _("auth_pam_new_user_pass: auth-pam-mail-group directive `%s' does not make sense"), (char*)I->v);
             return NULL;
         }
         use_gid = 1;
@@ -104,7 +104,7 @@ authcontext auth_pam_new_user_pass(const char *user, const char *pass, const cha
     r = pam_start(facility, user, &conv, &pamh);
 
     if (r != PAM_SUCCESS) {
-        print_log(LOG_ERR, "auth_pam_new_user_pass: pam_start: %s", pam_strerror(pamh, r));
+        log_print(LOG_ERR, "auth_pam_new_user_pass: pam_start: %s", pam_strerror(pamh, r));
         return NULL;
     }
 
@@ -117,12 +117,12 @@ authcontext auth_pam_new_user_pass(const char *user, const char *pass, const cha
         if (r == PAM_SUCCESS) {
             /* Succeeded; figure out the mailbox name later. */
             a = authcontext_new(pw.pw_uid, use_gid ? gid : pw.pw_gid, NULL, NULL, pw2->pw_dir, NULL);
-        } else print_log(LOG_ERR, "auth_pam_new_user_pass: pam_acct_mgmt(%s): %s", user, pam_strerror(pamh, r));
-    } else print_log(LOG_ERR, "auth_pam_new_user_pass: pam_authenticate(%s): %s", user, pam_strerror(pamh, r));
+        } else log_print(LOG_ERR, "auth_pam_new_user_pass: pam_acct_mgmt(%s): %s", user, pam_strerror(pamh, r));
+    } else log_print(LOG_ERR, "auth_pam_new_user_pass: pam_authenticate(%s): %s", user, pam_strerror(pamh, r));
 
     r = pam_end(pamh, n);
 
-    if (r != PAM_SUCCESS) print_log(LOG_ERR, "auth_pam_new_user_pass: pam_end: %s", pam_strerror(pamh, r));
+    if (r != PAM_SUCCESS) log_print(LOG_ERR, "auth_pam_new_user_pass: pam_end: %s", pam_strerror(pamh, r));
 
     return a;
 }

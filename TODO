@@ -79,9 +79,3 @@ $Id$
   example code in the OpenSSL distribution which would serve as the starting
   point for an implementation.
 
-
-* Configurable logging.
-
-  The facility to which tpop3d logs information should be configurable, as
-  should the minimum priority of logged items. It might be desirable to add
-  logging directly to a file as an option, too.

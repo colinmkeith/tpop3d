@@ -24,25 +24,7 @@ static const char rcsid[] = "$Id$";
 #include <unistd.h>
 #include <sys/mman.h>
 
-#include "errprintf.h"
 #include "util.h"
-
-/* print_log:
- * Because many systems do not have LOG_PERROR, we use a custom function to
- * write an error to the system log, and optionally to standard error as
- * well.
- */
-extern int log_stderr;      /* in main.c */
-
-void print_log(int priority, const char *fmt, ...) {
-    char *s;
-    va_list ap;
-    va_start(ap, fmt);
-    s = verrprintf(fmt, ap);
-    va_end(ap);
-    syslog(priority, "%s", s);
-    if (log_stderr) fprintf(stderr, "%s\n", s);
-}
 
 /* xwrite:
  * Write some data, taking account of short writes and signals.
@@ -124,7 +106,7 @@ int write_file(int fd, int sck, size_t msgoffset, size_t skip, size_t msglength,
 
     filemem = mmap(0, length, PROT_READ, MAP_PRIVATE, fd, offset);
     if (filemem == MAP_FAILED) {
-        print_log(LOG_ERR, "write_file: mmap: %m");
+        log_print(LOG_ERR, "write_file: mmap: %m");
         return 0;
     }
 
@@ -150,7 +132,7 @@ int write_file(int fd, int sck, size_t msgoffset, size_t skip, size_t msglength,
 
     errno = 0;
     if (!try_write(sck, "\r\n", 2)) {
-        print_log(LOG_ERR, "write_file: write: %m");
+        log_print(LOG_ERR, "write_file: write: %m");
         munmap(filemem, length);
         return 0;
     }
@@ -172,16 +154,16 @@ int write_file(int fd, int sck, size_t msgoffset, size_t skip, size_t msglength,
         p = q + 1;
     }
     if (munmap(filemem, length) == -1)
-        print_log(LOG_ERR, "write_file: munmap: %m");
+        log_print(LOG_ERR, "write_file: munmap: %m");
     
     errno = 0;
     if (!try_write(sck, ".\r\n", 3)) {
-        print_log(LOG_ERR, "write_file: write: %m");
+        log_print(LOG_ERR, "write_file: write: %m");
         return 0;
     } else return 1;
 
 write_failure:
-    print_log(LOG_ERR, "write_file: write: %m");
+    log_print(LOG_ERR, "write_file: write: %m");
     munmap(filemem, length);
     return 0;
 }

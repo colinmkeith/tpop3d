@@ -124,7 +124,7 @@ int authswitch_init() {
         I = stringmap_find(config, s);
         if (I && (!strcmp(I->v, "yes") || !strcmp(I->v, "true"))) {
             if (aa->auth_init && !aa->auth_init())
-                print_log(LOG_ERR, "failed to initialise %s authentication driver", aa->name);
+                log_print(LOG_ERR, "failed to initialise %s authentication driver", aa->name);
             else {
                 *aar = 1;
                 ++ret;
@@ -149,7 +149,7 @@ authcontext authcontext_new_apop(const char *name, const char *timestamp, const 
             a->auth = strdup(aa->name);
             a->user = strdup(name);
             if (!a->domain && domain) a->domain = strdup(domain);
-            print_log(LOG_INFO, _("authcontext_new_apop: began session for `%s' with %s; uid %d, gid %d"), a->user, a->auth, a->uid, a->gid);
+            log_print(LOG_INFO, _("authcontext_new_apop: began session for `%s' with %s; uid %d, gid %d"), a->user, a->auth, a->uid, a->gid);
             return a;
         }
 
@@ -169,7 +169,7 @@ authcontext authcontext_new_user_pass(const char *user, const char *pass, const 
             a->auth = strdup(aa->name);
             a->user = strdup(user);
             if (!a->domain && domain) a->domain = strdup(domain);
-            print_log(LOG_INFO, _("authcontext_new_user_pass: began session for `%s' with %s; uid %d, gid %d"), a->user, a->auth, a->uid, a->gid);
+            log_print(LOG_INFO, _("authcontext_new_user_pass: began session for `%s' with %s; uid %d, gid %d"), a->user, a->auth, a->uid, a->gid);
             return a;
         }
 
@@ -228,7 +228,7 @@ void authcontext_delete(authcontext a) {
     /* Only log if this is the end of the session, not the parent freeing its
      * copy of the data. (This is a hack, and I am ashamed.)
      */
-    if (post_fork) print_log(LOG_INFO, _("authcontext_delete: finished session for `%s' with %s"), a->user, a->auth);
+    if (post_fork) log_print(LOG_INFO, _("authcontext_delete: finished session for `%s' with %s"), a->user, a->auth);
 
     if (a->auth) xfree(a->auth);
     if (a->user) xfree(a->user);

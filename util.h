@@ -52,8 +52,9 @@ struct sverr {
 
 char *substitute_variables(const char *spec, struct sverr *err, const int nvars, ...);
 
-/* Replacement logging function. */
-void print_log(int priority, const char *fmt, ...);
+/* Replacement logging functions. */
+void log_init(void);
+void log_print(int priority, const char *fmt, ...);
 
 /* Restarting write(2). */
 ssize_t xwrite(int fd, const void *buf, size_t count);

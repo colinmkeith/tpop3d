@@ -158,7 +158,7 @@ mailbox mailspool_new_from_file(const char *filename) {
          * getting called from find_mailbox.
          */
         if (errno == ENOENT) failM = MBOX_NOENT;
-        else print_log(LOG_INFO, "mailspool_new_from_file: stat(%s): %m", filename);
+        else log_print(LOG_INFO, "mailspool_new_from_file: stat(%s): %m", filename);
         goto fail;
     } else M->name = strdup(filename);
     
@@ -166,7 +166,7 @@ mailbox mailspool_new_from_file(const char *filename) {
     for (i = 0; i < MAILSPOOL_LOCK_TRIES; ++i) {
         M->fd = open(M->name, O_RDWR);
         if (M->fd == -1) {
-            print_log(LOG_ERR, "mailspool_new_from_file: %m");
+            log_print(LOG_ERR, "mailspool_new_from_file: %m");
             goto fail;
         }
      
@@ -179,7 +179,7 @@ mailbox mailspool_new_from_file(const char *filename) {
     }
 
     if (M->fd == -1) {
-        print_log(LOG_ERR, _("mailspool_new_from_file: failed to lock %s: %m"), filename);
+        log_print(LOG_ERR, _("mailspool_new_from_file: failed to lock %s: %m"), filename);
         goto fail;
     }
 
@@ -189,19 +189,19 @@ mailbox mailspool_new_from_file(const char *filename) {
 #ifdef MBOX_BSD_SAVE_INDICES
     if (mailspool_save_indices) {
         if (mailspool_load_index(M) == -1) {
-            print_log(LOG_ERR, _("mailspool_new_from_file: unable to index mailspool"));
+            log_print(LOG_ERR, _("mailspool_new_from_file: unable to index mailspool"));
             goto fail;
         }
     } else
 #endif
     if (mailspool_build_index(M, NULL) == -1) {
-        print_log(LOG_ERR, _("mailspool_new_from_file: unable to index mailspool"));
+        log_print(LOG_ERR, _("mailspool_new_from_file: unable to index mailspool"));
         goto fail;
     }
 
     gettimeofday(&tv2, NULL);
     f = (float)(tv2.tv_sec - tv1.tv_sec) + 1e-6 * (float)(tv2.tv_usec - tv1.tv_usec);
-    print_log(LOG_DEBUG, _("mailspool_new_from_file: indexed mailspool %s (%d bytes) in %0.3fs"), filename, (int)M->st.st_size, f);
+    log_print(LOG_DEBUG, _("mailspool_new_from_file: indexed mailspool %s (%d bytes) in %0.3fs"), filename, (int)M->st.st_size, f);
     
     return M;
 
@@ -245,7 +245,7 @@ static char *memstr(const char *haystack, size_t h_len, const char *needle, size
 
 /*
 struct timeval TT;
-#define ts(a)  do { struct timeval tv; float t; gettimeofday(&tv, NULL); t = (double)(tv.tv_sec - TT.tv_sec) + 1e-6 * (double)(tv.tv_usec - TT.tv_usec); print_log(LOG_DEBUG, a " delta = %lf", t); TT = tv; } while (0)
+#define ts(a)  do { struct timeval tv; float t; gettimeofday(&tv, NULL); t = (double)(tv.tv_sec - TT.tv_sec) + 1e-6 * (double)(tv.tv_usec - TT.tv_usec); log_print(LOG_DEBUG, a " delta = %lf", t); TT = tv; } while (0)
 */
 
 /* mailspool_build_index:
@@ -268,7 +268,7 @@ int mailspool_build_index(mailbox M, char *filemem) {
     if (!filemem) {
         filemem = mmap(0, len, PROT_READ, MAP_PRIVATE, M->fd, 0);
         if (filemem == MAP_FAILED) {
-            print_log(LOG_ERR, "mailspool_build_index(%s): mmap: %m", M->name);
+            log_print(LOG_ERR, "mailspool_build_index(%s): mmap: %m", M->name);
             return -1;
         }
     }
@@ -280,7 +280,7 @@ int mailspool_build_index(mailbox M, char *filemem) {
         struct indexpoint *P = M->index + M->num - 1;
         p = filemem + P->offset + P->msglength - 2;
         first = M->num;
-        print_log(LOG_DEBUG, _("mailspool_build_index(%s): first %d messages indexed from cached metadata"), M->name, first);
+        log_print(LOG_DEBUG, _("mailspool_build_index(%s): first %d messages indexed from cached metadata"), M->name, first);
     } else
         /* Nope, never seen this one before. */
         p = filemem - 2;
@@ -344,7 +344,7 @@ int mailspool_build_index(mailbox M, char *filemem) {
         if (p) {
             const char hdr1[] = "\nX-IMAP: ", hdr2[] = "Subject: DON'T DELETE THIS MESSAGE -- FOLDER INTERNAL DATA\n";
             if (memstr(filemem + P->offset, p - filemem, hdr1, strlen(hdr1)) && memstr(filemem + P->offset, p - filemem, hdr2, strlen(hdr2))) {
-                print_log(LOG_DEBUG, "mailspool_build_index(%s): skipping c-client metadata", M->name);
+                log_print(LOG_DEBUG, "mailspool_build_index(%s): skipping c-client metadata", M->name);
                 memmove((void*)M->index, (void*)(M->index + 1), sizeof(struct indexpoint) * (M->num - 1));
                 --M->num;
             }
@@ -432,7 +432,7 @@ int mailspool_apply_changes(mailbox M) {
          * first message.
          */
         if (ftruncate(M->fd, M->index->offset) == -1) {
-            print_log(LOG_ERR, "mailspool_apply_changes(%s): ftruncate: %m", M->name);
+            log_print(LOG_ERR, "mailspool_apply_changes(%s): ftruncate: %m", M->name);
             return 0;
         } else return 1;
     }
@@ -442,7 +442,7 @@ int mailspool_apply_changes(mailbox M) {
     len += PAGESIZE - (len % PAGESIZE);
     filemem = mmap(0, len, PROT_WRITE | PROT_READ, MAP_SHARED, M->fd, 0);
     if (filemem == MAP_FAILED) {
-        print_log(LOG_ERR, "mailspool_apply_changes(%s): mmap: %m", M->name);
+        log_print(LOG_ERR, "mailspool_apply_changes(%s): mmap: %m", M->name);
         close(M->fd);
         return 0;
     }
@@ -454,8 +454,8 @@ int mailspool_apply_changes(mailbox M) {
     /* Find the first message to be deleted. */
     while (I < End && !I->deleted) ++I;
     if (I == End) {
-        if (munmap(filemem, len) == -1) print_log(LOG_ERR, "mailspool_send_message: munmap: %m");
-        print_log(LOG_ERR, _("mailspool_apply_changes(%s): inconsistency in mailspool data"), M->name);
+        if (munmap(filemem, len) == -1) log_print(LOG_ERR, "mailspool_send_message: munmap: %m");
+        log_print(LOG_ERR, _("mailspool_apply_changes(%s): inconsistency in mailspool data"), M->name);
         return 0;
     }
     d = filemem + I->offset;
@@ -484,20 +484,20 @@ int mailspool_apply_changes(mailbox M) {
 
     /* Truncate the very end. */
     if (ftruncate(M->fd, d - filemem) == -1) {
-        print_log(LOG_ERR, "mailspool_apply_changes(%s): ftruncate: %m", M->name);
-        if (munmap(filemem, len) == -1) print_log(LOG_ERR, "mailspool_send_message: munmap: %m");
+        log_print(LOG_ERR, "mailspool_apply_changes(%s): ftruncate: %m", M->name);
+        if (munmap(filemem, len) == -1) log_print(LOG_ERR, "mailspool_send_message: munmap: %m");
         return 0;
     }
     
     /* Done, unmap the file. */
     if (munmap(filemem, len) == -1) {
-        print_log(LOG_ERR, "mailspool_send_message: munmap: %m");
+        log_print(LOG_ERR, "mailspool_send_message: munmap: %m");
         return 0;
     }
 
 #ifdef MBOX_BSD_SAVE_INDICES
     if (mailspool_save_indices && !mailspool_save_index(M))
-        print_log(LOG_WARNING, _("mailspool_apply_changes(%s): unable to save mailspool index"), M->name);
+        log_print(LOG_WARNING, _("mailspool_apply_changes(%s): unable to save mailspool index"), M->name);
 #endif /* MBOX_BSD_SAVE_INDICES */
     
     return 1;
@@ -578,7 +578,7 @@ char *mailspool_find_index(mailbox m) {
 
     indexname = substitute_variables(subspec, &err, 4, "name", m->name, "path", path, "file", file, "escaped_name", escaped_name);
     if (!indexname) {
-        print_log(LOG_ERR, _("mailspool_find_index: %s near `%.16s'"), err.msg, subspec + err.offset);
+        log_print(LOG_ERR, _("mailspool_find_index: %s near `%.16s'"), err.msg, subspec + err.offset);
         goto fail;
     }
 
@@ -621,7 +621,7 @@ int mailspool_save_index(mailbox m) {
     /* OK, now we need to save the thing. */
     fd = open(indexfile, O_RDWR | O_CREAT, 0600); /* Ensure correct permissions. */
     if (fd == -1) {
-        print_log(LOG_ERR, "mailspool_save_index(%s): %m", indexfile);
+        log_print(LOG_ERR, "mailspool_save_index(%s): %m", indexfile);
         goto fail;
     }
 
@@ -630,10 +630,10 @@ int mailspool_save_index(mailbox m) {
      */
     a = readlink(indexfile, buf, sizeof(buf));
     if (a == 0) {
-        print_log(LOG_ERR, _("mailspool_save_index(%s): possible security problem: index file exists and is a symlink to `%s'"), indexfile, buf);
+        log_print(LOG_ERR, _("mailspool_save_index(%s): possible security problem: index file exists and is a symlink to `%s'"), indexfile, buf);
         goto fail;
     } else if (a == -1 && errno != EINVAL) {
-        print_log(LOG_ERR, _("mailspool_save_index(%s): possible security problem: index file exists, and is a symlink, but readlink failed: %m"), indexfile);
+        log_print(LOG_ERR, _("mailspool_save_index(%s): possible security problem: index file exists, and is a symlink, but readlink failed: %m"), indexfile);
         goto fail;
     }
 
@@ -642,7 +642,7 @@ int mailspool_save_index(mailbox m) {
     
     fp = fdopen(fd, "wt");
     if (!fp) {
-        print_log(LOG_ERR, "mailspool_save_index(%s): %m", indexfile);
+        log_print(LOG_ERR, "mailspool_save_index(%s): %m", indexfile);
         goto fail;
     }
 
@@ -701,7 +701,7 @@ int mailspool_load_index(mailbox m) {
 
     fp = fopen(indexfile, "rt");
     if (!fp) {
-        print_log(LOG_WARNING, "mailspool_load_index(%s): %m", indexfile);
+        log_print(LOG_WARNING, "mailspool_load_index(%s): %m", indexfile);
         goto fail;
     }
 
@@ -709,18 +709,18 @@ int mailspool_load_index(mailbox m) {
      * ourselves.
      */
     if (fstat(fileno(fp), &st) == -1) {
-        print_log(LOG_ERR, "mailspool_load_index(%s): %m", indexfile);
+        log_print(LOG_ERR, "mailspool_load_index(%s): %m", indexfile);
         goto fail;
     } else if ((st.st_mode & 0777) != 0600 || m->st.st_uid != getuid()) {
-        print_log(LOG_ERR, _("mailspool_load_index(%s): possible security problem: index exists, but it has the wrong owner or file permissions"), indexfile);
-        print_log(LOG_ERR, _("mailspool_load_index(%s): owner is %d, should be %d; mode 0%o, should be 0600"), indexfile,
+        log_print(LOG_ERR, _("mailspool_load_index(%s): possible security problem: index exists, but it has the wrong owner or file permissions"), indexfile);
+        log_print(LOG_ERR, _("mailspool_load_index(%s): owner is %d, should be %d; mode 0%o, should be 0600"), indexfile,
                             m->st.st_uid, getuid(), m->st.st_mode & 0777);
         goto fail;
     }
 
     /* OK, found an index file; let's try loading some data out of it. */
     if (fread(sigbuf, 1, sizeof(sigbuf) - 1, fp) != sizeof(sigbuf) - 1 || memcmp(sigbuf, index_signature, sizeof(sigbuf) - 1) != 0) {
-        print_log(LOG_WARNING, _("mailspool_load_index(%s): index exists, but is of wrong format; ignoring"), indexfile);
+        log_print(LOG_WARNING, _("mailspool_load_index(%s): index exists, but is of wrong format; ignoring"), indexfile);
         goto fail;
     }
 
@@ -734,7 +734,7 @@ int mailspool_load_index(mailbox m) {
     len += PAGESIZE - (len % PAGESIZE);
     filemem = mmap(0, len, PROT_READ, MAP_PRIVATE, m->fd, 0);
     if (filemem == MAP_FAILED) {
-        print_log(LOG_ERR, "mailspool_load_index(%s): mmap: %m", m->name);
+        log_print(LOG_ERR, "mailspool_load_index(%s): mmap: %m", m->name);
         goto fail;
     }
 
@@ -766,7 +766,7 @@ int mailspool_load_index(mailbox m) {
     }
 
     if (!feof(fp)) {
-        print_log(LOG_WARNING, _("mailspool_load_index(%s): index exists, but has some stale or corrupt data"), indexfile);
+        log_print(LOG_WARNING, _("mailspool_load_index(%s): index exists, but has some stale or corrupt data"), indexfile);
         goto fail;
     }
 

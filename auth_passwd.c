@@ -74,7 +74,7 @@ authcontext auth_passwd_new_user_pass(const char *user, const char *pass, const 
     /* Obtain gid to use */
     if ((I = stringmap_find(config, "auth-passwd-mail-group"))) {
         if (!parse_gid((char*)I->v, &gid)) {
-            print_log(LOG_ERR, _("auth_passwd_new_user_pass: auth-passwd-mail-group directive `%s' does not make sense"), (char*)I->v);
+            log_print(LOG_ERR, _("auth_passwd_new_user_pass: auth-passwd-mail-group directive `%s' does not make sense"), (char*)I->v);
             return NULL;
         }
         use_gid = 1;

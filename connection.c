@@ -116,7 +116,7 @@ connection connection_new(int s, const struct sockaddr_in *sin, const char *doma
     c->idlesince = time(NULL);
 
     if (!connection_sendresponse(c, 1, c->timestamp)) {
-        print_log(LOG_ERR, "connection_new: could not send timestamp to `%s'", c->idstr);
+        log_print(LOG_ERR, "connection_new: could not send timestamp to `%s'", c->idstr);
         goto fail;
     }
 
@@ -158,7 +158,7 @@ ssize_t connection_read(connection c) {
     ssize_t n;
     if (!c) return -1;
     if (c->p == c->buffer + c->bufferlen) {
-        print_log(LOG_ERR, _("connection_read: client %s: over-long line"), c->idstr);
+        log_print(LOG_ERR, _("connection_read: client %s: over-long line"), c->idstr);
         errno = ENOBUFS;
         return -1;
     }
@@ -238,7 +238,7 @@ pop3command connection_parsecommand(connection c) {
             if (i != pc->toks->num - 1) strcat(s, " ");
         }
         strcat(s, "'");
-        print_log(LOG_DEBUG, "%s", s);
+        log_print(LOG_DEBUG, "%s", s);
         xfree(s);
     }
                 
@@ -297,7 +297,7 @@ int connection_sendresponse(connection c, const int success, const char *s) {
     m = xwrite(c->s, x, l = strlen(x));
     xfree(x);
     if (verbose)
-        print_log(LOG_DEBUG, _("connection_sendresponse: client %s: sent `%s %s'"), c->idstr, success? "+OK" : "-ERR", s);
+        log_print(LOG_DEBUG, _("connection_sendresponse: client %s: sent `%s %s'"), c->idstr, success? "+OK" : "-ERR", s);
     return (m == l);
 }
 

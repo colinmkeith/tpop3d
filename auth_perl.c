@@ -40,19 +40,19 @@ char *auth_perl_apop, *auth_perl_pass;      /* Names of functions we call. */
 #define ERRSV (GvSV(errgv))
 #endif
 
-/* xs_print_log:
+/* xs_log_print:
  * Perl interface to tpop3d's logging.
  */
-XS(xs_print_log)
+XS(xs_log_print)
 {
     dXSARGS;
     char  *str;
     STRLEN len;
     
-    if (items != 1) croak("Usage: TPOP3D::print_log(string)");
+    if (items != 1) croak("Usage: TPOP3D::log_print(string)");
 
     str = SvPV(ST(0), len);
-    print_log(LOG_INFO, "auth_perl: (perl code): %s", str);
+    log_print(LOG_INFO, "auth_perl: (perl code): %s", str);
 }
 
 /* xs_init:
@@ -63,7 +63,7 @@ extern void boot_DynaLoader(CV *cv);
 void xs_init(void) {
     char *file = __FILE__;
     newXS("DynaLoader::boot_DynaLoader", boot_DynaLoader, file);
-    newXS("TPOP3D::print_log", xs_print_log, file);
+    newXS("TPOP3D::log_print", xs_log_print, file);
 }
 
 /* auth_perl_init:
@@ -85,14 +85,14 @@ int auth_perl_init() {
      * "do '/etc/tpop3d.pl';"
      */
     if (!(I = stringmap_find(config, "auth-perl-start"))) {
-        print_log(LOG_ERR, _("auth_perl_init: auth_perl enabled, but no startup code specified"));
+        log_print(LOG_ERR, _("auth_perl_init: auth_perl enabled, but no startup code specified"));
         return 0;
     } else startupcode = I->v;
 
     if ((I = stringmap_find(config, "auth-perl-apop"))) auth_perl_apop = I->v;
     if ((I = stringmap_find(config, "auth-perl-pass"))) auth_perl_pass = I->v;
     if (!auth_perl_apop && !auth_perl_pass) {
-        print_log(LOG_ERR, _("auth_perl_init: auth_perl enabled but no authenticator subroutines supplied"));
+        log_print(LOG_ERR, _("auth_perl_init: auth_perl enabled but no authenticator subroutines supplied"));
         return 0;
     }
 
@@ -111,7 +111,7 @@ int auth_perl_init() {
     perl_eval_sv(sv, G_SCALAR | G_DISCARD | G_KEEPERR); /* XXX what do the options actually mean? */
     SvREFCNT_dec(sv);
     if (SvTRUE(ERRSV)) {
-        print_log(LOG_ERR, _("auth_perl_init: error executing perl start code: %s"), SvPV(ERRSV, len));
+        log_print(LOG_ERR, _("auth_perl_init: error executing perl start code: %s"), SvPV(ERRSV, len));
         perl_destruct(auth_perl_interp);
         perl_free(auth_perl_interp);
         auth_perl_interp = NULL;
@@ -137,7 +137,7 @@ void auth_perl_close() {
             perl_eval_sv(sv, G_SCALAR | G_DISCARD | G_KEEPERR);
             SvREFCNT_dec(sv);
             if (SvTRUE(ERRSV))
-                print_log(LOG_ERR, _("auth_perl_close: error executing perl finish code: %s"), SvPV(ERRSV, len));
+                log_print(LOG_ERR, _("auth_perl_close: error executing perl finish code: %s"), SvPV(ERRSV, len));
         }
         perl_destruct(auth_perl_interp);
         perl_free(auth_perl_interp);
@@ -192,13 +192,13 @@ stringmap auth_perl_callfn(const char *perlfn, const int nvars, ...) {
     if (SvTRUE(ERRSV)) {
         /* Error. */
         STRLEN len;
-        print_log(LOG_ERR, _("auth_perl_callfn: perl function %s: %s"), perlfn, SvPV(ERRSV, len));
+        log_print(LOG_ERR, _("auth_perl_callfn: perl function %s: %s"), perlfn, SvPV(ERRSV, len));
     } else if (!SvOK(hashref_out)) {
         /* Other sort of error. */
-        print_log(LOG_ERR, _("auth_perl_callfn: perl function %s: failure return"), perlfn);
+        log_print(LOG_ERR, _("auth_perl_callfn: perl function %s: failure return"), perlfn);
     } else if (SvTYPE(SvRV(hashref_out)) != SVt_PVHV) {
         /* Yet a third sort of error. */
-        print_log(LOG_ERR, _("auth_perl_callfn: perl function %s: returned value was not a reference to a hash"), perlfn);
+        log_print(LOG_ERR, _("auth_perl_callfn: perl function %s: returned value was not a reference to a hash"), perlfn);
     } else {
         /* Damn and all, it worked! (Maybe) */
         char *key;
@@ -228,8 +228,8 @@ stringmap auth_perl_callfn(const char *perlfn, const int nvars, ...) {
  * auth_other_new_apop.
  */
 authcontext auth_perl_new_apop(const char *name, const char *timestamp, const unsigned char *digest, const char *host) {
-#define MISSING(k)     do { print_log(LOG_ERR, _("auth_perl_new_apop: missing key `%s' in response"), (k)); goto fail; } while(0)
-#define INVALID(k, v)  do { print_log(LOG_ERR, _("auth_perl_new_apop: invalid value `%s' for key `%s' in response"), (v), (k)); goto fail; } while(0)
+#define MISSING(k)     do { log_print(LOG_ERR, _("auth_perl_new_apop: missing key `%s' in response"), (k)); goto fail; } while(0)
+#define INVALID(k, v)  do { log_print(LOG_ERR, _("auth_perl_new_apop: invalid value `%s' for key `%s' in response"), (v), (k)); goto fail; } while(0)
     char digeststr[33];
     char *p;
     const unsigned char *q;
@@ -244,7 +244,7 @@ authcontext auth_perl_new_apop(const char *name, const char *timestamp, const un
         return NULL;
 
     I = stringmap_find(S, "logmsg");
-    if (I) print_log(LOG_INFO, "auth_perl_new_apop: (perl code): %s", (char*)I->v);
+    if (I) log_print(LOG_INFO, "auth_perl_new_apop: (perl code): %s", (char*)I->v);
 
     I = stringmap_find(S, "result");
     if (!I) MISSING("result");
@@ -289,8 +289,8 @@ fail:
  * Attempt to authenticate a user using USER/PASS, via a perl subroutine.
  */
 authcontext auth_perl_new_user_pass(const char *user, const char *pass, const char *host) {
-#define MISSING(k)     do { print_log(LOG_ERR, _("auth_perl_new_user_pass: missing key `%s' in response"), (k)); goto fail; } while(0)
-#define INVALID(k, v)  do { print_log(LOG_ERR, _("auth_perl_new_user_pass: invalid value `%s' for key `%s' in response"), (v), (k)); goto fail; } while(0)
+#define MISSING(k)     do { log_print(LOG_ERR, _("auth_perl_new_user_pass: missing key `%s' in response"), (k)); goto fail; } while(0)
+#define INVALID(k, v)  do { log_print(LOG_ERR, _("auth_perl_new_user_pass: invalid value `%s' for key `%s' in response"), (v), (k)); goto fail; } while(0)
     stringmap S;
     item *I;
     authcontext a = NULL;
@@ -299,7 +299,7 @@ authcontext auth_perl_new_user_pass(const char *user, const char *pass, const ch
         return NULL;
     
     if ((I = stringmap_find(S, "logmsg")))
-        print_log(LOG_INFO, "auth_perl_new_user_pass: (perl code): %s", (char*)I->v);
+        log_print(LOG_INFO, "auth_perl_new_user_pass: (perl code): %s", (char*)I->v);
 
     if (!(I = stringmap_find(S, "result"))) MISSING("result");
     
