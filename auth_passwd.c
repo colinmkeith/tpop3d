@@ -4,12 +4,16 @@
  * Copyright (c) 2001 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.2  2001/01/11 21:37:34  chris
+ * Minor changes.
+ *
  * Revision 1.1  2001/01/11 21:23:31  chris
  * Initial revision
  *
  *
  */
 
+#ifdef AUTH_PASSWD
 static const char rcsid[] = "$Id$";
 
 #include <sys/types.h>
@@ -110,3 +114,4 @@ authcontext auth_passwd_new_user_pass(const char *user, const char *pass) {
     return a;
 }
 
+#endif /* AUTH_PASSWD */

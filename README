@@ -63,12 +63,16 @@ called.
 An example authentication driver, which uses getpwnam(3) and crypt(3) to
 perform `traditional' UNIX user authentication, is included in
 auth_passwd.[ch] (but is not, by default, included in the compiled
-binary).
+binary). This driver is suitable for production use, but you are recommended
+to use PAM if your system supports it.
 
 auth_mysql.[ch] gives an example of an authentication driver for virtual
-domains served from a single IP address (that is, where the user
-identifies themself to the POP3 service as `user@domain'. If you would
-like to do IP-based virtual hosting, consider doing this by appending
-an appropriate domain name to the passed username and then passing the
-result to the existing drivers; this will avoid having to implement
-similar code twice for the two scenarios.
+domains.
+
+Virtual domains are supported via users logging in with names such as
+`user@example.com'. The server supports adding `@example.com' based on the
+address to which a user connects. This is controlled via the append-domain
+configuration option (see the manual page for more information). Single- and
+multiple-IP virtual domain hosting can therefore be operated from a single
+server.
+
