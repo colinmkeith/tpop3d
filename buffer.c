@@ -137,7 +137,7 @@ char *buffer_consume_to_mark(buffer B, const char *mark, const size_t mlen, char
 void buffer_expand(buffer B, const size_t num) {
     size_t a;
     assert(B);
-    if (B->len < (a = buffer_available(B)) + num) {
+    if (B->len <= (a = buffer_available(B)) + num) { /* NB <= NOT < */
         size_t i;
         char *newbuf;
         size_t newlen;

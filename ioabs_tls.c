@@ -164,10 +164,13 @@ static ssize_t ioabs_tls_immediate_write(connection c, const void *buf, size_t c
 
     if (io->read_blocked_on_write) return IOABS_WOULDBLOCK;
     if (c->cstate == closed) return IOABS_ERROR;
-    
+
     n = SSL_write(io->ssl, buf, count);
 
-    if (n > 0) return n;
+    if (n > 0) {
+        c->nwr += n;
+        return n;
+    }
 
     e = ERR_get_error();
     switch (SSL_get_error(io->ssl, n)) {
@@ -308,10 +311,8 @@ static int ioabs_tls_post_select(connection c, fd_set *readfds, fd_set *writefds
             if (!(w = buffer_get_consume_ptr(c->wrb, &wlen)))
                 break;  /* no more data to write */
             n = ioabs_tls_immediate_write(c, w, wlen);
-            if (n > 0) {
+            if (n > 0)
                 buffer_consume_bytes(c->wrb, n);
-                c->nwr += n;
-            }
         } while (n > 0);
         /* Connection may have been closed. */
         if (n <= 0)
