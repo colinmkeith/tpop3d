@@ -248,9 +248,31 @@ pop3command connection_parsecommand(connection c) {
  * Create a new pop3command object. */
 pop3command pop3command_new(const char *s) {
     pop3command p;
+    const char *q;
     int i;
     
-    p = xcalloc(1, sizeof *p);
+    p = xcalloc(sizeof *p, 1);
+
+    /* Ugly. PASS is a special case, because we permit a password to contain
+     * spaces. */
+    q = s + strspn(s, " \t");
+    if (strncasecmp(q, "PASS ", 5) == 0) {
+        /* Manual parsing. */
+        p->cmd = PASS;
+        p->toks = xcalloc(sizeof *p->toks, 1);
+        
+        p->toks->str = xstrdup(q);
+        chomp(p->toks->str);
+        p->toks->str[4] = 0;
+        
+        p->toks->toks = xcalloc(sizeof(char*), 2);
+        p->toks->toks[0] = p->toks->str;
+        p->toks->toks[1] = p->toks->str + 5;
+        
+        p->toks->num = 2;
+
+        return p;
+    }
 
     p->cmd = UNKNOWN;
     p->toks = tokens_new(s, " \t");
