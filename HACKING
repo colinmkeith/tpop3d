@@ -100,8 +100,8 @@ mailbox drivers in mind.
 
   Function names have lowercase words separated by underscores. The convention
   is that strings and other things returned by reference are allocated with
-  malloc(3) in the called function, and it is the caller's responsibility to
-  free them. For more complex objects, there should be a constructor foo_new
+  xmalloc in the called function, and it is the caller's responsibility to
+  xfree them. For more complex objects, there should be a constructor foo_new
   or foo_new_somehow, and a destructor foo_delete; methods on the object
   should be foo_this and foo_that. The exception to this is the list of
   message offsets and unique IDs in the mailbox object, which are now allocated

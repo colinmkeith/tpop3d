@@ -37,4 +37,5 @@ Full documentation is in the tpop3d.conf manual page.
 
 In addition, tpop3d can contact a DRAC server to inform it about successful
 logins. For more about DRAC, see http://mail.cc.umanitoba.ca/drac/.
+Alternatively, you can use WHOSON; see http://whoson.sourceforge.net/.
 

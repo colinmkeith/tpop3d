@@ -159,6 +159,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     c->state = transaction;
                     return fork_and_setuid;
                 } else {
+                    connection_freeze(c);
                     if (c->n_auth_tries == MAX_AUTH_TRIES) {
 #ifndef NO_SNIDE_COMMENTS
                         connection_sendresponse(c, 0, _("This is ridiculous. I give up."));
@@ -236,6 +237,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
             } else {
                 enum connection_action act;
 
+                connection_freeze(c);
                 ++c->n_auth_tries;
                 if (c->n_auth_tries == MAX_AUTH_TRIES) {
 #ifndef NO_SNIDE_COMMENTS
@@ -415,7 +417,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                         log_print(LOG_DEBUG, _("connection_do: client %s: sending message %d (%d bytes)"),
                                     c->idstr, msg_num + 1, (int)curmsg->msglength);
                     connection_sendresponse(c, 1, _("Message follows:"));
-                    if ((n = (curmbox)->send_message(curmbox, c->s, msg_num, -1)) == -1) {
+                    if ((n = (curmbox)->send_message(curmbox, c, msg_num, -1)) == -1) {
                         connection_sendresponse(c, 0, _("Oops"));
                         return close_connection;
                     }
@@ -451,7 +453,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                                 c->idstr, arg2, msg_num + 1, (int)curmsg->msglength);
                 connection_sendresponse(c, 1, _("Message follows:"));
 
-                if ((n = (curmbox)->send_message(curmbox, c->s, msg_num, arg2)) == -1) {
+                if ((n = (curmbox)->send_message(curmbox, c, msg_num, arg2)) == -1) {
                     connection_sendresponse(c, 0, _("Oops."));
                     return close_connection;
                 }

@@ -33,7 +33,8 @@ ssize_t xwrite(int fd, const void *buf, size_t count) {
     size_t c = count;
     const char *b = (const char*)buf;
     while (c > 0) {
-        int e = write(fd, b, c);
+        int e;
+        e = write(fd, b, c);
         if (e >= 0) {
             c -= e;
             b += e;
@@ -83,100 +84,6 @@ int inet_aton(const char *s, struct in_addr *ip) {
     return 1;                                                                   
 }                                                                               
 #endif /* !HAVE_INET_ATON */
-
-/* write_file:
- * Send to socket sck the header and up to n lines of the body of a message
- * which begins at offset msgoffset + skip in the file referenced by fd, which
- * is assumed to be a mappable object. Lines which begin . are escaped as
- * required by RFC1939, and each line is terminated with `\r\n'. If n is -1,
- * the whole message is sent. Returns the number of bytes written on success
- * or 0 on failure.
- *
- * XXX Assumes that the message on disk uses only '\n' to indicate EOL.
- */
-int write_file(int fd, int sck, size_t msgoffset, size_t skip, size_t msglength, int n) {
-    char *filemem;
-    char *p, *q, *r;
-    size_t length, offset;
-    ssize_t nwritten = 0;
-    
-    offset = msgoffset - (msgoffset % PAGESIZE);
-    length = (msgoffset + msglength + PAGESIZE) ;
-    length -= length % PAGESIZE;
-
-    filemem = mmap(0, length, PROT_READ, MAP_PRIVATE, fd, offset);
-    if (filemem == MAP_FAILED) {
-        log_print(LOG_ERR, "write_file: mmap: %m");
-        return -1;
-    }
-
-    /* Find the beginning of the message headers */
-    p = filemem + (msgoffset % PAGESIZE);
-    r = p + msglength;
-    p += skip;
-
-    /* Send the message headers */
-    do {
-        q = memchr(p, '\n', r - p);
-        if (!q) q = r;
-        errno = 0;
-        
-        /* Escape a leading ., if present. */
-        if (*p == '.' && !try_write(sck, ".", 1))
-            goto write_failure;
-        ++nwritten;
-        
-        /* Send line itself. */
-        if (!try_write(sck, p, q - p) || !try_write(sck, "\r\n", 2))
-            goto write_failure;
-        nwritten += q - p + 2;
-
-        p = q + 1;
-    } while (p < r && *p != '\n');
-
-    ++p;
-
-    errno = 0;
-    if (!try_write(sck, "\r\n", 2)) {
-        log_print(LOG_ERR, "write_file: write: %m");
-        munmap(filemem, length);
-        return -1;
-    }
-    
-    /* Now send the message itself */
-    while (p < r && n) {
-        if (n > 0) --n;
-
-        q = memchr(p, '\n', r - p);
-        if (!q) q = r;
-        errno = 0;
-
-        /* Escape a leading ., if present. */
-        if (*p == '.' && !try_write(sck, ".", 1))
-            goto write_failure;
-        ++nwritten;
-        
-        /* Send line itself. */
-        if (!try_write(sck, p, q - p) || !try_write(sck, "\r\n", 2))
-            goto write_failure;
-        nwritten += q - p + 2;
-
-        p = q + 1;
-    }
-    if (munmap(filemem, length) == -1)
-        log_print(LOG_ERR, "write_file: munmap: %m");
-    
-    errno = 0;
-    if (!try_write(sck, ".\r\n", 3)) {
-        log_print(LOG_ERR, "write_file: write: %m");
-        return -1;
-    } else return nwritten + 3;
-
-write_failure:
-    log_print(LOG_ERR, "write_file: write: %m");
-    munmap(filemem, length);
-    return -1;
-}
 
 /* parse_uid:
  * Get a user id from a user name or number. Sets u and returns 1 on success,

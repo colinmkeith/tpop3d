@@ -38,15 +38,21 @@ typedef struct _connection {
     size_t nrd, nwr;        /* number of bytes read/written     */
     
     char *domain;           /* associated domain suffix         */
-    char *buffer;           /* buffer from peer                 */
-    char *p;                /* where we've got to in the buffer */
-    size_t bufferlen;       /* size of buffer allocated         */
+    
+    struct {
+        char *buffer;       /* buffer                           */
+        char *p;            /* where we've got to in the buffer */
+        size_t bufferlen;   /* size of buffer allocated         */
+    }   rdb,                /* buffer for reading from peer     */
+        wrb;                /* buffer for writing to peer       */
 
     char *timestamp;        /* the rfc1939 "timestamp" we emit  */
 
     enum pop3_state state;  /* from rfc1939 */
 
     time_t idlesince;       /* used to implement timeouts */
+    time_t frozenuntil;     /* used to implement freeze on wrong password. */
+    int closing;            /* implement delayed close when frozen. */
 
     int n_auth_tries, n_errors;
     char *user, *pass;      /* state accumulated */
@@ -74,15 +80,23 @@ void         connection_delete(connection c);
 /* Read data out of the socket into the buffer */
 ssize_t connection_read(connection c);
 
+/* Write data from buffer to socket. */
+ssize_t connection_write(connection c);
+
+/* Send arbitrary data to the client. */
+ssize_t connection_send(connection c, const char *data, const size_t l);
+
 /* Send a response, given in s (without the trailing \r\n) */
 int connection_sendresponse(connection c, const int success, const char *s);
 
 /* Send a line, given in s (without the trailing \r\n) */
 int connection_sendline(connection c, const char *s);
 
+/* Freeze a connection briefly. */
+void connection_freeze(connection c);
+
 /* Attempt to parse a connection from a peer, returning NULL if no command was
- * parsed.
- */
+ * parsed. */
 pop3command connection_parsecommand(connection c);
 
 enum connection_action { do_nothing, close_connection, fork_and_setuid };
@@ -96,5 +110,8 @@ int connection_start_transaction(connection c);
 /* Commands */
 pop3command pop3command_new(const char *s);
 void        pop3command_delete(pop3command p);
+
+/* Send a message from a file to a peer. */
+int connection_sendmessage(connection c, int fd, size_t msgoffset, size_t skip, size_t msglength, int n);
 
 #endif /* __CONNECTION_H_ */

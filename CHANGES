@@ -17,7 +17,9 @@ based on his patch.  Fixed a bug which could cause a crash if there were NULL
 values in a database being used by auth-mysql. Added scripts/tpop3dtraffic,
 which extracts the identity of the heaviest POP3 users from logfiles. Added a
 permit-empty-passwords option, default no, largely to protect LDAP users who
-left LDAP anonymous authentication switched on....
+left LDAP anonymous authentication switched on.... The I/O layer was rewritten
+to use non-blocking I/O throughout. Connections are now frozen briefly after
+a failed authentication using code adapted from a contribution by Yann Grossel.
 
 1.4.2
 

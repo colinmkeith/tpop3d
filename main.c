@@ -139,12 +139,13 @@ void listeners_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfds)
             }
 #endif
             else if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, &a, sizeof(a)) == -1) {
-                /* Set a small send buffer so that we get usefully blocking
-                 * writes. */
+                /* Set a small send buffer so that we get EAGAIN if the client
+                 * isn't acking our data. */
                 log_print(LOG_ERR, "listeners_post_select: setsockopt: %m");
                 close(s);
-            } else if (fcntl(s, F_SETFL, 0) == -1) {
-                /* Switch off non-blocking mode, in case it is inherited. */
+            } else if (fcntl(s, F_SETFL, O_NONBLOCK) == -1) {
+                /* Ensure that non-blocking operation is switched on, even if
+                 * it isn't inherited. */
                 log_print(LOG_ERR, "listeners_post_select: fcntl(F_SETFL): %m");
                 close(s);
             } else {

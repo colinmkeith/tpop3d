@@ -167,7 +167,7 @@ fail:
  * on success or 0 on failure. The whole message is sent if n == -1.
  *
  * XXX Assumes that maildirs use only '\n' to indicate EOL. */
-int maildir_send_message(const mailbox M, int sck, const int i, int n) {
+int maildir_send_message(const mailbox M, connection c, const int i, int n) {
     struct indexpoint *m;
     int fd, status;
     
@@ -180,7 +180,7 @@ int maildir_send_message(const mailbox M, int sck, const int i, int n) {
         return 0;
     }
     log_print(LOG_INFO, "maildir_send_message: sending message %d (%s) size %d bytes", i+1, m->filename, m->msglength);
-    status = write_file(fd, sck, 0 /* offset */, 0 /* skip */, m->msglength, n);
+    status = connection_sendmessage(c, fd, 0 /* offset */, 0 /* skip */, m->msglength, n);
     close(fd);
 
     return status;

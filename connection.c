@@ -12,6 +12,8 @@ static const char rcsid[] = "$Id$";
 #include "configuration.h"
 #endif /* HAVE_CONFIG_H */
 
+#include <sys/types.h>
+
 #include <errno.h>
 #include <fcntl.h>
 #include <pwd.h>
@@ -25,8 +27,8 @@ static const char rcsid[] = "$Id$";
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include <sys/mman.h>
 #include <sys/socket.h>
-#include <sys/types.h>
 #include <sys/utsname.h>
 
 #include "connection.h"
@@ -115,8 +117,12 @@ connection connection_new(int s, const struct sockaddr_in *sin, const char *doma
     if (c->domain) sprintf(c->idstr, "[%d]%s/%s", s, c->remote_ip, c->domain);
     else sprintf(c->idstr, "[%d]%s", s, c->remote_ip);
 
-    c->p = c->buffer = xmalloc(c->bufferlen = MAX_POP3_LINE);
-    if (!c->buffer) goto fail;
+    /* read and write buffers */
+    c->rdb.p = c->rdb.buffer = xmalloc(c->rdb.bufferlen = MAX_POP3_LINE);
+    if (!c->rdb.buffer) goto fail;
+
+    c->wrb.p = c->wrb.buffer = xmalloc(c->wrb.bufferlen = MAX_POP3_LINE);
+    if (!c->wrb.buffer) goto fail;
 
     c->timestamp = make_timestamp(c->domain);
     if (!c->timestamp) goto fail;
@@ -124,6 +130,7 @@ connection connection_new(int s, const struct sockaddr_in *sin, const char *doma
     c->state = authorisation;
 
     c->idlesince = time(NULL);
+    c->frozenuntil = 0;
 
     if (!connection_sendresponse(c, 1, c->timestamp)) {
         log_print(LOG_ERR, "connection_new: could not send timestamp to `%s'", c->idstr);
@@ -132,7 +139,7 @@ connection connection_new(int s, const struct sockaddr_in *sin, const char *doma
 
     return c;
 
-    fail:
+fail:
     connection_delete(c);
     return NULL;
 }
@@ -150,36 +157,114 @@ void connection_delete(connection c) {
     if (c->a) authcontext_delete(c->a);
     if (c->m) (c->m)->delete(c->m);
 
-    if (c->domain)    xfree(c->domain);
-    if (c->remote_ip) xfree(c->remote_ip);
-    if (c->local_ip)  xfree(c->local_ip);
-    if (c->idstr)     xfree(c->idstr);
-    if (c->buffer)    xfree(c->buffer);
-    if (c->timestamp) xfree(c->timestamp);
-    if (c->user)      xfree(c->user);
-    if (c->pass)      xfree(c->pass);
+    if (c->domain)     xfree(c->domain);
+    if (c->remote_ip)  xfree(c->remote_ip);
+    if (c->local_ip)   xfree(c->local_ip);
+    if (c->idstr)      xfree(c->idstr);
+    if (c->rdb.buffer) xfree(c->rdb.buffer);
+    if (c->wrb.buffer) xfree(c->wrb.buffer);
+    if (c->timestamp)  xfree(c->timestamp);
+    if (c->user)       xfree(c->user);
+    if (c->pass)       xfree(c->pass);
     xfree(c);
 }
 
 /* connection_read:
  * Read data from the socket into the buffer, if available. Returns -1 on
- * error or buffer full, 0 on EOF or the number of bytes read. */
+ * error or if the read would block (in this case errno is set to EAGAIN)
+ * or if the buffer is full; or 0 on EOF or the number of bytes read. */
 ssize_t connection_read(connection c) {
     ssize_t n;
     if (!c) return -1;
-    if (c->p == c->buffer + c->bufferlen) {
+    if (c->rdb.p == c->rdb.buffer + c->rdb.bufferlen) {
         log_print(LOG_ERR, _("connection_read: client %s: over-long line"), c->idstr);
         errno = ENOBUFS;
         return -1;
     }
     do {
-        n = read(c->s, c->p, c->buffer + c->bufferlen - c->p);
+        n = read(c->s, c->rdb.p, c->rdb.buffer + c->rdb.bufferlen - c->rdb.p);
     } while (n == -1 && errno == EINTR);
     if (n > 0) {
-        c->p += n;
+        c->rdb.p += n;
         c->nrd += n;    /* Keep track of data transferred. */
     }
+    return n;   /* if a read would block, return -1 with errno == EAGAIN */
+}
+
+#define WRCHUNK     1024    /* the size of chunk in which we write things */
+
+/* connection_write:
+ * Send pending data, if any, to the client. Returns -1 on error or if the
+ * write would block, in which case errno is set to EAGAIN, or the number of
+ * bytes written, which may be 0 if the write buffer is empty. */
+ssize_t connection_write(connection c) {
+    char *d;
+    ssize_t n, ntotal = 0;
+    if (c->frozenuntil > time(NULL)) return 0;
+    for (d = c->wrb.buffer; d < c->wrb.p; d += n) {
+        size_t len = WRCHUNK;
+        if (d + WRCHUNK >= c->wrb.p)
+            len = c->wrb.p - d;
+        do {
+            n = write(c->s, d, len);
+        } while (n == -1 && errno == EINTR);
+        if (n == -1) break;
+        else ntotal += n;
+    }
+    if (ntotal > 0) {
+        c->nwr += ntotal;
+        memmove(c->wrb.buffer, c->wrb.buffer + ntotal, c->wrb.p - (c->wrb.buffer + ntotal));
+        c->wrb.p -= ntotal;
+    }
+    return ntotal;
+}
+
+/* connection_send_now:
+ * Send the given data to the client immediately, if possible. Returns the
+ * number of bytes written on success, or -1 on error or if the write would
+ * block. Does not interact with the write buffer at all. */
+static ssize_t connection_send_now(connection c, const char *data, const size_t len) {
+    ssize_t n;
+    if (c->frozenuntil > time(NULL)) return 0;
+    do {
+        n = write(c->s, data, len);
+    } while (n == -1 && errno == EINTR);
+    if (n > 0) c->nwr += n;
     return n;
+}
+
+/* connection_send:
+ * Send some data to the client, either immediately if possible or inserting it
+ * into the buffer otherwise. Returns 1 on success or 0 on failure. */
+ssize_t connection_send(connection c, const char *data, const size_t l) {
+    size_t len;
+    ssize_t n;
+    len = l;
+    if (c->wrb.p == c->wrb.buffer) {
+        /* Buffer is empty. Try sending the data now. */
+        n = connection_send_now(c, data, len);
+        if (n == len) return 1;
+        else if (n == -1 && errno != EAGAIN) return 0;
+        else if (n > 0) {
+            data += n;
+            len -= n;
+        }
+    }
+    /* Append remaining data to end of buffer. */
+    while (c->wrb.p + len > c->wrb.buffer + c->wrb.bufferlen) {
+        /* Expand buffer. */
+        int d;
+        d = c->wrb.p - c->wrb.buffer;
+        c->wrb.buffer = xrealloc(c->wrb.buffer, c->wrb.bufferlen *= 2);
+        c->wrb.p = c->wrb.buffer + d; 
+    }
+    memcpy(c->wrb.p, data, len);
+    c->wrb.p += len;
+
+    /* Try a send immediately. */
+    if (connection_write(c) == -1 && errno != EAGAIN)
+        return 0;
+    else return 1;
 }
 
 /*
@@ -198,6 +283,12 @@ static void dump(const char *s, size_t l) {
     fprintf(stderr, "\n");
 }
 */
+
+/* connection_freeze:
+ * Mark a connection as frozen. */
+void connection_freeze(connection c) {
+    c->frozenuntil = time(NULL) + 3;
+}
 
 /* connection_parsecommand:
  * Parse a command from the connection, returning NULL if none is available. */
@@ -225,15 +316,15 @@ pop3command connection_parsecommand(connection c) {
     pop3command pc = NULL;
 
     /* Skip initial whitespace. */
-    for (p = c->buffer; p < c->p && strchr(" \t", *p); ++p);
-    if (p == c->p) return NULL;
+    for (p = c->rdb.buffer; p < c->rdb.p && strchr(" \t", *p); ++p);
+    if (p == c->rdb.p) return NULL;
     
     /* Find end of command. */
-    for (q = p; q < c->p && !strchr("\r\n", *q); ++q);
-    if (q == c->p) return NULL;
+    for (q = p; q < c->rdb.p && !strchr("\r\n", *q); ++q);
+    if (q == c->rdb.p) return NULL;
 
     /* Replace trailing newlines with NULs. */
-    for (; q < c->p && strchr("\r\n", *q); ++q) *q = 0;
+    for (; q < c->rdb.p && strchr("\r\n", *q); ++q) *q = 0;
 
     pc = pop3command_new(p);
 
@@ -255,8 +346,8 @@ pop3command connection_parsecommand(connection c) {
     }
 
     /* now update the buffer */
-    memmove(c->buffer, q, c->buffer + c->bufferlen - q);
-    c->p -= q - c->buffer;
+    memmove(c->rdb.buffer, q, c->rdb.buffer + c->rdb.bufferlen - q);
+    c->rdb.p -= q - c->rdb.buffer;
 
     return pc;
 }
@@ -320,34 +411,112 @@ void pop3command_delete(pop3command p) {
  * Send a +OK... / -ERR... response to a message. Returns 1 on success or 0 on
  * failure. */
 int connection_sendresponse(connection c, const int success, const char *s) {
-    char *x;
-    size_t l, m;
-    x = xmalloc(l = (4 + strlen(s) + 3 + 1));
-    if (!x) return 0;
-    snprintf(x, l, "%s %s\r\n", success ? "+OK" : "-ERR", s);
-    m = xwrite(c->s, x, l = strlen(x));
-    xfree(x);
-    if (verbose)
-        log_print(LOG_DEBUG, _("connection_sendresponse: client %s: sent `%s %s'"), c->idstr, success? "+OK" : "-ERR", s);
-    if (m > 0)
-        c->nwr += m;
-    return (m == l);
+    if (connection_send(c, success ? "+OK " : "-ERR ", success ? 4 : 5)
+            && connection_send(c, s, strlen(s))
+            && connection_send(c, "\r\n", 2)) {
+        if (verbose)
+            log_print(LOG_DEBUG, _("connection_sendresponse: client %s: sent `%s %s'"), c->idstr, success ? "+OK" : "-ERR", s);
+        return 1;
+    } else
+        return 0;
 }
 
 /* connection_sendline:
  * Send an arbitrary line to a connected peer. Returns 1 on success or 0 on
  * failure. Used to send multiline responses. */
 int connection_sendline(connection c, const char *s) {
-    char *x;
-    size_t l, m;
-    x = xmalloc(l = (3 + strlen(s)));
-    if (!x) return 0;
-    snprintf(x, l, "%s\r\n", s);
-    m = xwrite(c->s, x, l = strlen(x));
-    xfree(x);
-    if (m > 0)
-        c->nwr += m;
-    return (m == l);
+    return connection_send(c, s, strlen(s)) && connection_send(c, "\r\n", 2);
 }
 
+/* connection_sendmessage:
+ * Send to the connected peer the header and up to n lines of the body of a
+ * message which begins at offset msgoffset + skip in the file referenced by
+ * fd, which is assumed to be a mappable object. Lines which begin . are
+ * escaped as required by RFC1939, and each line is terminated with `\r\n'. If
+ * n is -1, the whole message is sent. Returns the number of bytes written on
+ * success or -1 on failure. Assumes the message on disk uses only `\n' to
+ * indicate EOL. */
+int connection_sendmessage(connection c, int fd, size_t msgoffset, size_t skip, size_t msglength, int n) {
+    char *filemem;
+    char *p, *q, *r;
+    size_t length, offset;
+    ssize_t nwritten = 0;
+    
+    offset = msgoffset - (msgoffset % PAGESIZE);
+    length = (msgoffset + msglength + PAGESIZE) ;
+    length -= length % PAGESIZE;
+
+    filemem = mmap(0, length, PROT_READ, MAP_PRIVATE, fd, offset);
+    if (filemem == MAP_FAILED) {
+        log_print(LOG_ERR, "connection_sendmessage: mmap: %m");
+        return -1;
+    }
+
+    /* Find the beginning of the message headers */
+    p = filemem + (msgoffset % PAGESIZE);
+    r = p + msglength;
+    p += skip;
+
+    /* Send the message headers */
+    do {
+        q = memchr(p, '\n', r - p);
+        if (!q) q = r;
+        errno = 0;
+        
+        /* Escape a leading ., if present. */
+        if (*p == '.' && !connection_send(c, ".", 1))
+            goto write_failure;
+        ++nwritten;
+        
+        /* Send line itself. */
+        if (!connection_send(c, p, q - p) || !connection_send(c, "\r\n", 2))
+            goto write_failure;
+        nwritten += q - p + 2;
+
+        p = q + 1;
+    } while (p < r && *p != '\n');
+
+    ++p;
+
+    errno = 0;
+    if (!connection_send(c, "\r\n", 2)) {
+        log_print(LOG_ERR, "connection_sendmessage: send: %m");
+        munmap(filemem, length);
+        return -1;
+    }
+    
+    /* Now send the message itself */
+    while (p < r && n) {
+        if (n > 0) --n;
+
+        q = memchr(p, '\n', r - p);
+        if (!q) q = r;
+        errno = 0;
+
+        /* Escape a leading ., if present. */
+        if (*p == '.' && !connection_send(c, ".", 1))
+            goto write_failure;
+        ++nwritten;
+        
+        /* Send line itself. */
+        if (!connection_send(c, p, q - p) || !connection_send(c, "\r\n", 2))
+            goto write_failure;
+        nwritten += q - p + 2;
+
+        p = q + 1;
+    }
+    if (munmap(filemem, length) == -1)
+        log_print(LOG_ERR, "connection_sendmessage: munmap: %m");
+    
+    errno = 0;
+    if (!connection_send(c, ".\r\n", 3)) {
+        log_print(LOG_ERR, "connection_sendmessage: send: %m");
+        return -1;
+    } else return nwritten + 3;
+
+write_failure:
+    log_print(LOG_ERR, "connection_sendmessage: send: %m");
+    munmap(filemem, length);
+    return -1;
+}
 
