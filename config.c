@@ -10,7 +10,7 @@ static const char rcsid[] = "$Id$";
 
 #ifdef HAVE_CONFIG_H
 #include "configuration.h"
-#endif // HAVE_CONFIG_H
+#endif /* HAVE_CONFIG_H */
 
 #include <errno.h>
 #include <stdio.h>
@@ -73,9 +73,9 @@ stringmap read_config_file(const char *f) {
 
                     /* Check that this is a valid key. */
                     if (!is_cfgdirective_valid(key))
-                        fprintf(stderr, "%s:%d: warning: unknown directive `%s'\n", f, i, key);
+                        fprintf(stderr, _("%s:%d: warning: unknown directive `%s'\n"), f, i, key);
                     else if ((I = stringmap_insert(S, key, item_ptr(strdup(value)))))
-                        fprintf(stderr, "%s:%d: warning: repeated directive `%s'\n", f, i, key);
+                        fprintf(stderr, _("%s:%d: warning: repeated directive `%s'\n"), f, i, key);
                 }
             }
         }

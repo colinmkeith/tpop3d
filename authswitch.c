@@ -10,7 +10,7 @@ static const char rcsid[] = "$Id$";
 
 #ifdef HAVE_CONFIG_H
 #include "configuration.h"
-#endif // HAVE_CONFIG_H
+#endif /* HAVE_CONFIG_H */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,6 +24,10 @@ static const char rcsid[] = "$Id$";
 #include "auth_mysql.h"
 #endif /* AUTH_MYSQL */
 
+#ifdef AUTH_OTHER
+#include "auth_other.h"
+#endif /* AUTH_OTHER */
+
 #ifdef AUTH_PAM
 #include "auth_pam.h"
 #endif /* AUTH_PAM */
@@ -36,6 +40,8 @@ static const char rcsid[] = "$Id$";
 #include "stringmap.h"
 #include "util.h"
 
+#define gettext_noop(String) (String)
+
 /* auth_drivers:
  * References the various authentication drivers. New ones should be added as
  * below.
@@ -45,22 +51,29 @@ struct authdrv auth_drivers[] = {
         /* This is the PAM driver, which should be used wherever possible. */
         {NULL, NULL, auth_pam_new_user_pass, NULL,
             "pam",
-            "Uses Pluggable Authentication Modules"},
+            gettext_noop("Uses Pluggable Authentication Modules")},
 #endif /* AUTH_PAM */
             
 #ifdef AUTH_PASSWD
         /* This is the old-style unix authentication driver. */
         {NULL, NULL, auth_passwd_new_user_pass, NULL,
             "passwd",
-            "Uses /etc/passwd or /etc/shadow"},
+            gettext_noop("Uses /etc/passwd or /etc/shadow")},
 #endif /* AUTH_PASSWD */
             
 #ifdef AUTH_MYSQL
-        /* This is for vmail-sql and similar schemes */
+        /* This is for vmail-sql and similar schemes. */
         {auth_mysql_init, auth_mysql_new_apop, auth_mysql_new_user_pass, auth_mysql_close,
             "mysql",
-            "Uses a MySQL database"},
+            gettext_noop("Uses a MySQL database")},
 #endif /* AUTH_MYSQL */
+
+#ifdef AUTH_OTHER
+        /* This calls an external program and has it authenticate the user. */
+        {auth_other_init, auth_other_new_apop, auth_other_new_user_pass, auth_other_close,
+            "other",
+            gettext_noop("Uses external programs")},
+#endif /* AUTH_OTHER */
     };
 
 int *auth_drivers_running;
@@ -90,7 +103,7 @@ int authswitch_init() {
         I = stringmap_find(config, s);
         if (I && (!strcmp(I->v, "yes") || !strcmp(I->v, "true"))) {
             if (aa->auth_init && !aa->auth_init())
-                print_log(LOG_ERR, "failed to initialise %s authentication driver", aa->name);
+                print_log(LOG_ERR, _("failed to initialise %s authentication driver"), aa->name);
             else {
                 *aar = 1;
                 ++ret;
@@ -114,7 +127,8 @@ authcontext authcontext_new_apop(const char *timestamp, const char *name, unsign
         if (*aar && aa->auth_new_apop && (a = aa->auth_new_apop(timestamp, name, digest))) {
             a->auth = strdup(aa->name);
             a->credential = strdup(name);
-            print_log(LOG_INFO, "authcontext_new_apop: began session for `%s' with %s; uid %d, gid %d", a->credential, a->auth, getuid(), getgid());
+            print_log(LOG_INFO, _("authcontext_new_apop: began session for `%s' with %s; uid %d, gid %d"),
+                        a->credential, a->auth, getuid(), getgid());
             return a;
         }
 
@@ -133,7 +147,8 @@ authcontext authcontext_new_user_pass(const char *user, const char *pass) {
         if (*aar && aa->auth_new_user_pass && (a = aa->auth_new_user_pass(user, pass))) {
             a->auth = strdup(aa->name);
             a->credential = strdup(user);
-            print_log(LOG_INFO, "authcontext_new_user_pass: began session for `%s' with %s; uid %d, gid %d", a->credential, a->auth, a->uid, a->gid);
+            print_log(LOG_INFO, _("authcontext_new_user_pass: began session for `%s' with %s; uid %d, gid %d"),
+                        a->credential, a->auth, a->uid, a->gid);
             return a;
         }
 
@@ -189,7 +204,7 @@ void authcontext_delete(authcontext a) {
      * copy of the data. (This is a hack, and I am ashamed.)
      */
     if (getuid() == a->uid && a->auth && a->credential)
-        print_log(LOG_INFO, "authcontext_delete: finished session for `%s' with %s", a->credential, a->auth);
+        print_log(LOG_INFO, _("authcontext_delete: finished session for `%s' with %s"), a->credential, a->auth);
 
     if (a->auth) free(a->auth);
     if (a->credential) free(a->credential);

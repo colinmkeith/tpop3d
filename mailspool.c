@@ -21,7 +21,7 @@ static const char rcsid[] = "$Id$";
 
 #ifdef HAVE_CONFIG_H
 #include "configuration.h"
-#endif // HAVE_CONFIG_H
+#endif /* HAVE_CONFIG_H */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -123,7 +123,7 @@ mailspool mailspool_new_from_file(const char *filename) {
     if (stat(filename, &(M->st)) == -1) {
         if ( errno == ENOENT ) {
             /* No mailspool */
-            print_log(LOG_INFO, "mailspool_new_from_file: stat(%s): doesn't exist (is empty)", filename);
+            print_log(LOG_INFO, _("mailspool_new_from_file: stat(%s): doesn't exist (is empty)"), filename);
             M->name = strdup("/dev/null");
             M->fd = -1;
             M->isempty = 1;
@@ -153,7 +153,7 @@ mailspool mailspool_new_from_file(const char *filename) {
     }
 
     if (M->fd == -1) {
-        print_log(LOG_ERR, "mailspool_new_from_file: failed to lock %s: %m", filename);
+        print_log(LOG_ERR, _("mailspool_new_from_file: failed to lock %s: %m"), filename);
         goto fail;
     }
 
@@ -165,7 +165,7 @@ mailspool mailspool_new_from_file(const char *filename) {
 
     gettimeofday(&tv2, NULL);
     f = (float)(tv2.tv_sec - tv1.tv_sec) + 1e-6 * (float)(tv2.tv_usec - tv1.tv_usec);
-    print_log(LOG_DEBUG, "mailspool_new_from_file: indexed mailspool %s (%d bytes) in %0.3fs", filename, (int)M->st.st_size, f);
+    print_log(LOG_DEBUG, _("mailspool_new_from_file: indexed mailspool %s (%d bytes) in %0.3fs"), filename, (int)M->st.st_size, f);
     
     return M;
 
@@ -277,9 +277,10 @@ vector mailspool_build_index(mailspool M) {
     if (M->index->n_used >= 1) {
         p = memstr(filemem, ((indexpoint)M->index->ary->v)->msglength, "\n\n", 2);
         if (p) {
+            /* XXX are the c-client messages internationalised? */
             const char hdr1[] = "\nX-IMAP: ", hdr2[] = "Subject: DON'T DELETE THIS MESSAGE -- FOLDER INTERNAL DATA\n";
             if (memstr(filemem, p - filemem, hdr1, strlen(hdr1)) && memstr(filemem, p - filemem, hdr2, strlen(hdr2))) {
-                print_log(LOG_DEBUG, "mailspool_build_index(%s): skipping c-client metadata", M->name);
+                print_log(LOG_DEBUG, _("mailspool_build_index(%s): skipping c-client metadata"), M->name);
                 free(M->index->ary->v);
                 vector_remove(M->index, M->index->ary);
             }
@@ -497,7 +498,7 @@ int mailspool_apply_changes(mailspool M) {
     while (I < End && !((indexpoint)I->v)->deleted) ++I;
     if (I == End) {
         if (munmap(filemem, len) == -1) print_log(LOG_ERR, "mailspool_send_message: munmap: %m");
-        print_log(LOG_ERR, "mailspool_apply_changes(%s): inconsistency in mailspool data", M->name);
+        print_log(LOG_ERR, _("mailspool_apply_changes(%s): inconsistency in mailspool data"), M->name);
         return 0;
     }
     d = filemem + ((indexpoint)I->v)->offset;

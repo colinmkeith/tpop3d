@@ -10,7 +10,7 @@ static const char rcsid[] = "$Id$";
 
 #ifdef HAVE_CONFIG_H
 #include "configuration.h"
-#endif // HAVE_CONFIG_H
+#endif /* HAVE_CONFIG_H */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -153,7 +153,7 @@ ssize_t connection_read(connection c) {
     ssize_t n;
     if (!c) return -1;
     if (c->p == c->buffer + c->bufferlen) {
-        print_log(LOG_ERR, "connection_read: client %s: over-long line", c->idstr);
+        print_log(LOG_ERR, _("connection_read: client %s: over-long line"), c->idstr);
         errno = ENOBUFS;
         return -1;
     }

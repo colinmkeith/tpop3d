@@ -22,7 +22,7 @@ static const char rcsid[] = "$Id$";
 
 #ifdef HAVE_CONFIG_H
 #include "configuration.h"
-#endif // HAVE_CONFIG_H
+#endif /* HAVE_CONFIG_H */
 
 #include "locks.h"
 
@@ -123,12 +123,12 @@ int dotfile_lock(const char *name) {
 
     fd = open(hitchfile, O_EXCL | O_CREAT | O_WRONLY, 0440);
     if (fd == -1) {
-        print_log(LOG_ERR, "dotfile_lock(%s): unable to create hitching post: %m", name);
+        print_log(LOG_ERR, _("dotfile_lock(%s): unable to create hitching post: %m"), name);
         goto fail;
     }
 
     if (xwrite(fd, pidstr, strlen(pidstr)) != strlen(pidstr)) {
-        print_log(LOG_ERR, "dotfile_lock(%s): unable to write PID to hitching post: %m", name);
+        print_log(LOG_ERR, _("dotfile_lock(%s): unable to write PID to hitching post: %m"), name);
         goto fail;
     }
 
@@ -142,7 +142,7 @@ int dotfile_lock(const char *name) {
      * did it have exactly 2 links when we were done?
      */
     if (rc != 0 && st.st_nlink != 2) {
-        print_log(LOG_ERR, "dotfile_lock(%s): unable to link hitching post to lock file: %m", name);
+        print_log(LOG_ERR, _("dotfile_lock(%s): unable to link hitching post to lock file: %m"), name);
         goto fail;
     }
 
@@ -186,7 +186,7 @@ int dotfile_unlock(const char *name) {
 
     /* XXX is this correct? */
     if (strncmp(pidstr, pidstr2, strlen(pidstr)) != 0) {
-        print_log(LOG_ERR, "dotfile_unlock(%s): lockfile does not have our pid", name);
+        print_log(LOG_ERR, _("dotfile_unlock(%s): lockfile does not have our PID"), name);
         goto fail;
     }
 
@@ -252,7 +252,7 @@ int cclient_steal_lock(int fd) {
 
         p = (pid_t)atoi(other_pid);
         if (p) {
-            print_log(LOG_DEBUG, "cclient_steal_lock: attempting to grab c-client lock from PID %d", (int)p);
+            print_log(LOG_DEBUG, _("cclient_steal_lock: attempting to grab c-client lock from PID %d"), (int)p);
             kill(p, SIGUSR2);
         }
 
@@ -265,7 +265,7 @@ int cclient_steal_lock(int fd) {
         if (flock_lock(fd_cc) == -1)
 #endif /* CCLIENT_USES_FLOCK */
             /* No good. */
-            print_log(LOG_ERR, "cclient_steal_lock: failed to grab c-client lock from PID %d", (int)p);
+            print_log(LOG_ERR, _("cclient_steal_lock: failed to grab c-client lock from PID %d"), (int)p);
         else {
             /* It worked; unlink and close the c-client lockfile. */
             unlink(cclient_lockfile);

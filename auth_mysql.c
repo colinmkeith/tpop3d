@@ -13,7 +13,7 @@
 
 #ifdef HAVE_CONFIG_H
 #include "configuration.h"
-#endif // HAVE_CONFIG_H
+#endif /* HAVE_CONFIG_H */
 
 #ifdef AUTH_MYSQL
 static const char rcsid[] = "$Id$";
@@ -58,19 +58,19 @@ int auth_mysql_init() {
 
     if ((I = stringmap_find(config, "auth-mysql-username"))) username = (char*)I->v;
     else {
-        print_log(LOG_ERR, "auth_mysql_init: no auth-mysql-username directive in config");
+        print_log(LOG_ERR, _("auth_mysql_init: no auth-mysql-username directive in config"));
         goto fail;
     }
 
     if ((I = stringmap_find(config, "auth-mysql-password"))) password = (char*)I->v;
     else {
-        print_log(LOG_ERR, "auth_mysql_init: no auth-mysql-password directive in config");
+        print_log(LOG_ERR, _("auth_mysql_init: no auth-mysql-password directive in config"));
         goto fail;
     }
 
     if ((I = stringmap_find(config, "auth-mysql-database"))) database = (char*)I->v;
     else {
-        print_log(LOG_ERR, "auth_mysql_init: no auth-mysql-database directive in config");
+        print_log(LOG_ERR, _("auth_mysql_init: no auth-mysql-database directive in config"));
         goto fail;
     }
 
@@ -79,7 +79,7 @@ int auth_mysql_init() {
 
     mysql = mysql_init(NULL);
     if (!mysql) {
-        print_log(LOG_ERR, "auth_mysql_init: mysql_init: failed");
+        print_log(LOG_ERR, _("auth_mysql_init: mysql_init: failed"));
         goto fail;
     }
 
@@ -136,7 +136,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
             struct group *grp;
             grp = getgrnam((char*)I->v);
             if (!grp) {
-                print_log(LOG_ERR, "auth_mysql_new_apop: auth-mysql-mail-group directive `%s' does not make sense", (char*)I->v);
+                print_log(LOG_ERR, _("auth_mysql_new_apop: auth-mysql-mail-group directive `%s' does not make sense"), (char*)I->v);
                 return NULL;
             }
             gid = grp->gr_gid;
@@ -185,7 +185,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
 
         switch (i = mysql_num_rows(result)) {
         case 0:
-            print_log(LOG_WARNING, "auth_mysql_new_apop: attempted login by nonexistent user %s@%s", local_part, domain);
+            print_log(LOG_WARNING, _("auth_mysql_new_apop: attempted login by nonexistent user %s@%s"), local_part, domain);
             break;
         case 1: {
                 MYSQL_ROW row = mysql_fetch_row(result);
@@ -206,7 +206,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
 
                 /* User was lying */
                 if (memcmp(this_digest, digest, 16)) {
-                    print_log(LOG_WARNING, "auth_mysql_new_apop: failed login for %s@%s", local_part, domain);
+                    print_log(LOG_WARNING, _("auth_mysql_new_apop: failed login for %s@%s"), local_part, domain);
                     break;
                 }
 
@@ -214,7 +214,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
                 pw = getpwnam((const char*)row[2]);
 
                 if (!pw) {
-                    print_log(LOG_ERR, "auth_mysql_new_apop: getpwnam(%s): %m", (const char*)row[2]);
+                    print_log(LOG_ERR, _("auth_mysql_new_apop: getpwnam(%s): %m"), (const char*)row[2]);
                     break;
                 }
 
@@ -222,7 +222,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
                  * root....
                  */
                 if (!pw->pw_uid) {
-                    print_log(LOG_ERR, "auth_mysql_new_apop: unix user for domain is root");
+                    print_log(LOG_ERR, _("auth_mysql_new_apop: unix user for domain is root"));
                     break;
                 }
 
@@ -239,7 +239,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
             }
 
         default:
-            print_log(LOG_ERR, "auth_mysql_new_apop: database inconsistency: query for %s returned %d rows", name, i);
+            print_log(LOG_ERR, _("auth_mysql_new_apop: database inconsistency: query for %s returned %d rows"), name, i);
             break;
         }
 
@@ -299,7 +299,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
             struct group *grp;
             grp = getgrnam((char*)I->v);
             if (!grp) {
-                print_log(LOG_ERR, "auth_mysql_new_user_pass: auth-mysql-mail-group directive `%s' does not make sense", (char*)I->v);
+                print_log(LOG_ERR, _("auth_mysql_new_user_pass: auth-mysql-mail-group directive `%s' does not make sense"), (char*)I->v);
                 return NULL;
             }
             gid = grp->gr_gid;
@@ -376,7 +376,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
                  * root....
                  */
                 if (!pw->pw_uid) {
-                    print_log(LOG_ERR, "auth_mysql_new_user_pass: unix user for domain is root");
+                    print_log(LOG_ERR, _("auth_mysql_new_user_pass: unix user for domain is root"));
                     break;
                 }
 
@@ -393,7 +393,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
             }
 
         default:
-            print_log(LOG_ERR, "auth_mysql_new_user_pass: database inconsistency: query for %s@%s returned %d rows", local_part, domain, i);
+            print_log(LOG_ERR, _("auth_mysql_new_user_pass: database inconsistency: query for %s@%s returned %d rows"), local_part, domain, i);
             break;
         }
 

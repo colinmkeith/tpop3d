@@ -25,4 +25,11 @@ int daemon(int nochdir, int noclose);
 int inet_aton(const char *s, struct in_addr *ip);
 #endif
 
+#ifdef WITH_I18N
+#   include <gettext.h>
+#   define _(String) gettext(String)
+#else
+#   define _(String) String
+#endif /* WITH_I18N */
+
 #endif /* __UTIL_H_ */

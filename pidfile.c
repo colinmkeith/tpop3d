@@ -11,7 +11,7 @@ static const char rcsid[] = "$Id$";
 
 #ifdef HAVE_CONFIG_H
 #include "configuration.h"
-#endif // HAVE_CONFIG_H
+#endif /* HAVE_CONFIG_H */
 
 #include "pidfile.h"
 
@@ -24,7 +24,6 @@ static const char rcsid[] = "$Id$";
 #include <errno.h>
 
 /* write_pid_file:
- *
  * Writes the current process ID to `filename'.  Returns
  * pid_file_success on success, pid_file_existence if the file already
  * exists, and pid_file_error in the case of any other error.
@@ -62,9 +61,7 @@ write_pid_file(const char * filename)
     return pid_file_success;
 }
 
-/*
- * read_pid_file:
- *
+/* read_pid_file:
  * Opens the PID file at `filename' and stores the PID in it at `pid'.
  * Returns pid_file_success on success (i.e. PID read successfully),
  * pid_file_existence if the file does not exist, or pid_file_error
@@ -111,9 +108,7 @@ read_pid_file(const char * filename, pid_t * pid)
     return pid_file_success;
 }
 
-/*
- * remove_pid_file:
- *
+/* remove_pid_file:
  * Returns pid_file_success on success, pid_file_existence if the file
  * does not exist, or pid_file_error for any other error.
  */
