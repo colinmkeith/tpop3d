@@ -7,6 +7,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.4  2000/10/18 21:34:12  chris
+ * Changes due to Mark Longair.
+ *
  * Revision 1.3  2000/10/08 16:54:06  chris
  * Minor changes.
  *
@@ -36,6 +39,7 @@ stringmap stringmap_new() {
     if (!S) return NULL;
 
     memset(S, 0, sizeof(struct _stringmap));
+    return S;
 }
 
 /* stringmap_delete:
@@ -79,7 +83,7 @@ item *stringmap_insert(stringmap S, const char *k, const item d) {
         for (S2 = S;;) {
             int i = strcmp(k, S2->key);
             if (i == 0) return &(S2->d);
-            else if (i < 0)
+            else if (i < 0) {
                 if (S2->l) S2 = S2->l;
                 else {
                     if (!(S2->l = stringmap_new())) return NULL;
@@ -87,7 +91,7 @@ item *stringmap_insert(stringmap S, const char *k, const item d) {
                     S2->l->d   = d;
                     return NULL;
                 }
-            else if (i > 0)
+            } else if (i > 0) {
                 if (S2->g) S2 = S2->g;
                 else {
                     if (!(S2->g = stringmap_new())) return NULL;
@@ -95,6 +99,7 @@ item *stringmap_insert(stringmap S, const char *k, const item d) {
                     S2->g->d   = d;
                     return NULL;
                 }
+            }
         }
     }
 }
@@ -110,11 +115,12 @@ item *stringmap_find(const stringmap S, const char *k) {
     for (S2 = S;;) {
         i = strcmp(k, S2->key);
         if (i == 0) return &(S2->d);
-        else if (i < 0)
+        else if (i < 0) {
             if (S2->l) S2 = S2->l;
             else return NULL;
-        else if (i > 0)
+        } else if (i > 0) {
             if (S2->g) S2 = S2->g;
             else return NULL;
+        }
     }
 }

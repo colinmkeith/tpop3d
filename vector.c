@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.4  2000/10/18 21:34:12  chris
+ * Changes due to Mark Longair.
+ *
  * Revision 1.3  2000/10/07 17:41:16  chris
  * Minor changes.
  *
@@ -16,7 +19,7 @@
  *
  */
 
-static char rcsid[] = "$Id$";
+static const char rcsid[] = "$Id$";
 
 #include <stdlib.h>
 #include <string.h>
@@ -110,7 +113,7 @@ item vector_back(vector v) {
 }
 
 item *vector_remove(vector v, item *t) {
-    if (t >= v->ary + v->n_used) return;
+    if (t >= v->ary + v->n_used) return NULL;
     if (t < v->ary + v->n_used - 1)
         memmove(t, t + 1, (v->n_used - (t - v->ary)) * sizeof(item));
     memset(v->ary + v->n_used--, 0, sizeof(item));

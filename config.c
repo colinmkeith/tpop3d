@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.3  2000/10/18 21:34:12  chris
+ * Changes due to Mark Longair.
+ *
  * Revision 1.2  2000/10/07 17:41:16  chris
  * Minor changes.
  *
@@ -17,6 +20,7 @@ static const char rcsid[] = "$Id$";
 
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
 
@@ -48,7 +52,7 @@ stringmap read_config_file(const char *f) {
     if (!S) goto fail;
 
     while (!feof(fp)) {
-        char *key, *value, *r, *s;
+        char *key, *value, *r;
         fgets(line, MAX_CONFIG_LINE, fp);
 
         key = strpbrk(line, "#\n");

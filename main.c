@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.8  2000/10/18 21:34:12  chris
+ * Changes due to Mark Longair.
+ *
  * Revision 1.7  2000/10/09 23:24:34  chris
  * Minor changess.
  *
@@ -28,7 +31,7 @@
  *
  */
 
-static char rcsid[] = "$Id$";
+static const char rcsid[] = "$Id$";
 
 /* Should be -D... from Makefile. */
 #ifndef TPOP3D_VERSION
@@ -44,6 +47,7 @@ static char rcsid[] = "$Id$";
 #include <syslog.h>
 #include <unistd.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -97,7 +101,6 @@ int max_running_children = 16;  /* How many children may exist at once. */
 connection this_child_connection; /* Stored here so that if a signal terminates the child, the mailspool will still get unlocked. */
 
 void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
-    int s;
     struct sockaddr_in **sin;
     vector listen_sockets = vector_new();
     list connections = list_new();
@@ -202,7 +205,7 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
                          * command/s.
                          */
                         pop3command p;
-                        while (p = connection_parsecommand(c)) {
+                        while ( (p = connection_parsecommand(c)) ) {
                             switch(connection_do(c, p)) {
                             case close_connection:
                                 connection_delete(c);
@@ -239,11 +242,11 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
                                     
                                     /* Set our gid and uid to that appropriate for the mailspool, as decided by the auth switch. */
                                     if (setgid(c->a->gid) == -1) {
-                                        syslog(LOG_ERR, "net_loop: setuid(%d): %m", c->a->uid);
+                                        syslog(LOG_ERR, "net_loop: setgid(%d): %m", c->a->gid);
                                         connection_sendresponse(c, 0, "Everything was fine until now, but suddenly I realise I just can't go on. Sorry.");
                                         exit(0);
                                     } else if (setuid(c->a->uid) == -1) {
-                                        syslog(LOG_ERR, "net_loop: setgid(%d): %m", c->a->gid);
+                                        syslog(LOG_ERR, "net_loop: setuid(%d): %m", c->a->uid);
                                         connection_sendresponse(c, 0, "Everything was fine until now, but suddenly I realise I just can't go on. Sorry.");
                                         exit(0);
                                     }
@@ -299,7 +302,6 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
 char *this_lockfile;
 
 void die_signal_handler(const int i) {
-    char buffer[1024];
     if (this_child_connection) connection_delete(this_child_connection);
     if (this_lockfile) unlink(this_lockfile);
     syslog(LOG_ERR, "quit: %s", sys_siglist[i]);
@@ -432,7 +434,7 @@ int main(int argc, char **argv) {
                     struct servent *se;
                     se = getservbyname(r, "tcp");
                     if (!se) {
-                        fprintf(stderr, "%s: specified listen address `%s' has invalid port `%s'", configfile, s, r);
+                        fprintf(stderr, "%s: specified listen address `%s' has invalid port `%s'\n", configfile, s, r);
                         free(sin);
                         continue;
                     } else sin->sin_port = se->s_port;
@@ -443,7 +445,7 @@ int main(int argc, char **argv) {
                 struct hostent *he;
                 he = gethostbyname(s);
                 if (!he) {
-                    fprintf(stderr, "%s: gethostbyname: specified listen address `%s' is invalid", configfile);
+                    fprintf(stderr, "%s: gethostbyname: specified listen address `%s' is invalid\n", configfile, s);
                     free(sin);
                     continue;
                 } else memcpy(&(sin->sin_addr), he->h_addr, sizeof(struct in_addr));
@@ -461,7 +463,7 @@ int main(int argc, char **argv) {
     }
 
     if (listeners->n_used == 0) {
-        fprintf(stderr, "%s: no listen addresses obtained; exiting", configfile);
+        fprintf(stderr, "%s: no listen addresses obtained; exiting\n", configfile);
         exit(1);
     }
 
@@ -470,7 +472,7 @@ int main(int argc, char **argv) {
     if (I) {
         max_running_children = atoi((char*)I->v);
         if (!max_running_children) {
-            fprintf(stderr, "%s: value of `%s' for max-children does not make sense; exiting", configfile, I->v);
+            fprintf(stderr, "%s: value of `%s' for max-children does not make sense; exiting\n", configfile, (char *)I->v);
             return 1;
         }
     }

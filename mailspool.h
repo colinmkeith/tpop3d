@@ -6,6 +6,9 @@
  * $Id$
  *
  * $Log$
+ * Revision 1.2  2000/10/18 21:34:12  chris
+ * Changes due to Mark Longair.
+ *
  * Revision 1.1  2000/10/02 18:21:25  chris
  * Initial revision
  *
@@ -42,6 +45,8 @@ void      mailspool_delete(mailspool m);
 vector    mailspool_build_index(mailspool m);
 
 int       mailspool_send_message(mailspool m, int sck, const int i, int n);
+
+int mailspool_apply_changes(mailspool M);
 
 indexpoint indexpoint_new(const size_t offset, const size_t length, const size_t msglength, const void* data);
 

@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.5  2000/10/18 21:34:12  chris
+ * Changes due to Mark Longair.
+ *
  * Revision 1.4  2000/10/07 17:41:16  chris
  * Minor changes.
  *
@@ -21,9 +24,13 @@
 
 static const char rcsid[] = "$Id$";
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
+
+#include <unistd.h>
+#include <sys/types.h>
 
 #include "auth_mysql.h"
 #include "auth_pam.h"
@@ -80,14 +87,14 @@ int authswitch_init() {
         item *I;
         sprintf(s, "auth-%s-enable", aa->name);
         I = stringmap_find(config, s);
-        if (I && (!strcmp(I->v, "yes") || !strcmp(I->v, "true")))
+        if (I && (!strcmp(I->v, "yes") || !strcmp(I->v, "true"))) {
             if (aa->auth_init && !aa->auth_init())
                 syslog(LOG_ERR, "failed to initialise %s authentication driver", aa->name);
             else {
                 *aar = 1;
                 ++ret;
             }
-
+        }
         free(s);
     }
 

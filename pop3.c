@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.5  2000/10/18 21:34:12  chris
+ * Changes due to Mark Longair.
+ *
  * Revision 1.4  2000/10/09 17:38:36  chris
  * Now indexes mailspools from 1 a la RFC1939.
  *
@@ -23,7 +26,10 @@ static const char rcsid[] = "$Id$";
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <syslog.h>
+#include <unistd.h>
+#include <sys/types.h>
 
 #include "authswitch.h"
 #include "connection.h"
@@ -274,7 +280,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 /* Size here is approximate as we don't strip off the "From "
                  * headers.
                  */
-                snprintf(response, 31, "%d %d", c->m->index->n_used, c->m->st.st_size);
+                snprintf(response, 31, "%d %d", c->m->index->n_used, (int)c->m->st.st_size);
                 connection_sendresponse(c, 1, response);
                 break;
             }
@@ -304,7 +310,9 @@ enum connection_action connection_do(connection c, const pop3command p) {
 
         return do_nothing;
     } else {
-        /* can't happen */
+        /* can't happen, but keep the compiler quiet... */
+		connection_sendresponse(c, 0, "Unknown state, closing connection.");
+		return close_connection;
     }
 }
 

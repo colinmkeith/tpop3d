@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.7  2000/10/18 21:34:12  chris
+ * Changes due to Mark Longair.
+ *
  * Revision 1.6  2000/10/10 00:05:36  chris
  * Fixed problems with nonexistent/empty mailspools.
  *
@@ -30,6 +33,7 @@ static const char rcsid[] = "$Id$";
 
 #include <errno.h>
 #include <fcntl.h>
+#include <stdio.h>
 #include <string.h>
 #include <syslog.h>
 #include <unistd.h>
@@ -71,7 +75,6 @@ extern char *this_lockfile;
 int file_lock(const int fd, const char *name) {
     struct flock fl = {0};
     char *lockfile = (char*)malloc(strlen(name) + 6);
-    struct stat st;
     int fd2;
 
     fl.l_type   = F_WRLCK;
@@ -141,7 +144,6 @@ int file_unlock(const int fd, const char *name) {
  */
 mailspool mailspool_new_from_file(const char *filename) {
     mailspool M;
-    struct stat st;
     int i;
     struct timeval tv1, tv2;
     double f;
@@ -152,7 +154,7 @@ mailspool mailspool_new_from_file(const char *filename) {
     memset(M, 0, sizeof(struct _mailspool));
 
     if (stat(filename, &(M->st)) == -1) {
-        if (errno = ENOENT) {
+        if ( errno == ENOENT ) {
             /* No mailspool */
             syslog(LOG_INFO, "mailspool_new_from_file: stat(%s): doesn't exist (is empty)", filename);
             M->name = strdup("/dev/null");
@@ -206,8 +208,8 @@ fail:
         if (M->name) free(M->name);
         if (M->fd != -1) close(M->fd);
         free(M);
-        return NULL;
     }
+	return NULL;
 }
 
 /* memstr:
@@ -216,7 +218,7 @@ fail:
  */
 static char *memstr(const char *haystack, size_t h_len, const char *needle, size_t n_len)
 {
-    const char *p, *q;
+    const char *p;
 
     if (n_len > h_len)
 	return NULL;
@@ -242,7 +244,6 @@ vector mailspool_build_index(mailspool M) {
     char *filemem, *p, *q;
     size_t len, len2;
     item *t;
-    int i = 0;
 
     if (!M || M->fd == -1) return NULL;
 

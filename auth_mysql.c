@@ -10,6 +10,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.5  2000/10/18 21:34:12  chris
+ * Changes due to Mark Longair.
+ *
  * Revision 1.4  2000/10/10 00:05:36  chris
  * Fixed various problems.
  *
@@ -32,6 +35,7 @@ static const char rcsid[] = "$Id$";
 #include <mysql.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <syslog.h>
 
 #include "auth_mysql.h"
@@ -196,7 +200,6 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
                 unsigned long *lengths;
                 char *mailbox;
                 struct passwd *pw;
-                uid_t uid;
                 unsigned char this_digest[16];
                 MD5_CTX ctx;
 
@@ -365,9 +368,6 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
                 unsigned long *lengths;
                 char *mailbox;
                 struct passwd *pw;
-                uid_t uid;
-                unsigned char this_digest[16];
-                MD5_CTX ctx;
 
                 /* These are "can't happen" errors */
                 if (!row || !(lengths = mysql_fetch_lengths(result))) break;

@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.5  2000/10/18 21:34:12  chris
+ * Changes due to Mark Longair.
+ *
  * Revision 1.4  2000/10/09 18:44:47  chris
  * Minor changes.
  *
@@ -25,6 +28,7 @@ static const char rcsid[] = "$Id$";
 #include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <syslog.h>
 #include <unistd.h>
 
@@ -128,7 +132,7 @@ void connection_delete(connection c) {
  */
 ssize_t connection_read(connection c) {
     ssize_t n;
-    if (!c) return;
+    if (!c) return -1;
     if (c->p == c->buffer + c->bufferlen) return -1;
     n = read(c->s, c->p, c->buffer + c->bufferlen - c->p);
     if (n > 0) c->p += n;
@@ -178,7 +182,7 @@ struct {
      {NULL,   UNKNOWN}}; /* last command MUST have s = NULL */
 
 pop3command connection_parsecommand(connection c) {
-    char *p, *q, *r;
+    char *p, *q;
     pop3command pc = NULL;
 
     /* skip initial whitespace */
@@ -219,7 +223,7 @@ pop3command connection_parsecommand(connection c) {
 int connection_sendresponse(connection c, const int success, const char *s) {
     char *x;
     size_t l, m;
-    x = (char*)malloc(4 + strlen(s) + 3);
+    x = (char*)malloc(4 + strlen(s) + 3 + 1);
     if (!x) return 0;
     sprintf(x, "%s %s\r\n", success ? "+OK" : "-ERR", s);
     m = write(c->s, x, l = strlen(x));

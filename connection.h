@@ -6,6 +6,9 @@
  * $Id$
  *
  * $Log$
+ * Revision 1.3  2000/10/18 21:34:12  chris
+ * Changes due to Mark Longair.
+ *
  * Revision 1.2  2000/10/02 18:20:19  chris
  * Minor changes.
  *
@@ -26,6 +29,8 @@
 #include "authswitch.h"
 #include "mailspool.h"
 #include "vector.h"
+
+#define IDLE_TIMEOUT        60    /* in seconds */
 
 #define MAX_POP3_LINE       1024        /* should be sufficient */
 

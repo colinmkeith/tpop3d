@@ -6,6 +6,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.7  2000/10/18 21:34:12  chris
+# Changes due to Mark Longair.
+#
 # Revision 1.6  2000/10/10 00:05:36  chris
 # Various changes.
 #
@@ -28,8 +31,11 @@
 
 VERSION = 0.4
 
-CFLAGS  += -g -I/software/include/mysql -DTPOP3D_VERSION='"$(VERSION)"'
-LDFLAGS += -g -L/software/lib/mysql
+MYSQLROOT = /software
+# MYSQLROOT = /usr
+
+CFLAGS  += -g -I$(MYSQLROOT)/include/mysql -DTPOP3D_VERSION='"$(VERSION)"' -Wall
+LDFLAGS += -g -L$(MYSQLROOT)/lib/mysql
 LDLIBS  += -ldl -lpam -lefence -lmysqlclient
 
 TXTS =  README          \
@@ -80,7 +86,10 @@ checkin:
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean: nodepend
-	rm -f *~ *.o core tpop3d depend
+	rm -f *~ *.o core tpop3d depend TAGS
+
+tags :
+	etags *.c *.h
 
 depend:
 	makedepend -- $(CFLAGS) -- $(SRCS)
