@@ -98,9 +98,8 @@ int *auth_drivers_running;
 void authswitch_describe(FILE *fp) {
     const struct authdrv *aa;
     fprintf(fp, _("Available authentication drivers:\n\n"));
-    for (aa = auth_drivers; aa < auth_drivers_end; ++aa) {
-        fprintf(fp, "  auth_%-11s %s\n", aa->name, _(aa->description));
-    }
+    for (aa = auth_drivers; aa < auth_drivers_end; ++aa)
+        fprintf(fp, "  auth-%-11s %s\n", aa->name, _(aa->description));
     fprintf(fp, "\n");
 }
 

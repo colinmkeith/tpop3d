@@ -2,27 +2,15 @@ Things To Do
 $Id$
 
 
-* More portability
-
-  I only use tpop3d on Linux, but would be interested in getting it running
-  elsewhere. This is likely to happen only on a case-by-case basis, since I
-  don't have access to that many machines to play with and my time is limited.
-
-  In addition, the mess of mailspool locking should be investigated and better
-  documented for the various platforms on which tpop3d runs.
-
-  (Autoconf support goes some way to solving both of these.)
-
-
 * More authentication schemes
 
   Virtual-domain schemes which use /etc/passwd-style flat text files seem to be
   popular, but I do not make use of anything like this. However, it would be
   relatively easy to implement such a thing. (This can now be done with
-  auth_other or auth_perl, but it might be desirable to have it in the main
+  auth-other or auth-perl, but it might be desirable to have it in the main
   program.) I do not intend to implement support for additional databases,
   since it seems better to use the existing code in the various perl DBD
-  modules from auth_perl.
+  modules from auth-perl.
 
 
 * A proper code audit
@@ -51,7 +39,7 @@ $Id$
   The major architectural problem in tpop3d is that the main server, which
   performs authentication, is single-threaded and authenticators block its
   execution. This is not a significant problem in most environments, but it
-  would be preferable to fix it. It is a more serious problem with auth_other,
+  would be preferable to fix it. It is a more serious problem with auth-other,
   since a failed external authenticator program could potentially delay all
   authentications by auth-other-timeout.
 
@@ -96,10 +84,4 @@ $Id$
 
   This is easy to do and may be helpful for some users.
 
-
-* Different mailbox types for auth-mysql
-
-  At the moment, auth-mysql selects the `default' mailbox type, by passing
-  NULL to authcontext_new; this should be configurable, or perhaps determined
-  by the database.
 

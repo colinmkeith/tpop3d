@@ -159,7 +159,7 @@ will probably not work. You will normally want to set this to `mail'.
 
 .SS Password authentication options
 
-These are only available if you compiled \fBtpop3d\fP with \fBauth_passwd\fP
+These are only available if you compiled \fBtpop3d\fP with \fBauth-passwd\fP
 support.
 
 .TP
@@ -174,7 +174,7 @@ will probably not work. You will normally want to set this to `mail'.
 
 .SS MySQL authentication options
 
-These are only available if you compiled tpop3d with \fBauth_mysql\fP support.
+These are only available if you compiled tpop3d with \fBauth-mysql\fP support.
 
 .TP
 \fBauth-mysql-enable\fP: (\fByes\fP | \fBtrue\fP)
@@ -249,7 +249,7 @@ users.
 .SS External program (`other') authentication options
 
 These are only available if you compiled \fBtpop3d\fP with support for
-\fBauth_other\fP.
+\fBauth-other\fP.
 
 .TP
 \fBauth-other-enable\fP: (\fByes\fP | \fBtrue\fP)
@@ -271,7 +271,7 @@ default 0.75.
 
 .SS A note on external program authentication
 
-The intention of \fBauth_other\fP is to allow administrators to implement
+The intention of \fBauth-other\fP is to allow administrators to implement
 custom virtual-domains or other authentication schemes, without having to
 write C code to implement them. The distribution contains a perl module,
 \fBTPOP3D::AuthDriver\fP, which makes it extremely easy to implement a new
@@ -345,7 +345,7 @@ cleaning up.
 .SS Perl authentication options
 
 These are only available if you compiled \fBtpop3d\fP with support for
-\fBauth_perl\fP.
+\fBauth-perl\fP.
 
 .TP
 \fBauth-perl-enable\fP: (\fByes\fP | \fBtrue\fP)
@@ -375,8 +375,8 @@ USER/PASS authentication is received.
 
 The perl subroutines named in the configuration file should take as their
 single argument a reference to a hash; this will contain keys and values as
-listed for \fBauth_other\fP above. The subroutines should also return a
-reference to a hash, indicating results as for \fBauth_other\fP. In addition,
+listed for \fBauth-other\fP above. The subroutines should also return a
+reference to a hash, indicating results as for \fBauth-other\fP. In addition,
 they may call \fBTPOP3D::print_log\fP with a single scalar argument to write a
 message via \fBtpop3d\fP's logging facility.
 

@@ -2,7 +2,7 @@
 #
 # dotapopfile:
 # Allow Unix users to authenticate themselves using a .apop file in their home
-# directories. Works with tpop3d's auth_perl or auth_other.
+# directories. Works with tpop3d's auth-perl or auth-other.
 #
 # Copyright (c) 2001 Chris Lightfoot. All rights reserved.
 #

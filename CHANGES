@@ -28,7 +28,7 @@ Fixes for a couple of portability bugs which crept in to 1.3.2.
 
 1.3.2
 
-Minor changes, and an update for auth_mysql to allow passwords in formats
+Minor changes, and an update for auth-mysql to allow passwords in formats
 other than the default straight MD5 checksums. Different formats are denoted
 by a prefixed token enclosed in { }. Presently supported are:
 
@@ -47,13 +47,13 @@ code was added to work around some bugs in old GNU libc versions.
 
 1.3.1
 
-Minor changes, and the addition of auth_perl for implementing authenticators
+Minor changes, and the addition of auth-perl for implementing authenticators
 as fragments of perl code.
 
 1.3.0
 
 Incorporated autoconf support from Mark Longair, maildir support from Paul
-Makepeace, a new authenticator (auth_other) which talks to external programs
+Makepeace, a new authenticator (auth-other) which talks to external programs
 and a perl library to support it, a more general scheme for selecting
 mailspools and minor portability fixes.
 
@@ -81,5 +81,5 @@ you like, I have better things to do".
 
 1.2.1
 
-Various fixes; added a patch for crypt(3) passwords in auth_mysql, and added
+Various fixes; added a patch for crypt(3) passwords in auth-mysql, and added
 an option to suppress c-client metadata. CHANGES file created.

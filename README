@@ -17,13 +17,13 @@ specifically in the context of new authentication mechanisms and mailbox
 formats. Presently the distribution supports the following authentication
 mechanisms:
 
-    auth_pam       uses Pluggable Authentication Modules
-    auth_passwd         /etc/passwd (and optionally /etc/shadow)
+    auth-pam       uses Pluggable Authentication Modules
+    auth-passwd         /etc/passwd (and optionally /etc/shadow)
 
-    auth_mysql          a vmail-sql style MySQL database; see
+    auth-mysql          a vmail-sql style MySQL database; see
                             http://www.ex-parrot.com/~chris/vmail-sql/
-    auth_other          an external program
-    auth_perl           embedded perl subroutines
+    auth-other          an external program
+    auth-perl           embedded perl subroutines
 
 The latter three options provide virtual domain support; the first two are
 designed to authenticate local (Unix) users.
