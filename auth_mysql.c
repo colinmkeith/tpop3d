@@ -10,6 +10,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.7  2000/10/31 23:17:29  chris
+ * Added paranoia with snprintf.
+ *
  * Revision 1.6  2000/10/28 14:56:43  chris
  * Fixed reference to AUTH_PAM
  *
@@ -138,6 +141,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
     const char *domain;
     item *I;
     int use_gid = 0;
+    size_t l;
     gid_t gid;
 
     if (!mysql) return NULL;
@@ -177,7 +181,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
         return NULL;
     }
 
-    query = (char*)malloc(sizeof(apop_query_template) + strlen(name) * 2 + 1);
+    query = (char*)malloc(l = (sizeof(apop_query_template) + strlen(name) * 2 + 1));
     x = (char*)malloc(strlen(local_part) * 2 + 1);
     y = (char*)malloc(strlen(domain) * 2 + 1);
     if (!query || !x || !y) goto fail;
@@ -185,7 +189,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
     mysql_escape_string(x, local_part, strlen(local_part));
     mysql_escape_string(y, domain, strlen(domain));
 
-    sprintf(query, apop_query_template, x, y);
+    snprintf(query, l, apop_query_template, x, y);
 
     if (mysql_query(mysql, query) == 0) {
         MYSQL_RES *result = mysql_store_result(mysql);
@@ -239,8 +243,8 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
                     break;
                 }
 
-                mailbox = (char*)malloc(lengths[0] + lengths[1] + 2);
-                sprintf(mailbox, "%s/%s", row[0], row[1]);
+                mailbox = (char*)malloc(l = (lengths[0] + lengths[1] + 2));
+                snprintf(mailbox, l, "%s/%s", row[0], row[1]);
 
                 a = authcontext_new(pw->pw_uid,
                                     use_gid ? gid : pw->pw_gid,
@@ -299,6 +303,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
     unsigned char *q;
     MD5_CTX ctx;
     item *I;
+    size_t l;
     int use_gid = 0;
     gid_t gid;
 
@@ -339,7 +344,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
         return NULL;
     }
 
-    query = (char*)malloc(sizeof(user_pass_query_template) + strlen(user) * 2 + 1 + 34);
+    query = (char*)malloc(l = (sizeof(user_pass_query_template) + strlen(user) * 2 + 1 + 34));
     x = (char*)malloc(strlen(local_part) * 2 + 1);
     y = (char*)malloc(strlen(domain) * 2 + 1);
     if (!query || !x || !y) goto fail;
@@ -348,12 +353,12 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
     MD5Update(&ctx, (unsigned char*)pass, strlen(pass));
     MD5Final(digest, &ctx);
 
-    for (p = hexdigest, q = digest; q < digest + 16; ++q, p += 2) sprintf(p, "%02x", (unsigned)*q);
+    for (p = hexdigest, q = digest; q < digest + 16; ++q, p += 2) snprintf(p, 3, "%02x", (unsigned)*q);
 
     mysql_escape_string(x, local_part, strlen(local_part));
     mysql_escape_string(y, domain, strlen(domain));
 
-    sprintf(query, user_pass_query_template, x, y, hexdigest);
+    snprintf(query, l, user_pass_query_template, x, y, hexdigest);
 
     if (mysql_query(mysql, query) == 0) {
         MYSQL_RES *result = mysql_store_result(mysql);
@@ -392,8 +397,8 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
                     break;
                 }
 
-                mailbox = (char*)malloc(lengths[0] + lengths[1] + 2);
-                sprintf(mailbox, "%s/%s", row[0], row[1]);
+                mailbox = (char*)malloc(l = (lengths[0] + lengths[1] + 2));
+                snprintf(mailbox, l, "%s/%s", row[0], row[1]);
 
                 a = authcontext_new(pw->pw_uid,
                                     use_gid ? gid : pw->pw_gid,

@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.7  2000/10/31 23:17:29  chris
+ * Added paranoia with snprintf.
+ *
  * Revision 1.6  2000/10/28 14:57:04  chris
  * Minor changes.
  *
@@ -147,9 +150,10 @@ authcontext auth_pam_new_user_pass(const char *user, const char *pass) {
         r = pam_acct_mgmt(pamh, PAM_SILENT);
         if (r == PAM_SUCCESS) {
             char *s;
-            s = (char*)malloc(strlen(mailspool_dir) + 1 + strlen(user) + 1);
+            size_t l;
+            s = (char*)malloc(l = (strlen(mailspool_dir) + 1 + strlen(user) + 1));
             if (s) {
-                sprintf(s, "%s/%s", mailspool_dir, user);
+                snprintf(s, l, "%s/%s", mailspool_dir, user);
                 a = authcontext_new(pw.pw_uid,
                         use_gid ? gid : pw.pw_gid,
                         s);

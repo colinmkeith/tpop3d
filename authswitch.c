@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.7  2000/10/31 23:17:29  chris
+ * Added paranoia with snprintf.
+ *
  * Revision 1.6  2000/10/28 14:57:04  chris
  * Minor changes.
  *
@@ -92,9 +95,10 @@ int authswitch_init() {
     memset(auth_drivers_running, 0, NUM_AUTH_DRIVERS * sizeof(int));
 
     for (aa = auth_drivers, aar = auth_drivers_running; aa < auth_drivers_end; ++aa, ++aar) {
-        char *s = (char*)malloc(13 + strlen(aa->name));
+        size_t l;
+        char *s = (char*)malloc(l = (13 + strlen(aa->name)));
         item *I;
-        sprintf(s, "auth-%s-enable", aa->name);
+        snprintf(s, l, "auth-%s-enable", aa->name);
         I = stringmap_find(config, s);
         if (I && (!strcmp(I->v, "yes") || !strcmp(I->v, "true"))) {
             if (aa->auth_init && !aa->auth_init())
