@@ -241,7 +241,7 @@ static char *ldap_strerror(void) {
 static int try_ldap_connect_bind(char *who, char *passwd) {
     int ret, i;
     for (i = 0; i < 3; ++i) {
-        if (auth_ldap_connect()) {
+        if (ldapinfo.ldap || auth_ldap_connect()) {
             ret = ldap_simple_bind_s(ldapinfo.ldap, who, passwd);
             if (ret == LDAP_SUCCESS)
                 return LDAP_SUCCESS;
@@ -250,7 +250,8 @@ static int try_ldap_connect_bind(char *who, char *passwd) {
                 ldap_unbind(ldapinfo.ldap);
                 ldapinfo.ldap = NULL;
             }
-        }
+        } else
+            ldapinfo.ldap = NULL;
     }
 
     /* OK, didn't succeed. */
