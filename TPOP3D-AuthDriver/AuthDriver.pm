@@ -81,8 +81,6 @@ virtual-domains configurations.
 
 package TPOP3D::AuthDriver;
 
-use MD5;
-
 $VERSION = '0.1';
 
 =item new
@@ -109,30 +107,27 @@ SIGTERM; on receiving this signal, the method will return.
 =cut
 sub run ($) {
     my $self = shift;
-    my ($buffer, $offset);
+    my ($buffer);
     local %SIG;
     $SIG{TERM} = sub { $self->{foad} = 1; };
 
     $self->start();
 
     $buffer = '';
-    $offset = 0;
     do {
         my $readfds = '';
         vec($readfds, fileno(STDIN), 1) = 1;
         if (select($readfds, undef, undef, 0.1) == 1) {
-            my $i = sysread(STDIN, $buffer, 4096, $offset);
-            if ($i > 0) {
-                $offset += $i;
-            } else {
+            my $i = sysread(STDIN, $buffer, 4096, length($buffer));
+            if ($i <= 0) {
                 $self->{foad} = 1;
             }
 
             # Now see whether the first part of the buffer has the right
             # structure:
-            if ($buffer =~ /((?:(?:[^\0]+\0){2})+)\0/) {
+            if ($buffer =~ /^((?:(?:[^\0]+\0){2})+)\0/) {
                 my $packet = $1;
-                $buffer = substr($buffer, length($packet));
+                $buffer = substr($buffer, length($packet) + 1);
                 last unless ($self->process_packet($packet));
             }
         }
