@@ -1,6 +1,12 @@
 Changes for tpop3d
 $Id$
 
+1.2.3
+
+Made logging clearer; fixed a potential problem with lock files for
+non-existent (empty) mail spools, and another which might lead to zombie
+processes being generated under very high load.
+
 1.2.2
 
 Minor changes; addition of a -DNO_SNIDE_COMMENTS compile-time option to please

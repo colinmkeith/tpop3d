@@ -333,7 +333,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 if (I->deleted)
                     connection_sendresponse(c, 0, "That message is no more.");
                 else {
-                    char response[32];
+                    char response[32] = {0};
                     snprintf(response, 31, "%d %d", 1 + msg_num, I->msglength - I->length - 1);
                     connection_sendresponse(c, 1, response);
                 }
@@ -343,7 +343,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 connection_sendresponse(c, 1, "Scan list follows:");
                 vector_iterate(c->m->index, J) {
                     if (!((indexpoint)J->v)->deleted) {
-                        char response[32];
+                        char response[32] = {0};
                         snprintf(response, 31, "%d %d", 1 + J - c->m->index->ary, ((indexpoint)J->v)->msglength - ((indexpoint)J->v)->length - 1);
                         connection_sendline(c, response);
                         ++nn;
@@ -365,7 +365,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 if (I->deleted)
                     connection_sendresponse(c, 0, "That message is no more.");
                 else {
-                    char response[64];
+                    char response[64] = {0};
                     snprintf(response, 63, "%d %s", 1 + msg_num, hex_digest(I->hash));
                     connection_sendresponse(c, 1, response);
                 }
@@ -375,7 +375,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 connection_sendresponse(c, 1, "ID list follows:");
                 vector_iterate(c->m->index, J) {
                     if (!((indexpoint)J->v)->deleted) {
-                        char response[64];
+                        char response[64] = {0};
                         snprintf(response, 63, "%d %s", 1 + J - c->m->index->ary, hex_digest(((indexpoint)J->v)->hash));
                         connection_sendline(c, response);
                         ++nn;
@@ -446,7 +446,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 
 
         case STAT: {
-                char response[32];
+                char response[32] = {0};
                 /* Size here is approximate as we don't strip off the "From "
                  * headers.
                  */

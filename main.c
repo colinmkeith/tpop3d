@@ -6,7 +6,7 @@
  *
  */
 
-static const char copyright[] = "$Copyright: (c) 2001 Chris Lightfoot. All rights reserved $";
+static const char copyright[] = "$Copyright: (c) 2001 Chris Lightfoot. All rights reserved. $";
 static const char rcsid[] = "$Id$";
 
 #include <errno.h>
@@ -86,7 +86,7 @@ int daemon(int nochdir, int noclose) {
         default: _exit(0);          /* exit the original process */
     }
 
-    if (setsid() < 0)               /* shoudn't fail */
+    if (setsid() < 0)               /* shouldn't fail */
         return -1;
 
     switch (fork()) {
@@ -256,7 +256,7 @@ void net_loop(vector listen_addrs) {
 
         FD_ZERO(&readfds);
 
-        if (listen_addrs) vector_iterate(listen_addrs, t) {
+        if (!post_fork && listen_addrs) vector_iterate(listen_addrs, t) {
             int s = ((listener)t->v)->s;
             FD_SET(s, &readfds);
             if (s > n) n = s;
@@ -273,7 +273,7 @@ void net_loop(vector listen_addrs) {
             print_log(LOG_WARNING, "net_loop: select: %m");
         } else if (e >= 0) {
             /* Check for new incoming connections */
-            if (listen_addrs) vector_iterate(listen_addrs, t) {
+            if (!post_fork && listen_addrs) vector_iterate(listen_addrs, t) {
                 listener L = (listener)t->v;
                 if (FD_ISSET(L->s, &readfds)) {
                     struct sockaddr_in sin;
@@ -479,7 +479,7 @@ void die_signal_handler(const int i) {
 void child_signal_handler(const int i) {
     int status;
     
-    if (waitpid(-1, &status, WNOHANG) != -1)
+    while (waitpid(-1, &status, WNOHANG) > 0)
         --num_running_children;
 }
 

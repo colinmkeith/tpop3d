@@ -142,9 +142,10 @@ mailspool mailspool_new_from_file(const char *filename) {
      
         if (file_lock(M->fd, M->name)) break;
 
-        sleep(MAILSPOOL_LOCK_WAIT);
         close(M->fd);
         M->fd = -1;
+
+        sleep(MAILSPOOL_LOCK_WAIT);
     }
 
     if (M->fd == -1) {
@@ -311,16 +312,12 @@ indexpoint indexpoint_new(const size_t offset, const size_t length, const size_t
  */
 void mailspool_delete(mailspool m) {
     if (!m) return;
-
     if (m->index) vector_delete_free(m->index);
-
-    if ((m->name && strcmp(m->name, "/dev/null") != 0)) {
-        file_unlock(m->fd, m->name);
-        close(m->fd);
+    if (m->name) {
+        if (strcmp(m->name, "/dev/null") != 0) file_unlock(m->fd, m->name);
+        free(m->name);
     }
-
-    if (m->name) free(m->name);
-    
+    if (m->fd != -1) close(m->fd);
     free(m);
 }
 

@@ -65,7 +65,7 @@ int fcntl_lock(int fd) {
 int fcntl_unlock(int fd) {
     struct flock fl = {0};
 
-    /* Set up flock structure to lock entire file. */
+    /* Set up flock structure to unlock entire file. */
     fl.l_type   = F_UNLCK;
     fl.l_whence = SEEK_SET;
     fl.l_start  = 0;
@@ -265,13 +265,11 @@ int cclient_steal_lock(int fd) {
         else {
             /* It worked; unlink and close the c-client lockfile. */
             unlink(cclient_lockfile);
-            close(fd_cc);
             r = 0;
         }
     } else {
         /* Managed to lock the file OK. */
         unlink(cclient_lockfile);
-        close(fd_cc);
         r = 0;
     }
     
