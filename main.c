@@ -34,7 +34,6 @@ static const char rcsid[] = "$Id$";
 
 #include "config.h"
 #include "connection.h"
-#include "errprintf.h"
 #include "listener.h"
 #include "pidfile.h"
 #include "signals.h"

@@ -42,7 +42,6 @@ void print_log(int priority, const char *fmt, ...) {
     va_end(ap);
     syslog(priority, "%s", s);
     if (log_stderr) fprintf(stderr, "%s\n", s);
-    free(s);
 }
 
 /* xwrite:
