@@ -111,9 +111,7 @@ static int ioabs_tcp_post_select(connection c, fd_set *readfds, fd_set *writefds
             size_t wlen;
             if (!(w = buffer_get_consume_ptr(c->wrb, &wlen)))
                 break; /* no more data to write */
-            do
-                n = write(c->s, w, wlen);
-            while (n == -1 && errno == EINTR);
+            n = xwrite(c->s, w, wlen);
             if (n > 0) {
                 buffer_consume_bytes(c->wrb, n);
                 c->nwr += n;

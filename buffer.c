@@ -139,7 +139,7 @@ void buffer_expand(buffer B, const size_t num) {
         size_t i;
         char *newbuf;
         size_t newlen;
-        for (newlen = B->len * 2; newlen < a + num; newlen *= 2);
+        for (newlen = B->len * 2; newlen <= a + num; newlen *= 2);
         newbuf = xmalloc(newlen);
         for (i = 0; i < a; ++i)
             newbuf[i] = B->buf[(B->get + i) % B->len];
