@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.6  2000/10/28 14:57:04  chris
+ * Minor changes.
+ *
  * Revision 1.5  2000/10/18 21:34:12  chris
  * Changes due to Mark Longair.
  *
@@ -32,11 +35,15 @@ static const char rcsid[] = "$Id$";
 #include <unistd.h>
 #include <sys/types.h>
 
+#ifdef AUTH_MYSQL
 #include "auth_mysql.h"
+#endif /* AUTH_MYSQL */
+
 #include "auth_pam.h"
 /*#include "auth_passwd.h" */
 #include "authswitch.h"
 #include "stringmap.h"
+#include "util.h"
 
 /* auth_drivers:
  * References the various authentication drivers. New ones should be added as
@@ -57,10 +64,12 @@ struct authdrv auth_drivers[] = {
             "Uses /etc/passwd"},
 */
             
+#ifdef AUTH_MYSQL
         /* This is for vmail-sql and similar schemes */
         {auth_mysql_init, auth_mysql_new_apop, auth_mysql_new_user_pass, auth_mysql_close,
             "mysql",
             "Uses a MySQL database"},
+#endif /* AUTH_MYSQL */
     };
 
 int *auth_drivers_running;
@@ -129,10 +138,10 @@ authcontext authcontext_new_user_pass(const char *user, const char *pass) {
     int *aar;
 
     for (aa = auth_drivers, aar = auth_drivers_running; aa < auth_drivers_end; ++aa, ++aar)
-        if (aar && aa->auth_new_user_pass && (a = aa->auth_new_user_pass(user, pass))) {
+        if (*aar && aa->auth_new_user_pass && (a = aa->auth_new_user_pass(user, pass))) {
             a->auth = strdup(aa->name);
             a->credential = strdup(user);
-            syslog(LOG_INFO, "authcontext_new_apop: began session for `%s' with %s; uid %d, gid %d", a->credential, a->auth, a->uid, a->gid);
+            syslog(LOG_INFO, "authcontext_new_user_pass: began session for `%s' with %s; uid %d, gid %d", a->credential, a->auth, a->uid, a->gid);
             return a;
         }
 

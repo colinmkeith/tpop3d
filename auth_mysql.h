@@ -6,6 +6,9 @@
  * $Id$
  *
  * $Log$
+ * Revision 1.2  2000/10/28 14:57:04  chris
+ * Minor changes.
+ *
  * Revision 1.1  2000/10/02 18:20:19  chris
  * Initial revision
  *
@@ -14,6 +17,8 @@
 
 #ifndef __AUTH_MYSQL_H_ /* include guard */
 #define __AUTH_MYSQL_H_
+
+#ifdef AUTH_MYSQL
 
 #include "authswitch.h"
 
@@ -35,5 +40,7 @@ int  auth_mysql_init();
 authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const unsigned char *digest);
 authcontext auth_mysql_new_user_pass(const char *user, const char *pass);
 void auth_mysql_close();
+
+#endif /* AUTH_MYSQL */
 
 #endif /* __AUTH_MYSQL_H_ */

@@ -7,6 +7,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.5  2000/10/28 14:57:04  chris
+ * Minor changes.
+ *
  * Revision 1.4  2000/10/18 21:34:12  chris
  * Changes due to Mark Longair.
  *
@@ -29,6 +32,7 @@ static const char rcsid[] = "$Id$";
 
 #include "stringmap.h"
 #include "vector.h"
+#include "util.h"
 
 /* stringmap_new:
  * Allocate memory for a new stringmap.

@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.4  2000/10/28 14:57:04  chris
+ * Minor changes.
+ *
  * Revision 1.3  2000/10/07 17:41:16  chris
  * Minor changes.
  *
@@ -22,6 +25,7 @@ static const char rcsid[] = "$Id$";
 
 #include "list.h"
 #include "vector.h"
+#include "util.h"
 
 list list_new() {
     list l;
@@ -98,22 +102,18 @@ void list_pop_back(list l) {
 }
 
 listitem list_remove(list l, listitem I) {
+    listitem r = NULL;
     if (!l || !I) return NULL;
-
+    
     if (I->prev) I->prev->next = I->next;
     if (I->next) I->next->prev = I->prev;
 
     if (l->front == I) l->front = I->next;
     if (l->back  == I) l->back  = I->prev;
     
-    if (I->next) {
-        free(I);
-        return I->next;
-    } else if (I->prev) {
-        free(I);
-        return I->prev;
-    } else {
-        free(I);
-        return NULL;
-    }
+    if (I->prev) r = I->prev;
+    else if (I->next) r = I->next;
+
+    free(I);
+    return r;
 }

@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.7  2000/10/28 14:57:04  chris
+ * Minor changes.
+ *
  * Revision 1.6  2000/10/18 22:21:23  chris
  * Added timeouts, APOP support.
  *
@@ -37,6 +40,7 @@ static const char rcsid[] = "$Id$";
 
 #include "authswitch.h"
 #include "connection.h"
+#include "util.h"
 
 /* trimcpy:
  * Make a copy of a string, removing leading or trailing whitespace.
@@ -333,6 +337,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     break;
                 }
 
+                connection_sendresponse(c, 1, "Here it comes...");
                 if (!mailspool_send_message(c->m, c->s, msg_num, len)) {
                     connection_sendresponse(c, 0, "Oops");
                     return close_connection;

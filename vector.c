@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.5  2000/10/28 14:57:04  chris
+ * Minor changes.
+ *
  * Revision 1.4  2000/10/18 21:34:12  chris
  * Changes due to Mark Longair.
  *
@@ -25,6 +28,7 @@ static const char rcsid[] = "$Id$";
 #include <string.h>
 
 #include "vector.h"
+#include "util.h"
 
 static char *strndup(const char *s, const size_t n) {
     char *t;

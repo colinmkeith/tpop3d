@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.8  2000/10/28 14:57:04  chris
+ * Minor changes.
+ *
  * Revision 1.7  2000/10/18 21:34:12  chris
  * Changes due to Mark Longair.
  *
@@ -46,6 +49,7 @@ static const char rcsid[] = "$Id$";
 #include "connection.h"
 #include "mailspool.h"
 #include "md5.h"
+#include "util.h"
 
 /* File locking:
  * This is extremely simple, and therefore broken. In particular, it won't
@@ -100,6 +104,8 @@ int file_lock(const int fd, const char *name) {
     if (fd2 == -1) {
         syslog(LOG_ERR, "file_lock(%s): unable to create lockfile: %m", name);
         fcntl(fd, F_SETLK, &fl);
+        this_lockfile = NULL;
+        errno = EAGAIN;
         return 0;
     }
     close(fd2);
@@ -124,7 +130,6 @@ int file_unlock(const int fd, const char *name) {
     sprintf(lockfile, "%s.lock", name);
 
     if (unlink(lockfile) == -1) {
-        free(lockfile);
         syslog(LOG_ERR, "file_unlock(%s): unlink: %m", name);
         ret = 0;
     }

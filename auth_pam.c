@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.6  2000/10/28 14:57:04  chris
+ * Minor changes.
+ *
  * Revision 1.5  2000/10/18 21:34:12  chris
  * Changes due to Mark Longair.
  *
@@ -38,7 +41,14 @@ static const char rcsid[] = "$Id$";
 #include "auth_pam.h"
 #include "authswitch.h"
 #include "stringmap.h"
+#include "util.h"
 
+char *mem;
+
+/* auth_pam_conversation:
+ * PAM conversation function, used to transmit the password supplied by the
+ * user to the PAM modules for authentication.
+ */
 int auth_pam_conversation(int num_msg, const struct pam_message **msg, struct pam_response **resp, void *appdata_ptr) {
     const struct pam_message **m;
     struct pam_response *r;
@@ -51,7 +61,7 @@ int auth_pam_conversation(int num_msg, const struct pam_message **msg, struct pa
     /* Assume that any prompt is asking for a password */
     for (m = msg, r = *resp; m < msg + num_msg; ++m, ++r) {
         if ((*m)->msg_style == PAM_PROMPT_ECHO_OFF) {
-            r->resp = strdup((char*)appdata_ptr);
+            r->resp = mem = strdup((char*)appdata_ptr);
             r->resp_retcode = 0;
         }
     }
@@ -129,20 +139,24 @@ authcontext auth_pam_new_user_pass(const char *user, const char *pass) {
         return NULL;
     }
 
+    /* Authenticate user. */
     r = pam_authenticate(pamh, 0);
 
     if (r == PAM_SUCCESS) {
-        char *s;
-        s = (char*)malloc(strlen(mailspool_dir) + 1 + strlen(user) + 1);
-        if (s) {
-            sprintf(s, "%s/%s", mailspool_dir, user);
-            a = authcontext_new(pw.pw_uid,
-                                use_gid ? gid : pw.pw_gid,
-                                s);
-            free(s);
-        }
+        /* OK, is the account presently allowed to log in? */
+        r = pam_acct_mgmt(pamh, PAM_SILENT);
+        if (r == PAM_SUCCESS) {
+            char *s;
+            s = (char*)malloc(strlen(mailspool_dir) + 1 + strlen(user) + 1);
+            if (s) {
+                sprintf(s, "%s/%s", mailspool_dir, user);
+                a = authcontext_new(pw.pw_uid,
+                        use_gid ? gid : pw.pw_gid,
+                        s);
+                free(s);
+            }
+        } else syslog(LOG_ERR, "auth_pam_new_user_pass: pam_acct_mgmt(%s): %s", user, pam_strerror(pamh, r));
     } else syslog(LOG_ERR, "auth_pam_new_user_pass: pam_authenticate(%s): %s", user, pam_strerror(pamh, r));
-
 
     r = pam_end(pamh, n);
 

@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.7  2000/10/28 14:57:04  chris
+ * Minor changes.
+ *
  * Revision 1.6  2000/10/18 22:21:23  chris
  * Added timeouts, APOP support.
  *
@@ -27,6 +30,7 @@
 
 static const char rcsid[] = "$Id$";
 
+#include <errno.h>
 #include <fcntl.h>
 #include <pwd.h>
 #include <stdio.h>
@@ -43,6 +47,7 @@ static const char rcsid[] = "$Id$";
 #include <sys/utsname.h>
 
 #include "connection.h"
+#include "util.h"
 
 /* make_timestamp:
  * Create a timestamp string.

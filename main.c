@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.10  2000/10/28 14:57:04  chris
+ * Minor changes.
+ *
  * Revision 1.9  2000/10/18 22:21:23  chris
  * Added timeouts, APOP support.
  *
@@ -36,11 +39,6 @@
 
 static const char rcsid[] = "$Id$";
 
-/* Should be -D... from Makefile. */
-#ifndef TPOP3D_VERSION
-#   define TPOP3D_VERSION  "(unknown version)"
-#endif
-
 #include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
@@ -61,6 +59,7 @@ static const char rcsid[] = "$Id$";
 #include "list.h"
 #include "stringmap.h"
 #include "vector.h"
+#include "util.h"
 
 /* daemon:
  * Become a daemon. From "The Unix Programming FAQ", Andrew Gierth et al.
@@ -142,7 +141,7 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
         fd_set readfds;
         item *t;
         listitem I, J;
-        struct timeval tv = {10, 0}; /* Must be less than IDLE_TIMEOUT but otherwise value is unimportant */
+        struct timeval tv = {1, 0}; /* Must be less than IDLE_TIMEOUT but otherwise value is unimportant */
         int n = 0;
 
         FD_ZERO(&readfds);
@@ -194,7 +193,7 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
                         I = list_remove(connections, I);
                         if (post_fork) exit(0);
                         if (!I) break;
-                    } else if (n < 0) {
+                    } else if (n < 0 && errno != EINTR) {
                         /* Some sort of error occurred, and we should close
                          * the connection.
                          */
@@ -208,10 +207,11 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
                          * command/s.
                          */
                         pop3command p;
-                        while ( (p = connection_parsecommand(c)) ) {
+                        while (c && (p = connection_parsecommand(c))) {
                             switch(connection_do(c, p)) {
                             case close_connection:
                                 connection_delete(c);
+                                c = NULL;
                                 I = list_remove(connections, I);
                                 if (post_fork) exit(0);
                                 break;
@@ -222,6 +222,7 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
                                     syslog(LOG_INFO, "net_loop: rejected login by %s owing to high load", c->a->credential);
                                     connection_delete(c);
                                     I = list_remove(connections, I);
+                                    c = NULL;
                                     break;
                                 } else switch(fork()) {
                                 case 0:
@@ -231,8 +232,13 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
                                     vector_iterate(listen_sockets, t) close(t->l);
                                     vector_delete(listen_sockets);
                                     listen_sockets = NULL;
+
                                     list_iterate(connections, J) {
-                                        if (J != I) J = list_remove(connections, J);
+                                        if (J != I) {
+                                            close(((connection)J->d.v)->s);
+                                            ((connection)J->d.v)->s = -1;
+                                            J = list_remove(connections, J);
+                                        }
                                         if (!J) break;
                                     }
 
@@ -242,7 +248,7 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
                                         connection_sendresponse(c, 0, "Everything's really bad");
                                         exit(0);
                                     }
-                                    
+
                                     /* Set our gid and uid to that appropriate for the mailspool, as decided by the auth switch. */
                                     if (setgid(c->a->gid) == -1) {
                                         syslog(LOG_ERR, "net_loop: setgid(%d): %m", c->a->gid);
@@ -255,7 +261,9 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
                                     }
 
                                     if (connection_start_transaction(c)) {
-                                        connection_sendresponse(c, 1, "Welcome aboard!");
+                                        char s[1024];
+                                        snprintf(s, 1024, "Welcome aboard! You have %d messages.", c->m->index->n_used);
+                                        connection_sendresponse(c, 1, s);
                                         this_child_connection = c;
                                     } else {
                                         connection_sendresponse(c, 0,
@@ -264,6 +272,8 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
                                         exit(0);
                                     }
 
+                                    I = NULL;
+
                                     break;
 
                                 case -1:
@@ -271,14 +281,16 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
                                     syslog(LOG_ERR, "net_loop: fork: %m");
                                     connection_sendresponse(c, 0, "Everything was fine until now, but suddenly I realise I just can't go on. Sorry.");
                                     connection_delete(c);
+                                    c = NULL;
                                     I = list_remove(connections, I);
                                     break;
                                     
                                 default:
                                     /* Parent. */
                                     close(c->s);
-                                    c->s = -1;
+                                    c->s = -1; /* Don't shutdown the socket */
                                     connection_delete(c);
+                                    c = NULL;
                                     I = list_remove(connections, I);
                                     ++num_running_children;
                                 }
@@ -296,10 +308,11 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
                 } else if (time(NULL) > (((connection)(I->d.v))->lastcmd + IDLE_TIMEOUT)) {
                     /* Connection has timed out. */
                     connection_sendresponse((connection)(I->d.v), 0, "You can hang around all day if you like. I have better things to do.");
+                    syslog(LOG_INFO, "net_loop: timed out connection from %s", inet_ntoa(((connection)I->d.v)->sin.sin_addr));
                     connection_delete((connection)(I->d.v));
+                    if (post_fork) exit(0);
                     I = list_remove(connections, I);
-                } else {
-                    fprintf(stderr, "connection %p\n", I->d.v);
+                    if (!I) break;
                 }
             }
         }
@@ -312,10 +325,14 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
 char *this_lockfile;
 
 void die_signal_handler(const int i) {
-    if (this_child_connection) connection_delete(this_child_connection);
+    struct sigaction sa;
+    syslog(LOG_ERR, "quit: %s", sys_siglist[i]); 
+    if (this_child_connection) connection_delete(this_child_connection); 
     if (this_lockfile) unlink(this_lockfile);
-    syslog(LOG_ERR, "quit: %s", sys_siglist[i]);
-    exit(i + 127);
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = SIG_DFL;
+    sigaction(i, &sa, NULL);
+    raise(i);
 }
 
 /* child_signal_handler:
@@ -333,7 +350,8 @@ void child_signal_handler(const int i) {
  */
 void set_signals() {
     int ignore_signals[] = {SIGPIPE, SIGINT, SIGHUP, SIGALRM, 0};
-    int die_signals[]    = {SIGTERM, SIGQUIT, SIGSEGV, SIGABRT, SIGBUS, SIGFPE, SIGPWR, 0};
+    int die_signals[] = {SIGTERM, SIGQUIT, SIGPWR, SIGABRT, SIGSEGV, SIGBUS, SIGFPE, 0};
+
     int *i;
     struct sigaction sa;
 
@@ -487,6 +505,7 @@ int main(int argc, char **argv) {
         }
     }
 
+
     /* Detach from controlling tty etc. */
     if (!nodaemon) daemon(0, 0);
     
@@ -509,3 +528,28 @@ int main(int argc, char **argv) {
 
     return 0;
 }
+
+#undef malloc
+#undef free
+
+char *mystrdup(char *f, int l, char *s) {
+    char *p = malloc(strlen(s) + 1);
+    strcpy(p, s);
+    fprintf(stderr, "[%d] %s:%d: %p = strdup(\"%s\")\n", getpid(), f, l, p, s);
+    return p;
+}
+
+void *mymalloc(char *f, int l, size_t n) {
+    void *p = malloc(n);
+    if (!p) return NULL;
+    fprintf(stderr, "[%d] %s:%d: %p = malloc(%d)\n", getpid(), f, l, p, n);
+    return p;
+}
+
+void myfree(char *f, int l, void *p) {
+    free(p);
+    fprintf(stderr, "[%d] %s:%d: free(%p)\n", getpid(), f, l, p);
+}
+
+
+

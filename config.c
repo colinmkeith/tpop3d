@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.4  2000/10/28 14:57:04  chris
+ * Minor changes.
+ *
  * Revision 1.3  2000/10/18 21:34:12  chris
  * Changes due to Mark Longair.
  *
@@ -26,6 +29,7 @@ static const char rcsid[] = "$Id$";
 
 #include "config.h"
 #include "stringmap.h"
+#include "util.h"
 
 #define MAX_CONFIG_LINE     2048
 
@@ -73,7 +77,7 @@ stringmap read_config_file(const char *f) {
                 while (strchr(" \t", *r) && r > value) --r;
                 *(r + 1) = 0;
 
-                if (r > value) {
+                if (r >= value) {
                     item *I;
                     if ((I = stringmap_insert(S, key, item_ptr(strdup(value))))) {
                         fprintf(stderr, "%s:%d: warning: repeated directive `%s'\n", f, i, key);
