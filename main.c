@@ -588,6 +588,7 @@ int main(int argc, char **argv, char **envp) {
                 print_log(LOG_ERR, _("%s: value for max-children must be 1 or greater; exiting"), configfile);
                 EXIT_REMOVING_PIDFILE(1);
             }
+            break;
 
         default:
             max_running_children = 16;
@@ -608,6 +609,7 @@ int main(int argc, char **argv, char **envp) {
                 print_log(LOG_ERR, _("%s: value for timeout-seconds must be 1 or greater; exiting"), configfile);
                 EXIT_REMOVING_PIDFILE(1);
             }
+            break;
 
         default:
             timeout_seconds = 30;

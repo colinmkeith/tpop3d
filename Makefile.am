@@ -68,7 +68,7 @@ man_MANS = tpop3d.8 tpop3d.conf.5
 
 SUBDIRS = init.d config
 
-tpop3d..cat: tpop3d.8
+tpop3d.cat: tpop3d.8
 	(echo -e ".pl 1100i" ; cat tpop3d.8 ; echo ".pl \n(nlu+10") | groff -Tascii -man > tpop3d.cat
 
 tpop3d.conf.cat: tpop3d.conf.5

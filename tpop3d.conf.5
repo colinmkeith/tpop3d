@@ -63,7 +63,10 @@ separator, which may be `@', `%' or `!'.
 \fBtimeout-seconds\fP: \fInumber\fP
 This is the number of seconds for which a connection may be idle for before it
 is closed.  If it is set to 0, then timeouts are disabled.  The default value
-is 30 seconds (see the section on BUGS in \fBtpop3d\fP(8)).
+is 30 seconds (see the section on BUGS in \fBtpop3d\fP(8)). If you wish to
+have \fBtpop3d\fP comply explicitly with the RFC (which demands a ten-minute
+timeout), then specify 600 seconds. This may be necessary with some clients
+which pause randomly whilst downloading messages.
 .TP
 .nf
 \fBmailbox:\fP: [\fImailbox driver\fP:]\fIpath\fP ...

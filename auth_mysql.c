@@ -39,6 +39,12 @@ static const char rcsid[] = "$Id$";
  * the modern /etc/shadow crypt_md5 format used (optionally) by recent
  * Linux-PAM distributions. This code was taken from Linux-PAM 0.75.
  *
+ * (Note that on most Linux systems this won't be necessary, since the system
+ * crypt(3) function is `smart' in the sense that it looks for a constant
+ * string `$1$' at the beginning of the password hash, and if that string is
+ * present, uses crypt_md5 instead of traditional crypt. However, I include
+ * this function in the interests of portability and future compatibility.)
+ *
  * Original author's notice:
  * 
  * ----------------------------------------------------------------------------
