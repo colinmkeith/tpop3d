@@ -149,9 +149,9 @@ AC_ARG_ENABLE(cclient-fcntl,
     [enable_cclient_uses_fcntl=no])
 
 AC_ARG_ENABLE(mbox-bsd-save-indices,
-    [  tpop3d can cache metadata for BSD mailboxes, which may give a
-  substantial performance improvement if you have many users who leave mail
-  on the server. This feature should be considered experimental.
+    [  tpop3d can cache metadata for BSD mailboxes, which may give a substantial
+  performance improvement if you have many users who leave mail on the server.
+  This feature should be considered experimental.
 
     --enable-mbox-bsd-save-indices 
                               Save a metadata cache for BSD mailboxes
@@ -167,49 +167,77 @@ AC_ARG_ENABLE(mbox-maildir,
     [enable_mbox_maildir="no"])
 
 
+dnl Enable support for TLS
+AC_ARG_ENABLE(tls,
+        [
+
+This option controls the availability of TLS-encrypted communications.
+
+  --enable-tls            Enable support for secured connections using TLS
+                          [default=no]],
+    [enable_tls=$enableval],
+    [enable_tls=no])
+
+AC_ARG_WITH(openssl-root,
+        [    --with-openssl-root=DIR   Set root of OpenSSL distribution used for
+                              Should contain include/openssl and lib/openssl.
+                              [default=/usr]],
+        [openssl_root=$withval],
+        [openssl_root=/usr])
+
+
 dnl Suppress metadata messages used by C-Client
 AC_ARG_ENABLE(suppress-cclient-metadata,
     [
 The following options control miscellaneous features.
     
-  --enable-suppress-cclient-metadata  Suppress C-Client metadata [default=yes]],
+  --enable-suppress-cclient-metadata
+                          Suppress C-Client metadata [default=yes]
+],
     [enable_suppress_cclient_metadata=$enableval],
     [enable_suppress_cclient_metadata=yes])
 
 
 dnl Choose the type of messages the server sends users...
 AC_ARG_ENABLE(snide-comments,
-        [  --disable-snide-comments            Use less snide responses],
+        [  --enable-snide-comments
+                          Use less snide responses [default=yes]
+],
     [enable_snide=$enableval],
-    [enable_snide="yes"])
+    [enable_snide=yes])
 
 dnl Give the option of using libwrap for TCP wrappers.
 AC_ARG_ENABLE(tcp-wrappers,
-        [  --enable-tcp-wrappers               Enable hosts.allow-style access control
-                                      using TCP Wrappers [default=no]],
+        [  --enable-tcp-wrappers   Enable hosts.allow-style access control using TCP
+                          Wrappers [default=no]
+],
     [enable_tcp_wrappers=$enableval],
     [enable_tcp_wrappers="no"])
 
 dnl Enable support for DRAC (dynamic relay access control).
 AC_ARG_ENABLE(drac,
-        [  --enable-drac                        Enable support for using the DRAC RPC
-                                      protocol for POP-before-SMTP relaying
-                                      [default=no]],
+        [  --enable-drac           Enable support for using the DRAC RPC protocol for
+                          POP-before-SMTP relaying [default=no]
+],
     [enable_drac=$enableval],
     [enable_drac=no])
 
+dnl Enable support for the WHOSON protocol.
 AC_ARG_ENABLE(whoson,
-	[  --enable-whoson                      Enable support for using the WHOSON
-                                      protocol for POP-before-SMTP relaying
-	 			      [default=no]],
+	[  --enable-whoson         Enable support for using the WHOSON protocol for
+                          POP-before-SMTP relaying [default=no]
+],
     [enable_whoson=$enableval],
     [enable_whoson=no])
 
+dnl Disable support for mass hosting.
 AC_ARG_ENABLE(masshosting,
-        [  --disable-mass-hosting              Switch off support for inferring domain
-                                      names by inverse name resolution],
+        [  --disable-mass-hosting  Switch off support for inferring domain names by
+                          inverse name resolution
+],
     [enable_masshosting=$enableval],
     [enable_masshosting=yes])
+
 
 dnl Some options mainly useful for development/debugging.
 
@@ -221,8 +249,8 @@ AC_ARG_ENABLE(electric-fence,
 The following options will be of interest to developers, or in the event that
 you have trouble with tpop3d:
 
-  --enable-electric-fence Enable Electric Fence debugging support.
-                          [default=no]],
+  --enable-electric-fence Enable Electric Fence debugging support [default=no]
+],
     [enable_efence=$enableval],
     [enable_efence=no])
 
@@ -324,6 +352,11 @@ then
     AC_DEFINE(MBOX_MAILDIR,1,[Enable support for Qmail-style maildir mailboxes.])
 fi
 
+if test x"$enable_tls" = x"yes"
+then
+    AC_DEFINE(USE_TLS,1,[Enable TLS-secured connections])
+fi
+
 if test x"$enable_suppress_cclient_metadata" = x"yes"
 then
     AC_DEFINE(IGNORE_CCLIENT_METADATA,1,[Suppress the metadata messages stored by the WU C-client library.])
@@ -380,6 +413,13 @@ then
     CPPFLAGS="$CPPFLAGS -I$openldap_root/include"
 fi
 
+dnl TLS
+if test x"$enable_tls" = x"yes"
+then
+    LDFLAGS="$LDFLAGS -L$openssl_root/lib";
+    dnl Also have to do CPPFLAGS, so that AC_CHECK_HEADER works...
+    CPPFLAGS="$CPPFLAGS -I$openssl_root/include"
+fi
 
 dnl Checks for programs.
 AC_PROG_CC
@@ -437,6 +477,12 @@ then
     AC_CHECK_LIB(ldap, main, [], AC_MSG_ERROR([[auth-ldap enabled, but can't find libldap]]) )
 fi
 
+# OpenSSL
+if test x"$enable_tls" = x"yes"
+then
+    AC_SEARCH_LIBS(SSL_new, [ssl], [], AC_MSG_ERROR([[TLS enabled, but can't find libssl]]), [-lcrypto])
+fi
+
 # Where is nanosleep?
 if test x"$enable_auth_other" = x"yes"
 then
@@ -476,7 +522,7 @@ dnl Checks for header files.
 AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
 
-AC_CHECK_HEADERS(fcntl.h limits.h sys/file.h sys/time.h syslog.h unistd.h crypt.h execinfo.h security/pam_appl.h ldap.h mysql.h tcpd.h)
+AC_CHECK_HEADERS(fcntl.h limits.h sys/file.h sys/time.h syslog.h unistd.h crypt.h execinfo.h security/pam_appl.h ldap.h mysql.h tcpd.h openssl/ssl.h)
 
 if test x"$enable_backtrace" = x"yes"
 then
@@ -539,6 +585,14 @@ then
         AC_MSG_ERROR( [fcntl needed but can't find unistd.h] )
     fi
 
+fi
+
+if test x"$enable_tls" = x"yes"
+then
+    if test x"$ac_cv_header_openssl_ssl_h" != x"yes"
+    then
+        AC_MSG_ERROR( [TLS enabled but can't find openssl/ssl.h] )
+    fi
 fi
 
 if test x"$enable_tcp_wrappers" = x"yes"
