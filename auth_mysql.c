@@ -574,11 +574,11 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const c
 
                     if (strlen(pwhash) == 32) {
                         /* Hex. */
-                        if (strcasecmp(pwhash, md5_digest_str(pass, strlen(pass), 0)))
+                        if (strcasecmp(pwhash, md5_digest_str(pass, strlen(pass), 0)) == 0)
                             authok = 1;
                     } else if (strlen(pwhash) == 24) {
                         /* Base 64. */
-                        if (strcmp(pwhash, md5_digest_str(pass, strlen(pass), 1)))
+                        if (strcmp(pwhash, md5_digest_str(pass, strlen(pass), 1)) == 0)
                             authok = 1;
                     } else
                         /* Doesn't make sense. */
