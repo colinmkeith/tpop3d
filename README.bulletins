@@ -41,7 +41,7 @@ for this:
             $recips =~ s/msg$/db/;
             my $r = "$req->{local_part}@$req->{domain}";
             my %rr;
-            tie(%rr, 'GDBM_File', $recips, &GDBM_WRCREAT, 0600);a
+            tie(%rr, 'GDBM_File', $recips, &GDBM_WRCREAT, 0600);
 
             # Attempt delivery if this user has not already been sent a copy
             # of this message.
@@ -77,3 +77,4 @@ for this:
         # many bulletins were delivered or something, of course.
         return { };
     }
+

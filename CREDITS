@@ -41,6 +41,8 @@ bad authentication, and many bug fixes.
 
 Stephen White-- for Postgres support.
 
+Jonathon Oddy-- for pointing out and fixing a careless bug.
+
 And numerous others, for putting up with foolish questions about Unix
 mailspool handling or (more often) indignant rants about Unix in general and
 the sorry state of file locking in particular.
