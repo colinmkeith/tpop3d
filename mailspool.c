@@ -152,7 +152,7 @@ mailbox mailspool_new_from_file(const char *filename) {
         /* If the mailspool doesn't exist, fail silently, since this may be
          * getting called from find_mailbox. */
         if (errno == ENOENT) failM = MBOX_NOENT;
-        else log_print(LOG_INFO, "mailspool_new_from_file: stat(%s): %m", filename);
+        else log_print(LOG_ERR, "mailspool_new_from_file: stat(%s): %m", filename);
         goto fail;
     } else M->name = xstrdup(filename);
     

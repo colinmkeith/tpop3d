@@ -6,7 +6,7 @@
  * comedy attempt at cclient locking, which is only there so that PINE figures
  * out when the user is attempting to pick up her mail using POP3 in the
  * middle of a PINE session. cclient locks aren't made, just stolen from PINE
- * using the wacky "Kiss Of Death" described in the cclient documentation.
+ * using the wacky `Kiss Of Death' described in the cclient documentation.
  *
  * Note also that we lock the whole mailspool for reading and writing. This is
  * pretty crap, but it makes it easier to make the program fast. In principle,

@@ -54,7 +54,7 @@ static const char rcsid[] = "$Id$";
  * 1 on success or 0 on failure. If such a directory exists and is older than
  * MAILDIR_LOCK_LIFETIME, we will update the time in it, claiming the lock
  * ourselves. */
-int maildir_lock(const char *dirname) {
+static int maildir_lock(const char *dirname) {
     char *lockdirname = NULL;
     int ret = 0;
 
@@ -92,9 +92,23 @@ int maildir_lock(const char *dirname) {
     return ret;
 }
 
+/* maildir_update_lock DIRECTORY
+ * Update the access time on DIRECTORY. */
+static void maildir_update_lock(const char *dirname) {
+    static time_t last_updated_lock;
+    if (last_updated_lock < time(NULL) - 60) {
+        char *lockdirname = NULL;
+        lockdirname = xmalloc(strlen(dirname) + sizeof("/.poplock"));
+        sprintf(lockdirname, "%s/.poplock", dirname);
+        utime(lockdirname, NULL);
+        xfree(lockdirname);
+        last_updated_lock = time(NULL);
+    }
+}
+
 /* maildir_unlock DIRECTORY
  * Remove any .poplock lock directory in DIRECTORY. */
-void maildir_unlock(const char *dirname) {
+static void maildir_unlock(const char *dirname) {
     char *lockdirname;
     lockdirname = xmalloc(strlen(dirname) + sizeof("/.poplock"));
     sprintf(lockdirname, "%s/.poplock", dirname);
@@ -256,7 +270,7 @@ static int open_message_file(struct indexpoint *m) {
     DIR *d;
     struct dirent *de;
     size_t msgnamelen;
-    
+
     fd = open(m->filename, O_RDONLY);
     if (fd != -1)
         return fd;
@@ -342,7 +356,10 @@ int maildir_sendmessage(const mailbox M, connection c, const int i, int n) {
         connection_sendresponse(c, 0, _("Unable to send that message"));
         return -1;
     }
-    
+
+    if (config_get_bool("maildir-exclusive-lock"))
+        maildir_update_lock(M->name);
+
     m = M->index +i;
     
     if ((fd = open_message_file(m)) == -1) {
@@ -351,8 +368,6 @@ int maildir_sendmessage(const mailbox M, connection c, const int i, int n) {
         return -1;
     }
     
-    log_print(LOG_INFO, _("maildir_sendmessage: sending message %d (%s) size %d bytes"), i + 1, m->filename, m->msglength);
-
     status = connection_sendmessage(c, fd, 0 /* offset */, 0 /* skip */, m->msglength, n);
     close(fd);
 
