@@ -47,7 +47,7 @@ authcontext auth_passwd_new_user_pass(const char *user, const char *pass) {
     pw = getpwnam(user);
     if (!pw) return NULL;
 #ifdef AUTH_PASSWD_SHADOW
-    spw = getspnam(name);
+    spw = getspnam(user);
     if (!spw) return NULL;
 #endif /* AUTH_PASSWD_SHADOW */
 
