@@ -1,4 +1,4 @@
-bin_PROGRAMS = tpop3d
+sbin_PROGRAMS = tpop3d
 
 tpop3d_SOURCES = auth_mysql.c \
                  auth_pam.c \
@@ -21,27 +21,39 @@ tpop3d_SOURCES = auth_mysql.c \
                  util.c \
                  vector.c
 
+noinst_HEADERS = auth_mysql.h \
+                 auth_pam.h \
+                 auth_passwd.h \
+                 authswitch.h \
+                 config.h \
+                 connection.h \
+                 errprintf.h \
+                 global.h \
+                 list.h \
+                 listener.h \
+                 locks.h \
+                 mailspool.h \
+                 main.h \
+                 md5.h \
+                 signals.h \
+                 stringmap.h \
+                 tokenise.h \
+                 vector.h \
+                 util.h
+
 tpop3d_LDFLAGS = -L@mysql_root@/lib/mysql
 
-tpop3d_MANS = tpop3d.8
+man_MANS = tpop3d.8
+
+SUBDIRS = init.d config
 
 ## These need to be distributed along with configure:
 
-AUX_DIST = $(ac_aux_dir)/config.guess \
-           $(ac_aux_dir)/config.sub \
-           $(ac_aux_dir)/install-sh \
-           $(ac_aux_dir)/ltconfig \
-           $(ac_aux_dir)/ltmain.sh \
-           $(ac_aux_dir)/missing \
-           $(ac_aux_dir)/mkinstalldirs
-
 EXTRA_DIST = bootstrap \
-             $(ac_aux_dir)/flock-uses-fcntl.c \
-             $(ac_aux_dir)/test-file-to-lock
+             mysql_crypt.patch \
+             CREDITS \
+             PORTABILITY \
+             $(man_MANS)
 
 MAINTERCLEANFILES = Makefile.in aclocal.m4 configure configuration.h.in \
-                    stamp-h.in $(AUX_DIST)
-
-dist-hook:
-	(cd $(distdir) && mkdir $(ac_aux_dir))
-	for file in $(AUX_DIST) $(AUX_DIST_EXTRA); do cp $$file $(distdir)/$$file; done
+                    stamp-h.in

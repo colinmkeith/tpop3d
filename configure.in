@@ -313,4 +313,4 @@ fi
 AC_SUBST(ac_aux_dir)
 AC_SUBST(mysql_root)
 
-AC_OUTPUT(Makefile)
+AC_OUTPUT(Makefile init.d/Makefile config/Makefile)
