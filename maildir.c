@@ -255,8 +255,10 @@ mailbox maildir_new(const char *dirname) {
 
 fail:
     if (M) {
-        if (locked) maildir_unlock(M->name);
-        if (M->name) xfree(M->name);
+        if (M->name) {
+            if (locked) maildir_unlock(M->name);
+            xfree(M->name);
+        }
         if (M->index) xfree(M->index);
         xfree(M);
     }

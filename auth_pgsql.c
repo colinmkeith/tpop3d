@@ -105,7 +105,7 @@ size_t PQescapeStringLocal(char *to, const char *from, size_t length) {
  *  [2] unix user
  *  [3] mailbox type
  */
-char *user_pass_query_template =
+static char *user_pass_query_template =
     "SELECT domain.path || '/'  || popbox.mbox_name, popbox.password_hash, "
             "domain.unix_user, 'bsd' "
       "FROM popbox, domain "
@@ -113,7 +113,7 @@ char *user_pass_query_template =
        "AND popbox.domain_name = '$(domain)' "
        "AND popbox.domain_name = domain.domain_name";
        
-char *apop_query_template =
+static char *apop_query_template =
     "SELECT domain.path || '/' || popbox.mbox_name, popbox.password_hash, "
             "domain.unix_user, 'bsd' "
       "FROM popbox, domain "
@@ -121,11 +121,11 @@ char *apop_query_template =
        "AND popbox.domain_name = '$(domain)' "
        "AND popbox.domain_name = domain.domain_name";
 
-char *onlogin_query_template = NULL;
+static char *onlogin_query_template = NULL;
 
 /* GID used to access mail spool (if any). */
-int use_gid;
-gid_t mail_gid;
+static int use_gid;
+static gid_t mail_gid;
 
 static char *substitute_query_params(const char *temp, const char *user, const char *local_part, const char *domain, const char *clienthost, const char *serverhost);
 
@@ -148,7 +148,7 @@ static void strclr(char *s) {
  * Initialise the database connection driver. Clears the config directives
  * associated with the database so that a user cannot recover them with a
  * debugger. */
-PGconn *pg_conn;
+static PGconn *pg_conn;
 
 int auth_pgsql_init(void) {
     char *username = NULL, *password = NULL, *hostname = NULL, *database = NULL, *localhost = "localhost", *s;
