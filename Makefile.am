@@ -78,7 +78,7 @@ tpop3d.conf.cat: tpop3d.conf.5
 
 EXTRA_DIST = bootstrap \
              mysql_crypt.patch \
-             CREDITS PORTABILITY CHANGES HACKING TODO \
+             CREDITS PORTABILITY CHANGES HACKING TODO README.auth_mysql \
              $(man_MANS) \
              tpop3d.cat tpop3d.conf.cat \
              scripts/dotapopfile scripts/nasty \

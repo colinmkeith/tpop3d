@@ -8,8 +8,8 @@ mailbox drivers in mind.
 
   tpop3d is a daemon server which forks subprocesses to handle incoming
   connections. All authentication and book-keeping is done by the main server
-  process, which runs as root; all access to mailspools is done by
-  subprocesses, which drop privileges before opening the mailspools.
+  process, which runs as root; all access to mailboxes is done by
+  subprocesses, which drop privileges before opening the mailboxes.
 
   When an incoming connection needs to be authenticated, its credentials are
   passed to all available authentication drivers in turn, until either one
@@ -23,7 +23,7 @@ mailbox drivers in mind.
   `authentication drivers' are defined, and referenced from authswitch.c.
   Individual requests for authentication (by USER/PASS or APOP) are passed to
   each in turn, and the first to return a positive response is considered to
-  have successfullly authenticated the user; no others are called.
+  have successfully authenticated the user; no others are called.
 
   An example authentication driver, which uses getpwnam(3) and crypt(3) to
   perform `traditional' UNIX user authentication, is included in

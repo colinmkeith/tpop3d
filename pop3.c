@@ -203,7 +203,11 @@ enum connection_action connection_do(connection c, const pop3command p) {
             break;
             
         case QUIT:
+#ifndef NO_SNIDE_COMMENTS
             connection_sendresponse(c, 1, _("Fine. Be that way."));
+#else
+            connection_sendresponse(c, 1, _("Done."));
+#endif
             return close_connection;
 
         case UNKNOWN:

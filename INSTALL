@@ -218,3 +218,23 @@ standard configure options such as --prefix.)
   module used by some of them is in TPOP3D-AuthDriver/ and can be installed by
   the standard perl Makefile.PL; make; make install procedure.
 
+
+* A note on migrating from an existing POP3 server
+
+  Many POP3 client programs use the UIDL (unique-ID list) facility of the POP3
+  protocol to distinguish already-downloaded messages from those left on the
+  server. It is very unlikely that your existing POP3 server uses the same
+  scheme for unique IDs as does tpop3d. In consequence, when you migrate from
+  an existing server to tpop3d, it is likely that users who leave messages on
+  the server (rather than deleting them as soon as they download them) will
+  retrieve new copies of old messages. Regrettably, this is unavoidable (and is
+  not in any way unique to tpop3d).
+
+  For reference (and in lieu of reading mailspool.c and maildir.c for the gory
+  details), for BSD mailspools, the unique ID is generated from an MD5 message
+  digest of the first part of the message; for maildir, the filename of the
+  message (which is supposed to be unique for a given maildir) is used, though
+  it is presented as a 32-digit hexadecimal number.
+
+  tpop3d does not use the Message-ID field in the message header, for a number
+  of reasons.

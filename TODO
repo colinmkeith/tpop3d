@@ -94,3 +94,13 @@ $Id$
 
   Also, not everyone likes perl; some non-perl examples would be good.
 
+
+* Secured Sockets Layer support
+
+  It is possible to use tpop3d with an SSL proxy such as stunnel; however,
+  there are advantages to implementing such support natively in tpop3d; in
+  particular, it is more compatible with POP-before-SMTP relaying. There is
+  example code in the OpenSSL distribution which would serve as the starting
+  point for an implementation.
+
+

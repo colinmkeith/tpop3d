@@ -59,18 +59,18 @@ static const char rcsid[] = "$Id$";
  * ----------------------------------------------------------------------------
  */
 
-static unsigned char itoa64[] =		/* 0 ... 63 => ascii - 64 */
-	"./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+static unsigned char itoa64[] = /* 0 ... 63 => ascii - 64 */
+        "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
 /* to64:
  * Convert a string into a different base.
  */
 static void to64(char *s, unsigned long v, int n)
 {
-	while (--n >= 0) {
-		*s++ = itoa64[v&0x3f];
-		v >>= 6;
-	}
+    while (--n >= 0) {
+        *s++ = itoa64[v&0x3f];
+        v >>= 6;
+    }
 }
 
 /* crypt_md5:
@@ -83,9 +83,9 @@ static char *crypt_md5(const char *pw, const char *salt)
      * it this way, we can get get better later on */
     static char passwd[120], *p;
     static const char *sp,*ep;
-    unsigned char	final[16];
+    unsigned char   final[16];
     int sl,pl,i,j;
-    MD5_CTX	ctx,ctx1;
+    MD5_CTX ctx,ctx1;
     unsigned long l;
 
     /* Refine the Salt first */

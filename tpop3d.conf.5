@@ -171,12 +171,12 @@ vmail-sql virtual domains configuration described at
 
 However, it is extremely simple to adjust it to use another database schema,
 should this be required. The code is all contained in auth_mysql.c in the
-distribution.
+distribution, and there are notes about modifying it in README.auth_mysql.
 
 Note that the username and password supplied in the configuration file
 are privileged information, in the sense that they would allow an
 arbitrary person to obtain information from the database if they have
-access to the machine on which it resides. \fPtpop3d\fP clears this data from
+access to the machine on which it resides. \fBtpop3d\fP clears this data from
 memory when the MySQL authentication code is initialised (though note
 that if you leave the \fBauth-mysql-...\fP directives in place but remove the
 \fBauth-mysql-enable: yes\fP line, then this will not occur). The corollary to
@@ -292,7 +292,7 @@ should be something like
   auth-perl-start: do '/etc/tpop3d/tpop3d.pl';
 .Sp
 .fi
-.Tp
+.TP
 \fBauth-perl-finish\fP: \fIperl code\fP
 Specify a line fo perl code to be executed when the authentication driver is
 shut down.
