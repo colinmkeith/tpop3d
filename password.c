@@ -230,6 +230,12 @@ static void mysql_make_scrambled_password(char *to, const char *password) {
  * HASH, assume that it is SCHEME, which must be specified with the enclosing
  * {}. Returns 1 if PASSWORD matches HASH, or 0 otherwise. */
 int check_password(const char *who, const char *pwhash, const char *pass, const char *default_crypt_scheme) {
+    const char *realhash;
+
+    if (*pwhash == '{' && (realhash = strchr(pwhash + 1, '}')))
+        ++realhash;
+    else
+        realhash = pwhash;
 
     /* Helper macro to detect schemes. */
 #   define IS_SCHEME(hash, scheme, def)                                 \
@@ -238,13 +244,13 @@ int check_password(const char *who, const char *pwhash, const char *pass, const 
     
     if (IS_SCHEME(pwhash, "{crypt}", default_crypt_scheme)) {
         /* Password hashed by system crypt function. */
-        return strcmp(crypt(pass, pwhash), pwhash) == 0;
+        return strcmp(crypt(pass, pwhash), realhash) == 0;
     } else if (IS_SCHEME(pwhash, "{crypt_md5}", default_crypt_scheme)) {
         /* Password hashed by crypt_md5. */
-        return strcmp(crypt_md5(pass, pwhash), pwhash) == 0;
+        return strcmp(crypt_md5(pass, pwhash), realhash) == 0;
     } else if (IS_SCHEME(pwhash, "{plaintext}", default_crypt_scheme)) {
         /* Plain text password, as used for APOP. */
-        return strcmp(pass, pwhash) == 0;
+        return strcmp(pass, realhash) == 0;
     } else if (IS_SCHEME(pwhash, "{mysql}", default_crypt_scheme)) {
         /* MySQL PASSWORD() type password hash. */
         char hash[17] = {0};
@@ -254,10 +260,10 @@ int check_password(const char *who, const char *pwhash, const char *pass, const 
          * or 8-character long hash. */
         switch (n = strlen(pwhash)) {
             case 8:
-                return strncmp(pwhash, hash, 8) == 0;
+                return strncmp(pwhash, realhash, 8) == 0;
 
             case 16:
-                return strcmp(pwhash, hash) == 0;
+                return strcmp(pwhash, realhash) == 0;
 
             default:
                 log_print(LOG_ERR, _("password: %s has password type mysql, but hash is of incorrect length %d (expecting 8 or 16)"), who, n);
@@ -266,12 +272,12 @@ int check_password(const char *who, const char *pwhash, const char *pass, const 
     } else if (IS_SCHEME(pwhash, "{md5}", default_crypt_scheme)) {
         /* Straight MD5 password. But this might be either in hex or base64
          * encoding. */
-        if (strlen(pwhash) == 32) {
+        if (strlen(realhash) == 32) {
             /* Hex. */
-            return strcasecmp(pwhash, md5_digest_str(pass, strlen(pass), 0));
+            return strcasecmp(realhash, md5_digest_str(pass, strlen(pass), 0));
         } else if (strlen(pwhash) == 24) {
             /* Base 64. */
-            return strcmp(pwhash, md5_digest_str(pass, strlen(pass), 1)) == 0;
+            return strcmp(realhash, md5_digest_str(pass, strlen(pass), 1)) == 0;
         } else
             /* Doesn't make sense. */
             log_print(LOG_ERR, _("password: %s has password type md5, but hash is of incorrect length"), who);
