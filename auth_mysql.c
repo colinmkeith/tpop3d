@@ -443,7 +443,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *local_part, const 
                 /* Sanity check. XXX how about row[0], row[3]? */
                 if (!row[2]) {
                     log_print(LOG_ERR, _("auth_mysql_new_apop: UID for user %s is NULL"), who);
-                    goto error;
+                    goto fail;
                 }
                 
                 /* Verify that this user has a plaintext password. */
@@ -559,7 +559,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *local_part, c
                 /* Sanity check. XXX how about row[0], row[3]? */
                 if (!row[2]) {
                     log_print(LOG_ERR, _("auth_mysql_new_apop: UID for user %s is NULL"), who);
-                    goto error;
+                    goto fail;
                 }
 
                 /* Verify the password. There are several possibilities here. */
