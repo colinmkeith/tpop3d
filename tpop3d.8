@@ -7,13 +7,6 @@
 .\" $Id$
 .\"
 
-.\" Here are the registers which correspond to which options are compiled.
-.nr AUTH_PAM        1
-.nr AUTH_PASSWD     0
-.nr AUTH_MYSQL      0
-.nr AUTH_OTHER      0
-.nr AUTH_PERL       0
-
 .\" Text begins
 .SH NAME
 tpop3d \- small, fast, extensible POP3 server
@@ -32,19 +25,16 @@ tpop3d \- small, fast, extensible POP3 server
 .B \-v
 ]
 .SH DESCRIPTION
-.B tpop3d
-is a server which implements the RFC1939 POP3 protocol, including UIDL
-support. Most options are set via a configuration file, typically
-\fB/etc/tpop3d.conf\fP. \fBtpop3d\fP is a daemon which waits in the
-background and accepts incoming connections. It \fIcannot\fP be operated from
-.BR inetd (8).
+\fBtpop3d\fP is a server which implements the RFC1939 POP3 protocol, including
+UIDL support. Most options are set via a configuration file, typically
+\fB/etc/tpop3d.conf\fP. \fBtpop3d\fP is a daemon which waits in the background
+and accepts incoming connections. It cannot be operated from
+\fBinetd\fP(8).
 
-.B tpop3d
-logs most diagnostics via
-.BR syslog (3),
-using facility \fBmail\fP.
+\fBtpop3d\fP logs most diagnostics via \fBsyslog\fP(3), using facility
+\fBmail\fP.
 
-.SS OPTIONS
+.SH OPTIONS
 
 .TP
 .B -h
@@ -66,7 +56,7 @@ Log traffic being sent to/from the server, for debugging purposes; \fBtpop3d\fP
 will log commands and responses sent, but not passwords or the actual content
 of messages.
 
-.SS SIGNALS
+.SH SIGNALS
 
 .TP
 \fBSIGTERM\fP, \fBSIGINT\fP
@@ -83,9 +73,9 @@ clear up all of its lock files. However, if this happens, it indicates either
 a bug in \fBtpop3d\fP, or a hardware problem. In the former case, please
 contact me (see below for contact details) with information about your
 configuration and (if known) steps which may be taken to reproduce the bug.
-In particular, the contents of the \fBMakefile\fP you used to compile
-\fBtpop3d\fP and the operating system and version under which you are running
-it are essential information for a bug report.
+In particular, the configuration options which you used to compile \fBtpop3d\fP
+and the operating system and version under which you are running it are
+essential information for a bug report.
 
 .SH CONFIGURATION FILE
 
@@ -111,7 +101,7 @@ by
 
 To listen for connections on any interface and the default port, the directive
 .nf
-    listen-address: 0.0.0.0
+  listen-address: 0.0.0.0
 .Sp
 .fi
 is sufficient. There is no default for this option.
@@ -129,9 +119,9 @@ This option only takes effect when \fIusername\fP does not contain a
 separator, which may be `@', `%' or `!'.
 .TP
 \fBtimeout-seconds\fP: \fInumber\fP
-This is the number of seconds a connection may be idle for before it
-is closed.  If it is set to 0, then timeouts are disabled.  The
-default value is 30 seconds (see BUGS, below.)
+This is the number of seconds for which a connection may be idle for before it
+is closed.  If it is set to 0, then timeouts are disabled.  The default value
+is 30 seconds (see BUGS, below.)
 .TP
 .nf
 \fBmailbox:\fP: [\fImailbox driver\fP:]\fIpath\fP ...
@@ -149,7 +139,7 @@ given letter of the string. 0 is the first character, and -1 the last. This
 allows the used of `hashed' spool directories; for example,
 
 .nf
-    mailbox: bsd:/var/spool/mail/$(user[0])/$(user)
+  mailbox: bsd:/var/spool/mail/$(user[0])/$(user)
 .Sp
 .fi
 
@@ -159,7 +149,7 @@ than the mailbox not being present. This means that if your users have both
 maildir and bsd mailboxes, you can use something like
 
 .nf
-    mailbox: maildir:$(home)/Maildir bsd:/var/spool/mail/$(user)
+  mailbox: maildir:$(home)/Maildir bsd:/var/spool/mail/$(user)
 .Sp
 .fi
 
@@ -248,7 +238,7 @@ that if you leave the \fBauth-mysql-...\fP directives in place but remove the
 this is that the \fBtpop3d.conf\fP file should not be readable by arbitrary
 users.
 
-.SS Other (external program) authentication options
+.SS External program (`other') authentication options
 
 These are only available if you compiled \fBtpop3d\fP with support for
 \fBauth_other\fP.
@@ -286,7 +276,7 @@ An external authentication program reads data `packets' structured in the
 following format on its standard input:
 
 .nf
-    \fIkey\fP\\0\fIvalue\fP\\0 ... \\0
+  \fIkey\fP\\0\fIvalue\fP\\0 ... \\0
 .Sp
 .fi
 
@@ -342,6 +332,42 @@ sent. An authentication program should catch \fBSIGTERM\fP to do any essential
 cleaning up.
 
 .SS Perl authentication options
+
+These are only available if you compiled \fBtpop3d\fP with support for
+\fBauth_perl\fP.
+
+.TP
+\fBauth-perl-enable\fP: (\fByes\fP | \fBtrue\fP)
+Enable authentication via an embedded perl interpreter.
+.TP
+\fBauth-perl-start\fP: \fIperl code\fP
+Specify a line of perl code to be executed at startup; in most cases, this
+should be something like
+.nf
+  auth-perl-start: do '/etc/tpop3d/tpop3d.pl';
+.Sp
+.fi
+.Tp
+\fBauth-perl-finish\fP: \fIperl code\fP
+Specify a line fo perl code to be executed when the authentication driver is
+shut down.
+.TP
+\fBauth-perl-apop\fP: \fIsubroutine name\fP
+Specify the name of a perl subroutine which will be called when a request for
+APOP authentication is received.
+.TP
+\fBauth-perl-pass\fP: \fIsubroutine name\fP
+Specify the name of a perl subroutine which will be called when a request for
+USER/PASS authentication is received.
+
+.SS A note on perl authentication
+
+The perl subroutines named in the configuration file should take as their
+single argument a reference to a hash; this will contain keys and values as
+listed for \fBauth_other\fP above. The subroutine should also return a
+reference to a hash, indicating results as for \fBauth_other\fP. In addition,
+it may call \fBTPOP3D::print_log\fP with a single scalar argument to write a
+message via \fBtpop3d\fP's logging facility.
 
 .SH BUGS
 
