@@ -4,13 +4,12 @@ $Id$
 Paul Warren-- for pointing out that gnu-pop3d sucked, and that we needed
 something better.
 
-Mark Longair-- for contributing autoconf/automake support and becoming tpop3d's
-mentor in the Cult of Debian; also for testing, patches, bug fixes and the odd
-(metaphorical) kick in the teeth when I'd done something dense and he'd acted
-as the victim.
+Mark Longair-- for contributing autoconf/automake support; also for testing,
+patches, bug fixes and the odd (metaphorical) kick in the teeth when I'd done
+something dense and he'd acted as the victim.
 
 Dom Gallagher-- for help testing tpop3d on Solaris, and for contributing
-crypt(3)-style authentication for auth_mysql.
+crypt(3)-style authentication for auth-mysql.
 
 Roberto Braga-- for a reliability patch to the example init.d script.
 
@@ -35,6 +34,9 @@ Michael Klatsky and Marc Lewis-- for helping to fix bugs in the LDAP code.
 Angel Marin-- for the auth-flatfile authenticator.
 
 Arkadiusz Miskiewicz-- for WHOSON protocol support.
+
+Yann Grossel-- for MySQL server failover support and freezing connections on
+bad authentication.
 
 And numerous others, for putting up with foolish questions about Unix
 mailspool handling or (more often) indignant rants about Unix in general and

@@ -347,7 +347,10 @@ default for this option is the primary group of the UNIX user associated with
 the virtual domain.
 .TP
 \fBauth-mysql-hostname\fI: \fIhostname\fP
-Host on which to connect to MySQL, by default \fBlocalhost\fP.
+Host on which to connect to MySQL, by default \fBlocalhost\fP. You may specify
+several hosts, separated by spaces or tabs. These hosts are tried in order until
+one is found working. The same database name, username and password are tried
+on each host.
 .TP
 \fBauth-mysql-database\fP: \fIdatabase\fP
 MySQL database to use for authentication.

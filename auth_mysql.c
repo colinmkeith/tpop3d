@@ -40,6 +40,7 @@ static const char rcsid[] = "$Id$";
 #include "md5.h"
 #include "stringmap.h"
 #include "util.h"
+#include "tokenise.h"
 
 /* Default query templates. The returned fields are:
  *  [0] location of mailbox
@@ -256,42 +257,87 @@ static void mysql_make_scrambled_password(char *to, const char *password) {
 
 /* MySQL PASSWORD() routines end. */
 
+MYSQL *mysql = NULL;
+tokens mysql_servers;
+char mysql_driver_active = 0;
 
-/* strclr:
- * Clear a string. */
-static void strclr(char *s) {
-    memset(s, 0, strlen(s));
+/* get_mysql_server:
+ * If we are not currently connected to a MySQL server, or if the current MySQL
+ * server doesn't respond any more, try to connect to all defined MySQL
+ * servers. If none work, we give up.  Return 0 if OK, -1 if we can't connect
+ * to any server. */
+static int get_mysql_server(char *where) {
+    int n;
+    static MYSQL mysql_handle;
+    char *password;
+    unsigned int timeout;
+
+    if (mysql && mysql_ping(mysql) == 0)
+        /* The current server is up and running. */
+        return 0;
+
+    if (mysql)
+        /* The current server doesn't respond anymore. */
+        mysql_close(mysql);
+
+    mysql = mysql_init(&mysql_handle);
+
+    if (!mysql) {
+        log_print(LOG_ERR, _("get_mysql_server: mysql_init: failed"));
+        return -1;
+    }
+
+    if (!(password = config_get_string("auth-mysql-password")))
+        password = "";
+
+    for (n = 0; n < mysql_servers->num; n++) {
+       /* To prevent the main process from being blocked for too long, we set
+        * the timeout when connecting to a remote mysql server to 5 seconds. Of
+        * course you need to have a network fast enough to allow TCP
+        * connections to the mysql servers to be started in less than 5
+        * seconds.... */
+        timeout = 5;
+        mysql_options(mysql, MYSQL_OPT_CONNECT_TIMEOUT, (char*)&(timeout));
+
+        if (mysql_real_connect(mysql, mysql_servers->toks[n],
+                config_get_string("auth-mysql-username"),
+                password,
+                config_get_string("auth-mysql-database"),
+                0, NULL, 0) != mysql) {
+            log_print(LOG_WARNING, "get_mysql_server: server %s: %s", mysql_servers->toks[n], mysql_error(mysql));
+            continue;
+        }
+
+        log_print(LOG_DEBUG, _("get_mysql_server: now using server %s"), mysql_servers->toks[n]);
+        return 0;
+    }
+
+    log_print(LOG_ERR, _("get_mysql_server: can't find any working MySQL server; giving up"), where);
+
+    mysql = NULL;
+
+    return -1;
 }
 
 /* auth_mysql_init:
  * Initialise the database connection driver. Clears the config directives
  * associated with the database so that a user cannot recover them with a
  * debugger. */
-MYSQL *mysql;
-
 int auth_mysql_init() {
-    char *username = NULL, *password = NULL, *hostname = NULL, *database = NULL, *localhost = "localhost", *s;
-    int ret = 0;
+    char *hostname = NULL, *localhost = "localhost", *s;
 
-    if ((s = config_get_string("auth-mysql-username")))
-        username = s;
-    else {
+    if (!config_get_string("auth-mysql-username")) {
         log_print(LOG_ERR, _("auth_mysql_init: no auth-mysql-username directive in config"));
-        goto fail;
+        return 0;
     }
 
-    if ((s = config_get_string("auth-mysql-password")))
-        password = s;
-    else {
+    if (!config_get_string("auth-mysql-password")) {
         log_print(LOG_WARNING, _("auth_mysql_init: no auth-mysql-password directive in config; using blank password"));
-        password = "";
     }
 
-    if ((s = config_get_string("auth-mysql-database")))
-        database = s;
-    else {
+    if (!config_get_string("auth-mysql-database")) {
         log_print(LOG_ERR, _("auth_mysql_init: no auth-mysql-database directive in config"));
-        goto fail;
+        return 0;
     }
 
     if ((s = config_get_string("auth-mysql-hostname")))
@@ -304,7 +350,7 @@ int auth_mysql_init() {
         user_pass_query_template = s;
     if (strcmp(user_pass_query_template, "none") == 0)
         user_pass_query_template = NULL;
-    
+
     if ((s = config_get_string("auth-mysql-apop-query")))
         apop_query_template = s;
     if (strcmp(apop_query_template, "none") == 0)
@@ -319,33 +365,23 @@ int auth_mysql_init() {
     if ((s = config_get_string("auth-mysql-mail-group"))) {
         if (!parse_gid(s, &mail_gid)) {
             log_print(LOG_ERR, _("auth_mysql_init: auth-mysql-mail-group directive `%s' does not make sense"), s);
-            goto fail;
+            return 0;
         }
         use_gid = 1;
     }
 
-    mysql = mysql_init(NULL);
-    if (!mysql) {
-        log_print(LOG_ERR, _("auth_mysql_init: mysql_init: failed"));
-        goto fail;
+    mysql_servers = tokens_new(hostname, " \t");
+
+    if (get_mysql_server() == -1) {
+        /* No server has been found working. */
+        tokens_delete(mysql_servers);
+        log_print(LOG_ERR, _("auth_mysql_init: aborting"));
+        return 0;
     }
 
-    if (mysql_real_connect(mysql, hostname, username, password, database, 0, NULL, 0) != mysql) {
-        log_print(LOG_ERR, "auth_mysql_init: mysql_real_connect: %s", mysql_error(mysql));
-        mysql_close(mysql);
-        mysql = NULL;
-        goto fail;
-    }
+    mysql_driver_active = 1;
 
-    ret = 1;
-
-fail:
-    if (username) strclr(username);
-    if (password) strclr(password);
-    if (hostname && hostname != localhost) strclr(hostname);
-    if (database) strclr(database);
-
-    return ret;
+    return 1;
 }
 
 extern int verbose; /* in main.c */
@@ -360,10 +396,10 @@ authcontext auth_mysql_new_apop(const char *name, const char *local_part, const 
 
     who = username_string(name, local_part, domain);
 
-    if (!mysql || !apop_query_template) return NULL;
+    if (!mysql_driver_active || !apop_query_template) return NULL;
 
-    if (mysql_ping(mysql) == -1) {
-        log_print(LOG_ERR, "auth_mysql_new_apop: mysql_ping: %s", mysql_error(mysql));
+    if (get_mysql_server() == -1) {
+        log_print(LOG_ERR, _("auth_mysql_new_apop: aborting"));
         return NULL;
     }
 
@@ -372,7 +408,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *local_part, const 
         goto fail;
 
     if (verbose)
-        log_print(LOG_DEBUG, "auth_mysql_new_apop: SQL query: %s", query);
+        log_print(LOG_DEBUG, _("auth_mysql_new_apop: SQL query: %s"), query);
 
     if (mysql_query(mysql, query) == 0) {
         MYSQL_RES *result;
@@ -385,7 +421,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *local_part, const 
         }
 
         if (mysql_field_count(mysql) != 4) {
-            log_print(LOG_ERR, "auth_mysql_new_apop: %d fields returned by query, should be 4: mailbox location, password hash, unix user, mailbox type", mysql_field_count(mysql));
+            log_print(LOG_ERR, _("auth_mysql_new_apop: %d fields returned by query, should be 4: mailbox location, password hash, unix user, mailbox type"), mysql_field_count(mysql));
             goto fail;
         }
 
@@ -469,10 +505,10 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *local_part, c
 
     who = username_string(user, local_part, domain);
     
-    if (!mysql || !user_pass_query_template) return NULL;
+    if (!mysql_driver_active || !user_pass_query_template) return NULL;
 
-    if (mysql_ping(mysql) == -1) {
-        log_print(LOG_ERR, "auth_mysql_new_user_pass: mysql_ping: %s", mysql_error(mysql));
+    if (get_mysql_server() == -1) {
+        log_print(LOG_ERR, _("auth_mysql_new_user_pass: aborting"));
         return NULL;
     }
 
@@ -481,7 +517,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *local_part, c
         goto fail;
 
     if (verbose)
-        log_print(LOG_DEBUG, "auth_mysql_new_user_pass: SQL query: %s", query);
+        log_print(LOG_DEBUG, _("auth_mysql_new_user_pass: SQL query: %s"), query);
 
     if (mysql_query(mysql, query) == 0) {
         MYSQL_RES *result;
@@ -489,12 +525,12 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *local_part, c
 
         result = mysql_store_result(mysql);
         if (!result) {
-            log_print(LOG_ERR, "auth_mysql_new_user_pass: mysql_store_result: %s", mysql_error(mysql));
+            log_print(LOG_ERR, _("auth_mysql_new_user_pass: mysql_store_result: %s"), mysql_error(mysql));
             goto fail;
         }
 
         if (mysql_field_count(mysql) != 4) {
-            log_print(LOG_ERR, "auth_mysql_new_user_pass: %d fields returned by query, should be 4: mailbox location, password hash, unix user, mailbox type", mysql_field_count(mysql));
+            log_print(LOG_ERR, _("auth_mysql_new_user_pass: %d fields returned by query, should be 4: mailbox location, password hash, unix user, mailbox type"), mysql_field_count(mysql));
             goto fail;
         }
 
@@ -614,12 +650,11 @@ fail:
 void auth_mysql_onlogin(const authcontext A, const char *clienthost, const char *serverhost) {
     char *query;
 
-    if (!mysql || !onlogin_query_template) return;
+    if (!mysql_driver_active || !onlogin_query_template) return;
 
-    if (mysql_ping(mysql) == -1) {
-        log_print(LOG_ERR, "auth_mysql_onlogin: mysql_ping: %s", mysql_error(mysql));
+    if (get_mysql_server() == -1) {
+        log_print(LOG_ERR, _("auth_mysql_onlogin: aborting"));
         return;
-    }
 
     query = substitute_query_params(onlogin_query_template, A->user, A->local_part, A->domain, clienthost, serverhost);
     if (!query)
@@ -649,12 +684,17 @@ void auth_mysql_onlogin(const authcontext A, const char *clienthost, const char 
  * Post-fork cleanup. */
 void auth_mysql_postfork() {
     mysql = NULL; /* XXX */
+    mysql_driver_active = 0;
 }
 
 /* auth_mysql_close:
  * Close the database connection. */
 void auth_mysql_close() {
-    if (mysql) mysql_close(mysql);
+    if (mysql) {
+        mysql_close(mysql);
+        mysql = NULL;
+        tokens_delete(mysql_servers);
+    }
 }
 
 /* substitute_query_params
