@@ -73,6 +73,10 @@ char *cfgdirectives[] = {
     "mailspool-index",
 #endif
     
+#ifdef USE_TCP_WRAPPERS
+    "tcp-wrappers-name",
+#endif
+    
     /* final entry must be NULL */
     NULL};
 

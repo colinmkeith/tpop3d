@@ -97,6 +97,9 @@ Authentication drivers block the main daemon; this means that a failure in NIS
 or an external program could prevent \fBtpop3d\fP from handling new
 connections. A future version may support asynchronous authentication drivers.
 
+If TCP Wrappers support is enabled, then reverse-DNS resolution of connected
+client addresses may also block the main daemon.
+
 .SH FILES
 
 .B /etc/tpop3d.conf

@@ -141,6 +141,17 @@ the specified cache file for a given mailspool; therefore, it is recommended
 that the mailspool index files be stored in a directory to which users would
 not customarily have access, for instance /var/spool/tpop3d.
 
+.TP
+.nf
+\fBtcp-wrappers-name:\fP \fIname\fP
+.fi
+.Sp
+This selects the `daemon name' used by \fBtpop3d\fP when it tests connections
+against the TCP Wrappers access-control-mechanism. This corresponds to the
+part of an entry before the first colon in hosts.allow or hosts.deny. If not
+specified, this will default to `tpop3d'. This feature is only available if
+\fBtpop3d\fP has been compiled with support for TCP Wrappers.
+
 .SS PAM authentication options
 
 .TP
@@ -220,9 +231,10 @@ return the mailbox file location, password hash, Unix user and mailbox type,
 in that order. The variables \fB$(local_part)\fP and \fB$(domain)\fP are
 substituted into the string, in the same way as for the mailbox path
 specifications described above. The nature of password hashes is described
-more fully in README.auth_mysql in the distribution. As an example, if you
-have a table called users which contains fields login, domain, cryptpw and the
-Maildir mailboxes for the users are under
+more fully in README.auth_mysql in the distribution.
+
+As an example, if you have a table called users which contains fields login,
+domain, cryptpw and the Maildir mailboxes for the users are under
 /path/to/$(domain)/$(local_part), then you could use
 .nf
   auth-mysql-pass-query:                      \\
@@ -386,6 +398,8 @@ message via \fBtpop3d\fP's logging facility.
 .SH SEE ALSO
 .BR tpop3d (8),
 .BR mysql (1),
+.BR hosts.allow (5),
+.BR hosts.deny (5),
 .BR TPOP3D::AuthDriver (1),
 .BR RFC1939,
 .br

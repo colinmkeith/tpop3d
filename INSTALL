@@ -203,6 +203,16 @@ standard configure options such as --prefix.)
   users should get used to their computers being rude to them).
 
 
+* TCP Wrappers support
+
+  Since tpop3d runs as a daemon, TCP Wrappers cannot be used via the normal
+  inetd.conf/tcpd style of operation. You can use `--enable-tcp-wrappers' to
+  incorporate native support for TCP Wrappers in tpop3d. If you do this, the
+  `daemon name' (the thing which comes before the : in /etc/hosts.allow and
+  .deny) using the configuration file option tcp-wrappers-name; this is for a
+  similar reason to allowing the PAM service name to be configured.
+
+
 * Development and debugging
 
   If you are modifying or extending tpop3d, or if you have trouble with the

@@ -23,6 +23,12 @@ static const char rcsid[] = "$Id$";
 #include <time.h>
 #include <unistd.h>
 
+#ifdef USE_TCP_WRAPPERS
+#include <tcpd.h>
+int allow_severity = LOG_INFO;
+int deny_severity  = LOG_NOTICE;
+#endif
+
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
@@ -62,6 +68,8 @@ int max_running_children = 16;      /* How many children may exist at once. */
 volatile int num_running_children = 0;  /* How many children are active. */
 
 char *pidfile = NULL;               /* The name of a PID file to use; if NULL, don't use one. */
+
+char *tcpwrappersname = "tpop3d";   /* The daemon name to give to TCP Wrappers. */
 
 /* Variables representing the state of the server. */
 int post_fork = 0;                  /* Is this a child handling a connection. */
@@ -126,7 +134,14 @@ void listeners_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfds)
 
             if (s == -1) {
                 if (errno != EAGAIN) print_log(LOG_ERR, "net_loop: accept: %m");
-            } else if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, &a, sizeof(a)) == -1) {
+            }
+#ifdef USE_TCP_WRAPPERS
+            else if (!hosts_ctl(tcpwrappersname, STRING_UNKNOWN, inet_ntoa(sin.sin_addr), STRING_UNKNOWN)) {
+                print_log(LOG_ERR, "net_loop: tcp_wrappers: connection from %s refused", inet_ntoa(sin.sin_addr));
+                close(s);
+            }
+#endif
+            else if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, &a, sizeof(a)) == -1) {
                 /* Set a small send buffer so that we get usefully blocking
                  * writes. */
                 print_log(LOG_ERR, "listeners_post_select: setsockopt: %m");
@@ -190,7 +205,9 @@ void fork_child(connection c) {
     sigprocmask(SIG_BLOCK, &chmask, NULL);
 
     post_fork = 1; /* This is right. See below. */
-    /* muntrace(); */ /* Memory debugging on glibc systems. */
+#ifdef MTRACE_DEBUGGING
+    muntrace(); /* Memory debugging on glibc systems. */
+#endif /* MTRACE_DEBUGGING */
     switch((ch = fork())) {
         case 0:
             /* Child. Dispose of listeners and connections other than this
@@ -468,6 +485,12 @@ void usage(FILE *fp) {
     authswitch_describe(fp);
     mailbox_describe(fp);
 
+#ifdef USE_TCP_WRAPPERS
+    fprintf(fp, _("This tpop3d has TCP Wrappers support.\n\n"));
+#else
+    fprintf(fp, _("This tpop3d does not have TCP Wrappers support.\n\n"));
+#endif
+    
     fprintf(fp, _(
 "tpop3d, copyright (c) 2000-2001 Chris Lightfoot <chris@ex-parrot.com>;\n"
 "portions copyright (c) 2001 Mark Longair, Paul Makepeace.\n"
@@ -496,8 +519,10 @@ int main(int argc, char **argv, char **envp) {
     char *configfile = "/etc/tpop3d.conf";
     int na, c;
 
-    /*mtrace();*/ /* Memory debugging on glibc systems. */
-
+#ifdef MTRACE_DEBUGGING
+    mtrace(); /* Memory debugging on glibc systems. */
+#endif /* MTRACE_DEBUGGING */
+    
     /* Read the options. */
     opterr = 0;
     while ((c = getopt(argc, argv, optstring)) != EOF) {
@@ -549,8 +574,16 @@ int main(int argc, char **argv, char **envp) {
     I = stringmap_find(config, "mailspool-index");
     if (I) {
         mailspool_save_indices = 1;
-        print_log(LOG_INFO, "experimental BSD mailbox metadata cache enabled");
+        print_log(LOG_INFO, _("experimental BSD mailbox metadata cache enabled"));
     }
+#endif
+
+    /* We may have been compiled with TCP wrappers support. */
+#ifdef USE_TCP_WRAPPERS
+    I = stringmap_find(config, "tcp-wrappers-name");
+    if (I)
+        tcpwrappersname = I->v;
+    print_log(LOG_INFO, _("TCP Wrappers support enabled, using daemon name `%s'"), tcpwrappersname);
 #endif
     
     /* Try to write PID file. */

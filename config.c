@@ -53,7 +53,6 @@ stringmap read_config_file(const char *f) {
 
         /* Get continuation lines. Ugly. */
         while (*(line + strlen(line) - 1) == '\\') {
-            printf("line = %s\n", line);
             if (!fgets(line + strlen(line) - 1, MAX_CONFIG_LINE - strlen(line), fp))
                 break;
             for (r = line + strlen(line) - 1; r > line && *r == '\n'; *(r--) = 0);
