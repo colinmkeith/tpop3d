@@ -286,8 +286,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
         }
         
         /* The first argument, if any, is always interpreted as a message
-         * number.
-         */
+         * number. */
         if (num_args >= 1) {
             a = p->toks->toks[1];
             if (a && strlen(a) > 0) {
@@ -309,8 +308,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
         }
 
         /* The second argument is always a positive semi-definite numeric
-         * parameter.
-         */
+         * parameter. */
         if (num_args == 2) {
             if (p->cmd == TOP) {
                 have_arg2 = 0;
@@ -367,21 +365,18 @@ enum connection_action connection_do(connection c, const pop3command p) {
 
         case UIDL:
             /* It isn't guaranteed that these IDs are unique; it is likely,
-             * though. See RFC1939.
-             */
+             * though. See RFC1939. */
             if (have_msg_num) {
                 if (curmsg->deleted)
                     connection_sendresponse(c, 0, _("That message is no more."));
                 else {
                     char response[64] = {0};
-                    log_print(LOG_INFO, "UIDL %d (hash = %s)", 1 + msg_num, hex_digest(curmsg->hash));
                     snprintf(response, 63, "%d %s", 1 + msg_num, hex_digest(curmsg->hash));
                     connection_sendresponse(c, 1, response);
                 }
             } else {
                 struct indexpoint *J;
                 int nn = 0;
-                log_print(LOG_INFO, "UIDL");
                 connection_sendresponse(c, 1, _("ID list follows:"));
                 for (J = curmbox->index; J < curmbox->index + curmbox->num; ++J) {
                     if (!J->deleted) {

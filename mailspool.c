@@ -230,7 +230,7 @@ static unsigned char *memstr(const unsigned char *haystack, const size_t hlen,
     if (nlen == 0) return (char*)haystack;
 
     /* Set up the finite state machine we use. */
-    for (k = 0; k < 255; ++k) skip[k] = nlen;
+    for (k = 0; k < 256; ++k) skip[k] = nlen;
     for (k = 0; k < nlen - 1; ++k) skip[needle[k]] = nlen - k - 1;
 
     /* Do the search. */
