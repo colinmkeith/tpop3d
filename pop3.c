@@ -51,7 +51,7 @@ static enum connection_action do_capa(connection c) {
 
     connection_sendresponse(c, 1, _("Capability list follows"));
     for (p = capas; *p; ++p) {
-        if (strcmp(*p, "USER") == 0 && apop_only)
+        if (strcmp(*p, "USER") == 0 && (apop_only && !c->secured))
             continue;
         
 #ifdef USE_TLS
