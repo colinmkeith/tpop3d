@@ -24,9 +24,9 @@ static const char rcsid[] = "$Id$";
 #include <unistd.h>
 
 /* Include files for perl integration. */
-#include "EXTERN.h"
-#include "perl.h"
-#include "XSUB.h"
+#include <EXTERN.h>
+#include <perl.h>
+#include <XSUB.h>
 
 #include "auth_perl.h"
 #include "stringmap.h"
@@ -59,9 +59,9 @@ XS(xs_print_log)
  */
 extern void boot_DynaLoader(CV *cv);
 
-void xs_init() {
+static void xs_init(void) {
     char *file = __FILE__;
-    newXS("DynaLOader::boot_DynaLoader", boot_DynaLoader, file);
+    newXS("DynaLoader::boot_DynaLoader", boot_DynaLoader, file);
     newXS("TPOP3D::print_log", xs_print_log, file);
 }
 
@@ -70,10 +70,13 @@ void xs_init() {
  */
 extern stringmap config;    /* in main.c */
 
+static char *auth_perl_env = "TPOP3D_CONTEXT=auth_perl";
+
 int auth_perl_init() {
     dSP;
     int argc = 2;
     char *argv[3] = {"auth_perl", "/dev/null", NULL};
+//    char *argv[4] = {"auth_perl", "-e", "$ENV{TPOP3D_CONTEXT} = 'auth_perl';", NULL};
     item *I;
     char *startupcode;
     SV *sv;
@@ -94,9 +97,9 @@ int auth_perl_init() {
         return 0;
     }
 
+    putenv(strdup("TPOP3D_CONTEXT=auth_perl"));
+
     /* Put a useful string into the environment. */
-    putenv("TPOP3D_CONTEXT=auth_perl");
-    
     auth_perl_interp = perl_alloc();
     perl_construct(auth_perl_interp);
     perl_parse(auth_perl_interp, xs_init, argc, argv, 0);
