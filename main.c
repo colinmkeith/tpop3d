@@ -34,6 +34,19 @@ static const char rcsid[] = "$Id$";
 #include "vector.h"
 #include "util.h"
 
+#ifdef __SVR4
+/* inet_aton:
+ * Implementation of inet_aton for machines (Solaris [cough]) which do not
+ * have it.
+ */
+int inet_aton(const char *s, struct in_addr *ip) {                              
+    in_addr_t i = inet_addr(s);                                                 
+    if (i == ((in_addr_t)-1)) return 0;                                         
+    memcpy(ip, &i, sizeof(int));                                                
+    return 1;                                                                   
+}                                                                               
+#endif
+
 /* daemon:
  * Become a daemon. From "The Unix Programming FAQ", Andrew Gierth et al.
  */
@@ -382,7 +395,8 @@ char *this_lockfile;
 
 void die_signal_handler(const int i) {
     struct sigaction sa;
-    print_log(LOG_ERR, "quit: %s", sys_siglist[i]); 
+/*    print_log(LOG_ERR, "quit: %s", sys_siglist[i]); */
+    print_log(LOG_ERR, "quit: signal %d", i); /* Some systems do not have sys_siglist. */
     if (this_child_connection) connection_delete(this_child_connection); 
     if (this_lockfile) unlink(this_lockfile);
     memset(&sa, 0, sizeof(sa));
