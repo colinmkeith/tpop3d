@@ -15,5 +15,7 @@
 
 stringmap read_config_file(const char *f);
 int is_cfgdirective_valid(const char *s);
+int config_get_int(const char *directive, int *value);
+int config_get_float(const char *directive, float *value);
 
 #endif /* __CONFIG_H_ */

@@ -1,6 +1,7 @@
 sbin_PROGRAMS = tpop3d
 
 tpop3d_SOURCES = auth_mysql.c \
+                 auth_other.c \
                  auth_pam.c \
                  auth_passwd.c \
                  authswitch.c \
@@ -11,6 +12,8 @@ tpop3d_SOURCES = auth_mysql.c \
                  list.c	\
                  listener.c \
                  locks.c \
+                 mailbox.c \
+                 maildir.c \
                  mailspool.c \
                  main.c \
                  md5c.c \
@@ -18,11 +21,13 @@ tpop3d_SOURCES = auth_mysql.c \
                  pop3.c	\
                  signals.c \
                  stringmap.c \
+                 substvars.c \
                  tokenise.c \
                  util.c \
                  vector.c
 
 noinst_HEADERS = auth_mysql.h \
+                 auth_other.h \
                  auth_pam.h \
                  auth_passwd.h \
                  authswitch.h \
@@ -33,7 +38,7 @@ noinst_HEADERS = auth_mysql.h \
                  list.h \
                  listener.h \
                  locks.h \
-                 mailspool.h \
+                 mailbox.h \
                  main.h \
                  md5.h \
                  pidfile.h \
@@ -50,6 +55,8 @@ CFLAGS = -Wall -g
 man_MANS = tpop3d.8
 
 SUBDIRS = init.d config
+
+EXTRA_DIST = scripts TPOP3D-AuthDriver
 
 tpop3d.cat: tpop3d.8
 	(echo -e ".pl 1100i" ; cat tpop3d.8 ; echo ".pl \n(nlu+10") | groff -Tascii -man > tpop3d.cat

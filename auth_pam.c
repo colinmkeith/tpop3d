@@ -66,7 +66,7 @@ authcontext auth_pam_new_user_pass(const char *user, const char *pass) {
     int r, n = PAM_SUCCESS;
     authcontext a = NULL;
     struct pam_conv conv;
-    char *facility, *mailspool_dir;
+    char *facility;
     item *I;
     int use_gid = 0;
     gid_t gid = 99;
@@ -80,37 +80,14 @@ authcontext auth_pam_new_user_pass(const char *user, const char *pass) {
     if (I) facility = (char*)I->v;
     else facility = AUTH_PAM_FACILITY;
 
-    /* Obtain mailspool directory */
-    if ((I = stringmap_find(config, "auth-pam-mailspool-dir"))) mailspool_dir = (char*)I->v;
-#ifdef AUTH_PAM_MAILSPOOL_DIR
-    else mailspool_dir = AUTH_PAM_MAILSPOOL_DIR;
-#else
-    else {
-        print_log(LOG_ERR, _("auth_pam_new_user_pass: no mailspool directory known about"));
-        return NULL;
-    }
-#endif
- 
-    /* Obtain gid to use. */
+    /* Obtain gid to use */
     if ((I = stringmap_find(config, "auth-pam-mail-group"))) {
-        gid = atoi((char*)I->v);
-        if (!gid) {
-            struct group *grp;
-            grp = getgrnam((char*)I->v);
-            if (!grp) {
-                print_log(LOG_ERR, _("auth_pam_new_user_pass: auth-pam-mail-group directive `%s' does not make sense"), (char*)I->v);
-                return NULL;
-            }
-            gid = grp->gr_gid;
+        if (!parse_gid((char*)I->v, &gid)) {
+            print_log(LOG_ERR, _("auth_pam_new_user_pass: auth-pam-mail-group directive `%s' does not make sense"), (char*)I->v);
+            return NULL;
         }
         use_gid = 1;
     }
-#ifdef AUTH_PAM_MAIL_GID
-    else {
-        gid = AUTH_PAM_MAIL_GID;
-        use_gid = 1;
-    }
-#endif
 
     conv.conv = auth_pam_conversation;
     conv.appdata_ptr = (void*)pass;
@@ -129,16 +106,8 @@ authcontext auth_pam_new_user_pass(const char *user, const char *pass) {
         /* OK, is the account presently allowed to log in? */
         r = pam_acct_mgmt(pamh, PAM_SILENT);
         if (r == PAM_SUCCESS) {
-            char *s;
-            size_t l;
-            s = (char*)malloc(l = (strlen(mailspool_dir) + 1 + strlen(user) + 1));
-            if (s) {
-                snprintf(s, l, "%s/%s", mailspool_dir, user);
-                a = authcontext_new(pw.pw_uid,
-                        use_gid ? gid : pw.pw_gid,
-                        s);
-                free(s);
-            }
+            /* Succeeded; figure out the mailbox name later. */
+            a = authcontext_new(pw.pw_uid, use_gid ? gid : pw.pw_gid, NULL, NULL, pw2->pw_dir, NULL);
         } else print_log(LOG_ERR, "auth_pam_new_user_pass: pam_acct_mgmt(%s): %s", user, pam_strerror(pamh, r));
     } else print_log(LOG_ERR, "auth_pam_new_user_pass: pam_authenticate(%s): %s", user, pam_strerror(pamh, r));
 

@@ -13,14 +13,26 @@ Introduction
 
 tpop3d is yet-another-pop3-server. The intention has been to write a
 server which is fast, extensible, and secure. `Extensible' is used
-specifically in the context of new authentication mechanisms. Presently
-the distribution contains auth_pam, which uses Linux-style Pluggable
-Authentication Modules to mediate access of registered users of a
-machine to their Unix-style mailboxes, and auth_mysql, which uses a
-MySQL database to mediate access to virtual-domain email, and is compatible
-with the vmail-sql schema for doing this:
+specifically in the context of new authentication mechanisms and mailbox
+formats. Presently the distribution supports the following authentication
+mechanisms:
 
-  http://www.ex-parrot.com/~chris/vmail-sql/
+auth_pam            Pluggable Authentication Modules
+auth_passwd         /etc/passwd (and optionally /etc/shadow)
+
+auth_mysql          a vmail-sql style MySQL database; see
+                        http://www.ex-parrot.com/~chris/vmail-sql/
+auth_other          an external program
+
+The latter two options provide virtual domain support; the first two are
+designed to authenticate local (Unix) users.
+
+The following mailbox formats are supported:
+
+bsd                 BSD (`Unix') mailspools
+maildir             Qmail-style maildirs
+empty               null driver
+
 
 Usage instructions
 
@@ -29,76 +41,14 @@ Have a look at the man page, tpop3d.8.
 
 Installation
 
-Read the makefile, and alter it as appropriate. You will probably want
-to review the authentication schemes available; at present, these are
-
-    auth_pam
-        Uses Pluggable Authentication Modules, with a configurable
-        facility name (by default, `tpop3d').
-
-        This is enabled in the distribution makefile.
-
-    auth_passwd
-        Uses /etc/passwd (and, by a compile time option, /etc/shadow)
-        to authenticate users.
-
-        Not enabled in the distribution makefile.
-
-    auth_mysql
-        Uses a MySQL database, allowing authentication of users in
-        virtual domains.
-
-        By default, auth_mysql uses MD5 hashes of passwords for authentication
-        (or clear-text passwords for APOP authentication). By applying the
-        patches in mysql_crypt.patch, you can alter this to use passwords
-        which are hashed using crypt(3) (as in /etc/passwd on most Unix
-        systems); if you apply this patch, you will have to modify the SQL
-        schema for the database, creating a crypt_pw column to store the
-        password hashes (rather than password_hash). This patch was
-        contributed by Dom Gallagher.
-
-        Not enabled in the distribution makefile.
-
-A sample init.d script, usable for Linux systems and probably easily modified
-for others, is in the init.d/ subdirectory. If you find that your system comes
-up sufficiently quickly that tpop3d fails to connect to MySQL on startup, you
-may want to apply the patch in init.d/initscript_wait-for-mysqld.patch to the
-script; this tests for the existence of the unix socket which MySQL clients use
-to communicate with MySQL. This patch was contributed by Roberto Braga.
+Have a look at the file INSTALL in the distribution. tpop3d uses gnu autoconf,
+so it should be reasonably simple to make it work.
 
 
-A note on developing new authentication schemes
+Modifying and extending tpop3d
 
-The authentication strategy in tpop3d is very simple; a number of
-"authentication drivers" are defined, and referenced from authswitch.c.
-Individual requests for authentcation (by USER/PASS or APOP) are passed
-to each in turn, and the first to return a positive response is
-considered to have successfullly authenticated the user; no others are
-called.
-
-An example authentication driver, which uses getpwnam(3) and crypt(3) to
-perform `traditional' UNIX user authentication, is included in
-auth_passwd.[ch] (but is not, by default, included in the compiled
-binary). This driver is suitable for production use, but you are recommended
-to use PAM if your system supports it.
-
-auth_mysql.[ch] gives an example of an authentication driver for virtual
-domains.
-
-If you add a new authentication driver, it will probably have configuration
-options; tpop3d now warns about the presence of unknown configuration
-directives, and discards them. You will need to add your new directives to
-cfgdirectives.c. (I hope to make this process automatic, but have not quite
-decided which ugly C-preprocessor incantation to use. Note that the problem
-is not quite as trivial as grepping for `stringmap_find', since the set of
-valid directives changes based on various macro definitions.)
-
-Virtual domains are supported via users logging in with names such as
-`user@example.com'. The server supports adding `@example.com' based on the
-address to which a user connects. This is controlled via the append-domain
-configuration option (see the manual page for more information). Single- and
-multiple-IP virtual domain hosting can therefore be operated from a single
-server.
+Have a look at the file HACKING in the distribution. tpop3d is fairly well
+commented and a number of people have been able to make useful modifications.
 
 
 Mailing list

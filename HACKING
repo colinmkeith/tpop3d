@@ -1,0 +1,88 @@
+Developers' notes for tpop3d
+$Id$
+
+tpop3d is designed with the development of new authentication schemes and
+mailbox drivers in mind.
+
+* Developing new authentication schemes
+
+  The authentication strategy in tpop3d is very simple; a number of
+  `authentication drivers' are defined, and referenced from authswitch.c.
+  Individual requests for authentication (by USER/PASS or APOP) are passed to
+  each in turn, and the first to return a positive response is considered to
+  have successfullly authenticated the user; no others are called.
+
+  An example authentication driver, which uses getpwnam(3) and crypt(3) to
+  perform `traditional' UNIX user authentication, is included in
+  auth_passwd.[ch] (but is not, by default, included in the compiled binary).
+  This driver is suitable for production use, but you are recommended to use
+  PAM if your system supports it.
+
+  auth_mysql.[ch] gives an example of an authentication driver for virtual
+  domains.
+
+  If you add a new authentication driver, it will probably have configuration
+  options; tpop3d now warns about the presence of unknown configuration
+  directives, and discards them. You will need to add your new directives to
+  cfgdirectives.c. (I hope to make this process automatic, but have not quite
+  decided which ugly C-preprocessor incantation to use. Note that the problem
+  is not quite as trivial as grepping for `stringmap_find', since the set of
+  valid directives changes based on various macro definitions.)
+
+  Virtual domains are supported via users logging in with names such as
+  `user@example.com'. The server supports adding `@example.com' based on the
+  address to which a user connects. This is controlled via the append-domain
+  configuration option (see the manual page for more information). Single- and
+  multiple-IP virtual domain hosting can therefore be operated from a single
+  server.
+
+  The auth_other driver is designed to allow the painless development of new
+  authentication strategies. In particular, it makes it easy to use programs
+  written in a scripting language to do authentication; if you want to use
+  this, have a look at the description in the man page and the example scripts
+  in the scripts/ subdirectory. There is a perl module which makes writing
+  perl authenticators very easy in the TPOP3D-AuthDriver subdirectory; the
+  standard perl Makefile.PL ; make ; make install procedure will install it
+  for you. The example perl scripts in scripts/ use this module.
+
+
+* Developing new mailbox formats
+
+  Mailbox drivers have a similar structure to authentication drivers; the code
+  in maildir.c (contributed by Paul Makepeace) is a good initial place to
+  start; the BSD mailspool code (mailspool.c) is complicated by the file
+  locking muddle and by the mmap(2) code used to make it fast.
+
+
+* Coding style
+
+  (Obviously you are free to write code however you want; this is a
+  description of how I have formatted and structured the code in tpop3d.)
+
+  Indentation is much like K&R, except that functions should look like this:
+
+    int foo(char *bar) {
+        /* ... */
+    }
+
+  Functions should be commented like this:
+
+    /* foo:
+     * Calculate the foo value of the passed string. The arguments and return
+     * value of the function should be explained here, unless they are
+     * blindingly obvious.
+     */
+    int foo (char *bar) {
+        /* ... */
+    }
+
+  Function names have lowercase words separated by underscores. The convention
+  is that strings and other things returned by reference are allocated with
+  malloc(3) in the called function, and it is the caller's responsibility to
+  free them. For more complex objects, there should be a constructor foo_new
+  or foo_new_somehow, and a destructor foo_delete; methods on the object
+  should be foo_this and foo_that.
+
+  Indentation is four spaces. Tabs should not, under any circumstances, appear
+  in code.
+

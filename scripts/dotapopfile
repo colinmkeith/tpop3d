@@ -1,0 +1,72 @@
+#!/usr/bin/perl -w -I/home/chris/software/tpop3d/scripts
+#
+# dotapopfile:
+# Allow Unix users to authenticate themselves using a .apop file in their home
+# directories.
+#
+# Copyright (c) 2001 Chris Lightfoot. All rights reserved.
+#
+
+my $rcsid = '$Id$';
+
+package DotApopFile;
+use TPOP3D::AuthDriver;
+use File::stat;
+use User::pwent;
+use MD5;
+
+@ISA = qw(TPOP3D::AuthDriver);
+
+# Override generic APOP implementation
+sub apop ($$) {
+    my ($self, $req) = @_;
+    my $res = { 'result' => 'NO', 'logmsg' => "no such user $req->{user}" };
+
+    # See if the user exists.
+    $pw = getpwnam($req->{user});
+    if ($pw) {
+        # User exists
+        $file = $pw->dir() . "/.apop";
+        $sb = stat($file);
+        if ($sb) {
+            # ~/.apop file exists
+            if (($sb->mode & 077) == 0) {
+                # ~/.apop file has sane permissions
+                # retrieve password from .apop file
+                if (open(DOTAPOP, "<$file")) {
+                    my $pass = <DOTAPOP>;
+                    close(DOTAPOP);
+                    if (defined($pass)) {
+                        chomp($pass);
+                        $pw =~ s/^\s+//;
+                        $pw =~ s/\s+$//;
+                        if (length($pass) > 0 &&TPOP3D::AuthDriver::apopauth($req->{digest}, $req->{timestamp}, $pass) != 0) {
+                            $res->{uid} = $pw->uid();
+                            $res->{gid} = $pw->gid();       # or the mail group.
+                            $res->{result} = 'YES';
+                            delete $res->{logmsg};
+                        } else {
+                            $res->{logmsg} = "authentication failure for $req->{user}";
+                        }
+                        $pw = ' ' x 80; # clear password
+                    }
+                } else {
+                    $res->{logmsg} = "$file: $!";
+                }
+            } else {
+                $res->{logmsg} = "$file: mode " . sprintf("0%03o", $sb->mode & 0777) . " is too permissive";
+            }
+        } else {
+            $res->{logmsg} = "$req->{user} has no ~/.apop file";
+        }
+    }
+
+    return $res;
+}
+
+package MAIN;
+
+my $auth = new DotApopFile();
+$auth->run();
+
+exit 42;

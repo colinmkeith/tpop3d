@@ -1,6 +1,6 @@
 /*
  * locks.c:
- * Various means of locking files.
+ * Various means of locking BSD mailspools.
  * 
  * Some or all of fcntl, flock and .lock locking are done, along with a rather
  * comedy attempt at cclient locking, which is only there so that PINE figures
@@ -23,6 +23,8 @@ static const char rcsid[] = "$Id$";
 #ifdef HAVE_CONFIG_H
 #include "configuration.h"
 #endif /* HAVE_CONFIG_H */
+
+#ifdef MBOX_BSD
 
 #include "locks.h"
 
@@ -282,3 +284,5 @@ fail:
     return r;
 }
 #endif /* WITH_CCLIENT_LOCKING */
+
+#endif /* MBOX_BSD */

@@ -11,7 +11,12 @@
 #ifndef __AUTH_PAM_H_ /* include guard */
 #define __AUTH_PAM_H_
 
+#ifdef HAVE_CONFIG_H
+#include "configuration.h"
+#endif /* HAVE_CONFIG_H */
+
 #ifdef AUTH_PAM
+
 #include "authswitch.h"
 
 /* config directive auth-pam-mailspool-dir */

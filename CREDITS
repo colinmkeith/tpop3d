@@ -14,6 +14,9 @@ crypt(3)-style authentication for auth_mysql.
 
 Roberto Braga-- for a reliability patch to the example init.d script.
 
+Paul Makepeace-- for contributing maildir support, and getting tpop3d running
+on Mac OS X.
+
 And numerous others, for putting up with foolish questions about Unix
 mailspool handling or (more often) indignant rants about Unix in general and
-the sorry state of mail locking in particular.
+the sorry state of file locking in particular.

@@ -106,7 +106,7 @@ void set_signals() {
 extern int foad;                            /* in main.c */
 
 void terminate_signal_handler(const int i) {
-    foad = 1;
+    foad = i;
 }
 
 /* die_signal_handler:
@@ -142,13 +142,27 @@ void die_signal_handler(const int i) {
 /* child_signal_handler:
  * Signal handler to deal with SIGCHLD.
  */
-extern int num_running_children;            /* in main.c */
+extern int num_running_children; /* in main.c */
+
+#ifdef AUTH_OTHER
+extern pid_t authchild_pid; /* in auth_other.c */
+extern int authchild_wr, authchild_rd;
+#endif /* AUTH_OTHER */
 
 void child_signal_handler(const int i) {
+    pid_t pid;
     int status;
     
-    while (waitpid(-1, &status, WNOHANG) > 0)
-        --num_running_children;
+    while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
+#ifdef AUTH_OTHER
+        if (pid == authchild_pid) {
+            authchild_pid = 0;
+            print_log(LOG_WARNING, _("child_signal_handler: authentication child %d terminated; exit status was %d"), (int)pid, status);
+            close(authchild_wr);
+            close(authchild_rd);
+        } else
+#endif /* AUTH_OTHER */
+            --num_running_children;
 }
 
 /* restart_signal_handler:
@@ -157,7 +171,10 @@ void child_signal_handler(const int i) {
 extern int restart, post_fork;              /* in main.c */
 
 void restart_signal_handler(const int i) {
-    if (!post_fork) foad = restart = 1;
+    if (!post_fork) {
+        foad = i;
+        restart = 1;
+    }
 }
 
 

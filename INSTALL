@@ -16,29 +16,83 @@ However, it is well worth reviewing the various options to configure before
 proceeding blindly along this route. Below are various notes about configuring
 tpop3d for your system.
 
-* Location of mailspools
-
-  On most systems, this will be the default, /var/spool/mail; BSD systems often
-  use /var/mail, and of course other locations are possible. This option may
-  also be set in the configuration file.
-
 
 * Authentication
 
-  See the notes in the README file and the manual page; the relevant configure
-  arguments are:
+  A number of authentication mechanisms are available:
 
+    auth_pam
     --enable-auth-pam
-    --enable-auth-passwd (and perhaps --enable-shadow-passwords)
-    --enable-auth-mysql
+      Uses Pluggable Authentication Modules, with a configurable facility name
+      (by default, `tpop3d').
+
+    auth_passwd
+    --enable-auth-passwd, --enable-shadow-passwords
+      Uses /etc/passwd (and, by a compile time option, /etc/shadow) to
+      authenticate local users.
+
+    auth_mysql
+    --enable-auth-mysql, --with-mysql-root
+      Uses a MySQL database, allowing authentication of users in virtual
+      domains.
+
+      By default, auth_mysql uses MD5 hashes of passwords for authentication
+      (or clear-text passwords for APOP authentication). By applying the
+      patches in mysql_crypt.patch, you can alter this to use passwords which
+      are hashed using crypt(3) (as in /etc/passwd on most Unix systems); if
+      you apply this patch, you will have to modify the SQL schema for the
+      database, creating a crypt_pw column to store the password hashes
+      (rather than password_hash). This patch was contributed by Dom
+      Gallagher.
+
+    auth_other
+    --enable-auth-other
+      Passes authentication requests to an external program; designed to allow
+      custom virtual domains authentication schemes.
+
+  For tpop3d to be useful, you must enable at least one authentication driver.
+  By default, only PAM is switched on; this is correct for most modern Unix
+  systems. Older systems should use auth_passwd.
 
 
-* Mailspool locking
+* Mailbox formats
+
+  tpop3d supports traditional BSD-format mailboxes (with messages separated by
+  lines beginning `From '), and the maildir format of Qmail. You can select
+  these using:
+
+    --enable-mbox-bsd
+    --enable-mbox-maildir
+
+  The locations of user mailboxes may be specified in the configuration file;
+  if no such specification is given, then `MAILSPOOL_DIR/username' is used.
+  You can set the value of MAILSPOOL_DIR with the --with-mailspool-directory
+  configure option; however, this is deprecated in favour of the more flexible
+  run-time approach. To use this, simply add
+
+    mailbox: /var/spool/mail/$(user)
+
+  to your configuration file. Other possibilities:
+
+    mailbox: maildir:$(home)/Maildir              default maildir location
+
+    mailbox: /var/spool/mail/$(user[0])/$(user)   hashed mailspool directories
+    
+    mailbox: maildir:$(home)/Maildir bsd:/var/spool/mail/$(user)
+                                                  maildir if available, else
+                                                  traditional mailspool
+
+  You can also set these options on a per-authenticator basis, with the
+  configuration option auth-foo-mailbox.
+
+
+* Locking of BSD (`Unix') mailspools
 
   tpop3d supports a number of ways to lock mailspools as compile-time options.
-  (Note that this applies to single-file `BSD' or `Unix' mailspools; there
-  will shortly be support for qmail-style maildir mailspools which do not use
-  file locking at all.)
+  (Note that this applies to single-file `BSD' or `Unix' mailspools; maildir
+  mailboxes do not use file locking at all, instead relying on the atomicity
+  of certain filesystem operations. Praise the lord and pass the Single Unix
+  Specification, version 2.)
 
   Unfortunately, Unix mailspool locking is arcane and complex (a less
   charitable author would say "broken"). You may have to experiment to get
@@ -72,7 +126,8 @@ tpop3d for your system.
   obtain both sorts of lock. Some systems, such as Solaris, do not support
   flock(2). Some systems, such as modern Linux distributions, do not use
   dotfile locking at all (and have altered permissions on /var/spool/mail to
-  accomodate this).
+  accomodate this). The configure script should detect and handle fcntl/flock
+  issues correctly.
 
   When configuring tpop3d, you should therefore take note of these arguments:
 
@@ -129,5 +184,17 @@ tpop3d for your system.
   server and want to help in debugging it, then you can cause tpop3d to be
   linked with the Electric Fence malloc(3) debugging library using
   --enable-electric-fence, and (on glibc systems only) turn on backtrace
-  reporting in the event of a server crash using --enable-backtrace.
+  reporting in the event of a server crash using --enable-backtrace. You may
+  also wish to read the file HACKING in the distribution.
 
+
+* init.d script
+
+  A sample System V init.d script is in the init.d/ subdirectory. This script
+  is usable on Linux and easily modifiable for other systems. If you use
+  auth_mysql and find that your system comes up sufficiently quickly that
+  tpop3d fails to connect to MySQL on startup, you may want to apply the patch
+  in init.d/initscript_wait-for-mysqld.patch to the script; this tests for the
+  existence of the unix socket which MySQL clients use to communicate with
+  MySQL. This patch was contributed by Roberto Braga.
+  

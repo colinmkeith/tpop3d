@@ -1,0 +1,133 @@
+#! /bin/sh
+#
+# nasty:
+# Simple virtual-domains authentication with auth_other. Also, the World's
+# Worst Bourne Shell Script.
+#
+# Mailspools live under /var/spool/mail/SERVERS/domain/user; users are
+# authenticated against a assword file in /etc/mail/SERVERS/domain/passwd,
+# which is in the format username:password hash; the password hash is the
+# cksum(1) of the password.
+#
+# Thanks to Rick Leeming and Richard Smith for perpetrating the first part of
+# this deranged monstrosity.
+#
+# This script should not be used for any purpose whatsoever, with the possible
+# exception of scaring people who are afraid of the shell.
+#
+# $Id$
+#
+
+VCONF=/etc/mail/SERVERS             # where password files live
+VSPOOL=/var/spool/mail/SERVERS      # where spools live
+VUSER=mail                          # user and group to use
+VGROUP=mail
+
+# Get the parameters. You are not expected to understand this.
+IFS=
+eval `
+while true ; do
+    a=@
+    while [ "$a" ] ; do
+        tmp=\`echo @ | dd ibs=1 obs=1 count=1 2>/dev/null; dd ibs=1 obs=1 count=1  2>/dev/null; echo @ | dd ibs=1 obs=1 count=1 2>/dev/null\` 
+        if [ x"$tmp" = x"@" -o "$tmp" = x"@@" ] ; then
+            break
+        fi
+        a="$a$tmp"
+    done
+
+    if [ "$a" = @ ] ; then
+        break
+    fi
+    
+    a=\`echo $a | sed 's/@\\(.\\)@/\\1/g;s/^@//;s/@$//;s/\\"/\\\\"/g'\`
+
+    b=@
+    while [ "$b" ] ; do
+        tmp=\`echo @ | dd ibs=1 obs=1 count=1 2>/dev/null; dd ibs=1 obs=1 count=1  2>/dev/null; echo @ | dd ibs=1 obs=1 count=1 2>/dev/null\` 
+        if [ x"$tmp" = x"@" -o "$tmp" = x"@@" ] ; then
+            break
+        fi
+        b="$b$tmp"
+    done
+    b=\`echo $b | sed 's/@\\(.\\)@/\\1/g;s/^@//;s/@$//;s/\\"/\\\\"/g'\`
+
+    echo auth_other_$a=\\"$b\\"
+done
+`
+
+# Replacement for echo -n, for systems which don't have it
+function echo_n {
+    echo $1 | tr -d '\n'
+}
+
+# Send a \0
+function charzero {
+    dd if=/dev/zero ibs=1 obs=1 count=1 2> /dev/null
+}
+
+# Send back a failure message
+function refuse_authentication {
+    echo_n "result"
+    charzero
+    echo_n "NO"
+    charzero
+    echo_n logmsg
+    charzero
+    echo_n $1
+    charzero
+    charzero
+}
+
+# OK, at this stage, we should have some auth_other_... variables
+if [ x"$auth_other_method" = x"APOP" ] ; then
+    # no APOP support
+    refuse_authentication "APOP not supported"
+elif [ x"$auth_other_method" = x"PASS" ] ; then
+    # OK, we should be authenticating user@domain here
+    domain=`echo $auth_other_user | sed 's/^[^@!%]\+[@!%]//' | tr -d '/'`
+    local_part=`echo $auth_other_user | sed 's/^\([^@!%]\+\).*/\1/'`
+    
+    if [ -e "$VCONF/$domain/passwords" ] ; then
+        # Look up the user's password
+        pwentry=`grep "^$local_part:" "$VCONF/$domain/passwords"`
+        if [ x"$pwentry" = x"" ] ; then
+            refuse_authentication "unknown user $local_part@$domain"
+        else 
+            # Calculate hash of user's password
+            hash=`echo_n $auth_other_password | cksum | sed 's/ [0-9]+$//'`
+            if [ x"$pwentry" = x"$local_part:$hash" ] ; then
+                # OK, success; return a suitable packet of data to the server.
+                echo_n result
+                charzero
+                echo_n YES
+                charzero
+                echo_n uid
+                charzero
+                echo_n $VUSER
+                charzero
+                echo_n gid
+                charzero
+                echo_n $VGROUP
+                charzero
+                echo_n mboxtype
+                charzero
+                echo_n bsd
+                charzero
+                echo_n mailbox
+                charzero
+                echo_n $VSPOOL/$domain/$local_part
+                charzero
+                charzero
+            else
+                refuse_authentication "wrong password for $local_part@$domain"
+            fi
+        fi
+    else
+        # We don't know about this domain
+        refuse_authentication "unknown domain $domain"
+    fi
+fi
+
+# Re-exec script to handle another request.
+exec $0

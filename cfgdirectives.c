@@ -23,19 +23,20 @@ char *cfgdirectives[] = {
     "max-children",
     "append-domain",
     "timeout-seconds",
+    "mailbox",
 
 #ifdef AUTH_PAM
     /* auth-pam options */
     "auth-pam-enable",
     "auth-pam-facility",
-    "auth-pam-mailspool-dir",
+    "auth-pam-mailbox",
     "auth-pam-mail-group",
 #endif
 
 #ifdef AUTH_PASSWD
     /* auth-passwd options */
     "auth-passwd-enable",
-    "auth-passwd-mailspool-dir",
+    "auth-passwd-mailbox",
     "auth-passwd-mail-group",
 #endif
 
@@ -47,8 +48,16 @@ char *cfgdirectives[] = {
     "auth-mysql-database",
     "auth-mysql-hostname",
     "auth-mysql-mail-group",
-#endif
+#endif /* AUTH_MYSQL */
 
+#ifdef AUTH_OTHER
+    "auth-other-enable",
+    "auth-other-program",
+    "auth-other-user",
+    "auth-other-group",
+    "auth-other-timeout",
+#endif /* AUTH_OTHER */
+    
     /* final entry must be NULL */
     NULL};
 

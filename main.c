@@ -54,28 +54,273 @@ static const char rcsid[] = "$Id$";
  */
 stringmap config;
 
+/* Various configuration options. */
 extern int append_domain;           /* Do we automatically try user@domain if user alone fails to authenticate? In pop3.c. */
 int log_stderr;                     /* Are log messages also sent to standard error? */
 int verbose;                        /* Should we be verbose about data going to/from the client? */
 int timeout_seconds = 30;           /* How long a period of inactivity may elapse before a client is dropped. */
+
 int max_running_children = 16;      /* How many children may exist at once. */
-char * pidfile = NULL;              /* The name of a PID file to use; if NULL, don't use one. */
+int num_running_children = 0;       /* How many children are active. */
+
+char *pidfile = NULL;               /* The name of a PID file to use; if NULL, don't use one. */
+
+/* Variables representing the state of the server. */
+int post_fork = 0;                  /* Is this a child handling a connection. */
+connection this_child_connection;   /* Stored here so that if a signal terminates the child, the mailspool will still get unlocked. */
+
+vector listeners;                   /* Listeners */
+list connections;                   /* Active connections. */
+
+/* Theory of operation:
+ * The main loop is in net_loop, below; it calls listeners_ and
+ * connections_pre_select, then calls select, then calls listeners_ and
+ * connections_post_select. In the event that a server is forked to handle a
+ * client, fork_child is called. The global variables listeners and
+ * connections are used to handle this procedure.
+ */
+
+
+/* listeners_pre_select:
+ * Called before the main select(2) so listening sockets can be polled.
+ */
+void listeners_pre_select(int *n, fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
+    item *t;
+    vector_iterate(listeners, t) {
+        int s = ((listener)t->v)->s;
+        FD_SET(s, readfds);
+        if (s > *n) *n = s;
+    }
+}
+
+/* listeners_post_select:
+ * Called after the main select(2) to allow listening sockets to sort
+ * themselves out.
+ */
+void listeners_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
+    item *t;
+    vector_iterate(listeners, t) {
+        listener L = (listener)t->v;
+        if (FD_ISSET(L->s, readfds)) {
+            struct sockaddr_in sin;
+            size_t l = sizeof(sin);
+            int s = accept(L->s, (struct sockaddr*)&sin, (int *)&l);
+            int a = MAX_DATA_IN_FLIGHT;
+
+            if (s == -1) {
+                if (errno != EAGAIN) print_log(LOG_ERR, "net_loop: accept: %m");
+            } else if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, &a, sizeof(a)) == -1) {
+                /* Set a small send buffer so that we get usefully blocking writes. */
+                print_log(LOG_ERR, "handle_listeners: setsockopt: %m");
+                close(s);
+            } else if (fcntl(s, F_SETFL, 0) == -1) {
+                /* Switch off non-blocking mode, in case it is inherited. */
+                print_log(LOG_ERR, "handle_listeners: fcntl(F_SETFL): %m");
+                close(s);
+            } else {
+                if (num_running_children >= max_running_children) {
+                    char *m = _("-ERR Sorry, I'm too busy right now\r\n");
+                    xwrite(s, m, strlen(m));
+                    shutdown(s, 2);
+                    close(s);
+                    print_log(LOG_INFO, _("handle_listeners: rejected connection from %s owing to high load"), inet_ntoa(sin.sin_addr));
+                } else {
+                    connection c = connection_new(s, &sin, L->domain);
+                    if (c) list_push_back(connections, item_ptr(c));
+                    print_log(LOG_INFO, _("handle_listeners: client %s: connected"), c->idstr);
+                }
+            }
+        }
+    }
+}
+
+/* connections_pre_select:
+ * Called before the main select(2) so connections can be polled.
+ */
+void connections_pre_select(int *n, fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
+    listitem I;
+    list_iterate(connections, I) {
+        int s = ((connection)I->d.v)->s;
+        FD_SET(s, readfds);
+        if (s > *n) *n = s;
+    }
+}
+
+/* fork_child:
+ * Handle forking a child to handle an individual connection. C and i are,
+ * respectively, pointers to the connection and the listitem which holds it;
+ * these are modified by the function, so are passed by reference.
+ */
+void fork_child(connection *C, listitem *i) {
+#define c               (*C)
+#define I               (*i)
+    listitem J;
+    item *t;
+    post_fork = 1; /* This is right. See below. */
+    switch(fork()) {
+        case 0:
+            /* Child. Dispose of listeners and connections other than this
+             * one.
+             */
+            vector_iterate(listeners, t) listener_delete((listener)t->v);
+            vector_delete(listeners);
+            listeners = NULL;
+
+            list_iterate(connections, J) {
+                if (J->d.v != c) {
+                    close(((connection)J->d.v)->s);
+                    ((connection)J->d.v)->s = -1;
+                    J = list_remove(connections, J);
+                }
+                if (!J) break;
+            }
+
+            /* We never access mailspools as root. */
+            if (!c->a->uid) {
+                print_log(LOG_ERR, _("fork_child: client %s: authentication context has UID of 0"), c->idstr);
+                connection_sendresponse(c, 0, _("Everything's really bad"));
+                connection_delete(c);
+                exit(0);
+            }
+
+            /* Set our gid and uid to that appropriate for the mailspool, as decided by the auth switch. */
+            if (setgid(c->a->gid) == -1) {
+                print_log(LOG_ERR, "fork_child: setgid(%d): %m", c->a->gid);
+                connection_sendresponse(c, 0, _("Something bad happened, and I just can't go on. Sorry."));
+                connection_delete(c);
+                exit(0);
+            } else if (setuid(c->a->uid) == -1) {
+                print_log(LOG_ERR, "fork_child: setuid(%d): %m", c->a->uid);
+                connection_sendresponse(c, 0, _("Something bad happened, and I just can't go on. Sorry."));
+                connection_delete(c);
+                exit(0);
+            }
+
+            /* Get in to the `transaction' state, opening the mailbox. */
+            if (connection_start_transaction(c)) {
+                char s[1024];
+                snprintf(s, 1024, _("Welcome aboard! You have %d messages."), c->m->index->n_used);
+                connection_sendresponse(c, 1, s);
+                this_child_connection = c;
+            } else {
+                connection_sendresponse(c, 0, _("Unable to open mailbox; it may be locked by another concurrent session."));
+                connection_delete(c);
+                exit(0);
+            }
+
+            I = NULL;
+
+            break;
+
+        case -1:
+            /* Error. */
+            print_log(LOG_ERR, "fork_child: fork: %m");
+            connection_sendresponse(c, 0, _("Everything was fine until now, but suddenly I realise I just can't go on. Sorry."));
+            connection_delete(c);
+            c = NULL;
+            I = list_remove(connections, I);
+            break;
+
+        default:
+            /* Parent. Dispose of our copy of this connection. */
+            post_fork = 0;  /* Now SIGHUP will work again. */
+            
+            close(c->s);
+            c->s = -1; /* Don't shutdown the socket */
+            connection_delete(c);
+            c = NULL;
+            
+            I = list_remove(connections, I);
+
+            ++num_running_children;
+    }
+#undef c
+#undef I
+}
+
+/* connections_post_select:
+ * Called after the main select(2) to do stuff with connections.
+ */
+void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
+    listitem I;
+    list_iterate(connections, I) {
+        if (FD_ISSET(((connection)I->d.v)->s, readfds)) {
+            /* Data is available on this socket. */
+            int n;
+            connection c = (connection)I->d.v;
+            n = connection_read(c);
+            if (n == 0) {
+                /* Peer closed the connection */
+                print_log(LOG_INFO, _("connections_post_select: connection_read: client %s: closed connection"), c->idstr);
+                connection_delete(c);
+                I = list_remove(connections, I);
+                if (post_fork) exit(0);
+                if (!I) break;
+            } else if (n < 0 && errno != EINTR) {
+                /* Some sort of error occurred, and we should close the connection. */
+                print_log(LOG_ERR, _("connections_post_select: connection_read: client %s: disconnected: %m"), c->idstr);
+                connection_delete(c);
+                I = list_remove(connections, I);
+                if (post_fork) exit(0);
+                if (!I) break;
+            } else {
+                /* We read some data and should try to interpret command/s. */
+                pop3command p;
+                while (c && (p = connection_parsecommand(c))) {
+                    switch(connection_do(c, p)) {
+                        case close_connection:
+                            connection_delete(c);
+                            c = NULL;
+                            I = list_remove(connections, I);
+                            if (post_fork) exit(0);
+                            break;
+
+                        case fork_and_setuid:
+                            if (num_running_children >= max_running_children) {
+                                connection_sendresponse(c, 0, _("Sorry, I'm too busy right now"));
+                                print_log(LOG_INFO, _("connections_post_select: client %s: rejected login owing to high load"), c->idstr);
+                                connection_delete(c);
+                                I = list_remove(connections, I);
+                                c = NULL;
+                                break;
+                            } else fork_child(&c, &I);
+
+                        default:;
+                    }
+
+                    pop3command_delete(p);
+
+                    if (!I) break;
+                }
+
+                if (!I) break;
+            }
+        } else if (timeout_seconds && (time(NULL) > (((connection)(I->d.v))->idlesince + timeout_seconds))) {
+            /* Connection has timed out. */
+#ifndef NO_SNIDE_COMMENTS
+            connection_sendresponse((connection)(I->d.v), 0, _("You can hang around all day if you like. I have better things to do."));
+#else
+            connection_sendresponse((connection)(I->d.v), 0, _("Client has been idle for too long."));
+#endif
+            print_log(LOG_INFO, "net_loop: timed out client %s", ((connection)I->d.v)->idstr);
+            connection_delete((connection)(I->d.v));
+            if (post_fork) exit(0);
+            I = list_remove(connections, I);
+            if (!I) break;
+        }
+    }
+}
 
 /* net_loop:
  * Accept connections and put them into an appropriate state, calling
- * setuid() and fork() when appropriate. listen_addrs is a NULL-terminated
- * list of addresses on which to listen.
+ * setuid() and fork() when appropriate.
  */
-int num_running_children = 0;       /* How many children are active. */
 int foad = 0, restart = 0;          /* Flags used to indicate that we should exit or should re-exec. */
-int post_fork = 0;                  /* Flag used to indicate that we are handling a connection in a child. */
 
-connection this_child_connection;   /* Stored here so that if a signal terminates the child, the mailspool will still get unlocked. */
+void net_loop() {
+    listitem J;
 
-void net_loop(vector listen_addrs) {
-    list connections = list_new();
-    listitem I, J;
-    item *t;
+    connections = list_new();
 
     print_log(LOG_INFO, _("net_loop: tpop3d version %s successfully started"), TPOP3D_VERSION);
     
@@ -87,204 +332,25 @@ void net_loop(vector listen_addrs) {
 
         FD_ZERO(&readfds);
 
-        if (!post_fork && listen_addrs) vector_iterate(listen_addrs, t) {
-            int s = ((listener)t->v)->s;
-            FD_SET(s, &readfds);
-            if (s > n) n = s;
-        }
+        if (!post_fork) listeners_pre_select(&n, &readfds, NULL, NULL);
 
-        list_iterate(connections, I) {
-            int s = ((connection)I->d.v)->s;
-            FD_SET(s, &readfds);
-            if (s > n) n = s;
-        }
+        connections_pre_select(&n, &readfds, NULL, NULL);
 
         e = select(n + 1, &readfds, NULL, NULL, &tv);
         if (e == -1 && errno != EINTR) {
             print_log(LOG_WARNING, "net_loop: select: %m");
         } else if (e >= 0) {
             /* Check for new incoming connections */
-            if (!post_fork && listen_addrs) vector_iterate(listen_addrs, t) {
-                listener L = (listener)t->v;
-                if (FD_ISSET(L->s, &readfds)) {
-                    struct sockaddr_in sin;
-                    size_t l = sizeof(sin);
-                    int s = accept(L->s, (struct sockaddr*)&sin, &l);
-                    int a = MAX_DATA_IN_FLIGHT;
-
-                    if (s == -1) {
-                        if (errno != EAGAIN) print_log(LOG_ERR, "net_loop: accept: %m");
-                    } else if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, &a, sizeof(a)) == -1) {
-                        /* Set a small send buffer so that we get usefully blocking writes. */
-                        print_log(LOG_ERR, "net_loop: setsockopt: %m");
-                        close(s);
-                    } else if (fcntl(s, F_SETFL, 0) == -1) {
-                        /* Switch off non-blocking mode, in case it is inherited. */
-                        print_log(LOG_ERR, "net_loop: fcntl: %m");
-                        close(s);
-                    } else {
-                        if (num_running_children >= max_running_children) {
-                            char m[] = _("Sorry, I'm too busy right now");
-                            xwrite(s, "-ERR ", 5);
-                            xwrite(s, m, strlen(m));
-                            xwrite(s, "\r\n", 2);
-                            shutdown(s, 2);
-                            close(s);
-                            print_log(LOG_INFO, _("net_loop: rejected connection from %s owing to high load"), inet_ntoa(sin.sin_addr));
-                        } else {
-                            connection c = connection_new(s, &sin, L->domain);
-                            if (c) list_push_back(connections, item_ptr(c));
-                            print_log(LOG_INFO, "net_loop: client %s: connected", c->idstr);
-                        }
-                    }
-                }
-            }
+            if (!post_fork) listeners_post_select(&readfds, NULL, NULL);
 
             /* Monitor existing connections */
-            list_iterate(connections, I) {
-                if (FD_ISSET(((connection)I->d.v)->s, &readfds)) {
-                    int n;
-                    connection c = (connection)I->d.v;
-                    n = connection_read(c);
-                    if (n == 0) {
-                        /* Peer closed the connection */
-                        print_log(LOG_INFO, _("net_loop: connection_read: client %s: closed connection"), c->idstr);
-                        connection_delete(c);
-                        I = list_remove(connections, I);
-                        if (post_fork) exit(0);
-                        if (!I) break;
-                    } else if (n < 0 && errno != EINTR) {
-                        /* Some sort of error occurred, and we should close the connection. */
-                        print_log(LOG_ERR, _("net_loop: connection_read: client %s: disconnected: %m"), c->idstr);
-                        connection_delete(c);
-                        I = list_remove(connections, I);
-                        if (post_fork) exit(0);
-                        if (!I) break;
-                    } else {
-                        /* We read some data and should try to interpret command/s. */
-                        pop3command p;
-                        while (c && (p = connection_parsecommand(c))) {
-                            switch(connection_do(c, p)) {
-                            case close_connection:
-                                connection_delete(c);
-                                c = NULL;
-                                I = list_remove(connections, I);
-                                if (post_fork) exit(0);
-                                break;
-                                
-                            case fork_and_setuid:
-                                if (num_running_children >= max_running_children) {
-                                    connection_sendresponse(c, 0, _("Sorry, I'm too busy right now"));
-                                    print_log(LOG_INFO, _("net_loop: client %s: rejected login owing to high load"), c->idstr);
-                                    connection_delete(c);
-                                    I = list_remove(connections, I);
-                                    c = NULL;
-                                    break;
-                                } else switch(fork()) {
-                                case 0:
-                                    /* Child. */
-                                    post_fork = 1; /* XXX minor race condition with SIGHUP */
-
-                                    vector_iterate(listen_addrs, t) listener_delete((listener)t->v);
-                                    vector_delete(listen_addrs);
-                                    listen_addrs = NULL;
-
-                                    list_iterate(connections, J) {
-                                        if (J != I) {
-                                            close(((connection)J->d.v)->s);
-                                            ((connection)J->d.v)->s = -1;
-                                            J = list_remove(connections, J);
-                                        }
-                                        if (!J) break;
-                                    }
-
-                                    /* We never access mailspools as root. */
-                                    if (!c->a->uid) {
-                                        print_log(LOG_ERR, _("net_loop: client %s: authentication context has UID of 0"), c->idstr);
-                                        connection_sendresponse(c, 0, _("Everything's really bad"));
-                                        connection_delete(c);
-                                        exit(0);
-                                    }
-
-                                    /* Set our gid and uid to that appropriate for the mailspool, as decided by the auth switch. */
-                                    if (setgid(c->a->gid) == -1) {
-                                        print_log(LOG_ERR, "net_loop: setgid(%d): %m", c->a->gid);
-                                        connection_sendresponse(c, 0, _("Something bad happened, and I just can't go on. Sorry."));
-                                        connection_delete(c);
-                                        exit(0);
-                                    } else if (setuid(c->a->uid) == -1) {
-                                        print_log(LOG_ERR, "net_loop: setuid(%d): %m", c->a->uid);
-                                        connection_sendresponse(c, 0, _("Something bad happened, and I just can't go on. Sorry."));
-                                        connection_delete(c);
-                                        exit(0);
-                                    }
-
-                                    if (connection_start_transaction(c)) {
-                                        char s[1024];
-                                        snprintf(s, 1024, _("Welcome aboard! You have %d messages."), c->m->index->n_used);
-                                        connection_sendresponse(c, 1, s);
-                                        this_child_connection = c;
-                                    } else {
-                                        connection_sendresponse(c, 0,
-                                                errno == EAGAIN ? _("Mailspool locked; do you have another concurrent session?")
-                                                                : _("Oops. Something went wrong."));
-                                        connection_delete(c);
-                                        exit(0);
-                                    }
-
-                                    I = NULL;
-
-                                    break;
-
-                                case -1:
-                                    /* Error. */
-                                    print_log(LOG_ERR, "net_loop: fork: %m");
-                                    connection_sendresponse(c, 0, _("Everything was fine until now, but suddenly I realise I just can't go on. Sorry."));
-                                    connection_delete(c);
-                                    c = NULL;
-                                    I = list_remove(connections, I);
-                                    break;
-                                    
-                                default:
-                                    /* Parent. */
-                                    close(c->s);
-                                    c->s = -1; /* Don't shutdown the socket */
-                                    connection_delete(c);
-                                    c = NULL;
-                                    I = list_remove(connections, I);
-                                    ++num_running_children;
-                                }
-
-                            default:;
-                            }
-
-                            pop3command_delete(p);
-                            
-                            if (!I) break;
-                        }
-
-                        if (!I) break;
-                    }
-                } else if ( timeout_seconds && (time(NULL) > (((connection)(I->d.v))->idlesince + timeout_seconds)) ) {
-                    /* Connection has timed out. */
-#ifndef NO_SNIDE_COMMENTS
-                    connection_sendresponse((connection)(I->d.v), 0, _("You can hang around all day if you like. I have better things to do."));
-#else
-                    connection_sendresponse((connection)(I->d.v), 0, _("Client has been idle for too long."));
-#endif
-                    print_log(LOG_INFO, _("net_loop: timed out client %s"), ((connection)I->d.v)->idstr);
-                    connection_delete((connection)(I->d.v));
-                    if (post_fork) exit(0);
-                    I = list_remove(connections, I);
-                    if (!I) break;
-                }
-            }
+            connections_post_select(&readfds, NULL, NULL);
         }
     }
 
     /* Termination request received; we should close all connections in an orderly fashion. */
-    if (restart) print_log(LOG_INFO, _("net_loop: restarting after signal"));
-    else print_log(LOG_INFO, _("net_loop: terminating after signal"));
+    if (restart) print_log(LOG_INFO, _("net_loop: restarting on signal %d"), foad);
+    else print_log(LOG_INFO, _("net_loop: terminating on signal %d"), foad);
 
     if (connections) {
         list_iterate(connections, J) connection_delete((connection)J->d.v);
@@ -292,7 +358,7 @@ void net_loop(vector listen_addrs) {
     }
 }
 
-#define EXIT_REMOVING_PIDFILE( n ) { if( pidfile ) remove_pid_file( pidfile ); exit( (n) ); }
+#define EXIT_REMOVING_PIDFILE(n) do { if (pidfile) remove_pid_file(pidfile); exit((n)); } while (0)
 
 /* usage:
  * Print usage information.
@@ -301,15 +367,23 @@ void usage(FILE *fp) {
     fprintf(fp, _(
 "tpop3d, version %s\n"
 "\n"
-"tpop3d [options]\n"
+"Synopsis: tpop3d -h | [-f file] [-p file] [-d] [-v]\n"
 "\n"
-"  -h       display this message\n"
-"  -f file  read configuration from file (default: /etc/tpop3d.conf)\n"
-"  -p file  write PID to file (default: don't use a PID file)\n"
-"  -d       do not detach from controlling terminal\n"
-"  -v       log traffic to/from server for debugging purposes\n"
+"  -h               Display this message\n"
+"  -f file          Read configuration from file (default: /etc/tpop3d.conf)\n"
+"  -p file          Write PID to file (default: don't use a PID file)\n"
+"  -d               Do not detach from controlling terminal\n"
+"  -v               Log traffic to/from server for debugging purposes\n"
 "\n"
-"tpop3d, copyright (c) 2000-2001 Chris Lightfoot <chris@ex-parrot.com>\n"
+                ), TPOP3D_VERSION);
+
+    /* Describe the compiled-in options. */
+    authswitch_describe(fp);
+    mailbox_describe(fp);
+
+    fprintf(fp, _(
+"tpop3d, copyright (c) 2000-2001 Chris Lightfoot <chris@ex-parrot.com>;\n"
+"portions copyright (c) 2001 Mark Longair, Paul Makepeace.\n"
 "home page: http://www.ex-parrot.com/~chris/tpop3d/\n"
 "\n"
 "This program is free software; you can redistribute it and/or modify\n"
@@ -317,26 +391,7 @@ void usage(FILE *fp) {
 "the Free Software Foundation; either version 2 of the License, or\n"
 "(at your option) any later version.\n"
 "\n"
-                  ), TPOP3D_VERSION);
-}
-
-/* config_get_int:
- * Get an integer value from a config string. Returns 1 on success, -1 on
- * failure, or 0 if no value was found.
- */
-int config_get_int(const char *directive, int *value) {
-    item *I = stringmap_find(config, directive);
-    char *s, *t;
-    if (!value) return -1;
-    if (!I) return 0;
-
-    s = (char*)I->v;
-    if (!*s) return -1;
-    errno = 0;
-    *value = strtol(s, &t, 10);
-    if (*t) return -1;
-
-    return errno == ERANGE ? -1 : 1;
+                ));
 }
 
 /* main:
@@ -345,7 +400,6 @@ int config_get_int(const char *directive, int *value) {
 char optstring[] = "+hdvf:p:";
 
 int main(int argc, char **argv, char **envp) {
-    vector listeners;
     item *I;
     int nodaemon = 0;
     char *configfile = "/etc/tpop3d.conf", c;
@@ -400,36 +454,34 @@ int main(int argc, char **argv, char **envp) {
     openlog("tpop3d", LOG_PID | LOG_NDELAY, LOG_MAIL);
 
     /* Try to write PID file. */
-    if( pidfile ) {
-        
+    if (pidfile) {
         switch (write_pid_file(pidfile)) {
-
-        case pid_file_success:
-            break;
-
-        case pid_file_existence:
-        {
-            pid_t pid;
-            switch (read_pid_file(pidfile, &pid)) {
             case pid_file_success:
-                if (kill(pid, 0)) {
-                    print_log(LOG_ERR, _("%s: stale PID file `%s'; exiting. Remove it and restart."), pidfile);
-                    return 1;
-                } else {
-                    print_log(LOG_ERR, _("%s: tpop3d already running, with process ID %d; exiting."), (int)pid);
-                    return 1;
+                break;
+
+            case pid_file_existence: {
+                pid_t pid;
+                switch (read_pid_file(pidfile, &pid)) {
+                    case pid_file_success:
+                        if (kill(pid, 0)) {
+                            print_log(LOG_ERR, _("%s: stale PID file `%s'; exiting. Remove it and restart."), pidfile);
+                            return 1;
+                        } else {
+                            print_log(LOG_ERR, _("%s: tpop3d already running, with process ID %d; exiting."), (int)pid);
+                            return 1;
+                        }
+                        break;
+                        
+                    default:
+                        print_log(LOG_ERR, _("%s: PID file seems to be invalid; exiting."), pidfile);
+                        return 1;
                 }
                 break;
-            default:
-                print_log(LOG_ERR, _("%s: PID file seems to be invalid; exiting."), pidfile);
-                return 1;
             }
-            break;
-        }
 
-        case pid_file_error:
-            print_log(LOG_ERR, _("%s: %m: couldn't write PID file; exiting."), pidfile);
-            return 1;
+            case pid_file_error:
+                print_log(LOG_ERR, _("%s: %m: couldn't write PID file; exiting."), pidfile);
+                return 1;
         }
     }
 
@@ -453,7 +505,7 @@ int main(int argc, char **argv, char **envp) {
             r = strchr(s, '(');
             if (r) {
                 if (*(s + strlen(s) - 1) != ')') {
-                    print_log(LOG_ERR, _("%s: syntax for listen address `%s' is incorrect\n"), configfile, s);
+                    print_log(LOG_ERR, _("%s: syntax for listen address `%s' is incorrect"), configfile, s);
                     continue;
                 }
 
@@ -471,7 +523,7 @@ int main(int argc, char **argv, char **envp) {
                     struct servent *se;
                     se = getservbyname(r, "tcp");
                     if (!se) {
-                        print_log(LOG_ERR, _("%s: specified listen address `%s' has invalid port `%s'\n"), configfile, s, r);
+                        print_log(LOG_ERR, _("%s: specified listen address `%s' has invalid port `%s'"), configfile, s, r);
                         continue;
                     } else sin.sin_port = se->s_port;
                 } else sin.sin_port = htons(sin.sin_port);
@@ -482,7 +534,7 @@ int main(int argc, char **argv, char **envp) {
                 struct hostent *he;
                 he = gethostbyname(s);
                 if (!he) {
-                    print_log(LOG_ERR, _("%s: gethostbyname: specified listen address `%s' is invalid\n"), configfile, s);
+                    print_log(LOG_ERR, _("%s: gethostbyname: specified listen address `%s' is invalid"), configfile, s);
                     continue;
                 } else memcpy(&(sin.sin_addr), he->h_addr, sizeof(struct in_addr));
             }
@@ -490,7 +542,7 @@ int main(int argc, char **argv, char **envp) {
             L = listener_new(&sin, domain);
             if (L) {
                 vector_push_back(listeners, item_ptr(L));
-                print_log(LOG_INFO, _("listening on address %s, port %d%s%s"), inet_ntoa(L->sin.sin_addr), htons(L->sin.sin_port), (L->domain ? " with domain " : ""), (L->domain ? L->domain : ""));
+                print_log(LOG_INFO, _("listening on address %s, port %d, domain %s"), inet_ntoa(L->sin.sin_addr), htons(L->sin.sin_port), (L->domain ? L->domain : _("(none)")));
             }
         }
 
@@ -498,24 +550,24 @@ int main(int argc, char **argv, char **envp) {
     }
 
     if (listeners->n_used == 0) {
-        print_log(LOG_ERR, _("%s: no listen addresses obtained; exiting\n"), configfile);
+        print_log(LOG_ERR, _("%s: no listen addresses obtained; exiting"), configfile);
         EXIT_REMOVING_PIDFILE(1);
     }
 
     /* Find out the maximum number of children we may spawn at once. */
     switch(config_get_int("max-children", &max_running_children)) {
         case -1:
-            print_log(LOG_ERR, _("%s: value given for max-children does not make sense; exiting\n"), configfile);
+            print_log(LOG_ERR, _("%s: value given for max-children does not make sense; exiting"), configfile);
             EXIT_REMOVING_PIDFILE(1);
 
         case 1:
             if (max_running_children < 1) {
-                print_log(LOG_ERR, _("%s: value for max-children must be 1 or greater; exiting\n"), configfile);
+                print_log(LOG_ERR, _("%s: value for max-children must be 1 or greater; exiting"), configfile);
                 EXIT_REMOVING_PIDFILE(1);
             }
 
         default:
-            ;
+            max_running_children = 16;
     }
 
     /* Should we automatically append domain names and retry authentication? */
@@ -525,17 +577,17 @@ int main(int argc, char **argv, char **envp) {
     /* Find out how long we wait before timing out... */
     switch (config_get_int("timeout-seconds", &timeout_seconds)) {
         case -1:
-            print_log(LOG_ERR, _("%s: value given for timeout-seconds does not make sense; exiting\n"), configfile);
+            print_log(LOG_ERR, _("%s: value given for timeout-seconds does not make sense; exiting"), configfile);
             EXIT_REMOVING_PIDFILE(1);
 
         case 1:
             if (timeout_seconds < 1) {
-                print_log(LOG_ERR, _("%s: value for timeout-seconds must be 1 or greater; exiting\n"), configfile);
+                print_log(LOG_ERR, _("%s: value for timeout-seconds must be 1 or greater; exiting"), configfile);
                 EXIT_REMOVING_PIDFILE(1);
             }
 
         default:
-            ;
+            timeout_seconds = 30;
     }
 
     set_signals();
@@ -548,7 +600,7 @@ int main(int argc, char **argv, char **envp) {
         EXIT_REMOVING_PIDFILE(1);
     } else print_log(LOG_INFO, _("%d authentication drivers successfully loaded"), na);
    
-    net_loop(listeners);
+    net_loop();
 
     authswitch_close();
     if (listeners) {

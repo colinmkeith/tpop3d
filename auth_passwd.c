@@ -15,7 +15,12 @@ static const char rcsid[] = "$Id$";
 
 #include <sys/types.h>
 
+#ifdef CRYPT_FUNCTION_IN_CRYPT_H    /* XXX */
 #include <crypt.h>
+#else
+#include <unistd.h>
+#endif
+
 #include <grp.h>
 #include <pwd.h>
 #ifdef AUTH_PASSWD_SHADOW
@@ -25,11 +30,14 @@ static const char rcsid[] = "$Id$";
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
-
+#include <sys/types.h>    /* for struct stat */
+#include <sys/stat.h>
+     
 #include "auth_passwd.h"
 #include "authswitch.h"
 #include "stringmap.h"
 #include "util.h"
+#include "mailbox.h"
 
 /* auth_passwd_new_user_pass:
  * Attempt to authenticate user and pass using /etc/passwd or /etc/shadow,
@@ -43,6 +51,7 @@ authcontext auth_passwd_new_user_pass(const char *user, const char *pass) {
     struct spwd *spw;
 #endif /* AUTH_PASSWD_SHADOW */
     char *mailspool_dir;
+    char *user_passwd;
     item *I;
     int use_gid = 0;
     gid_t gid = 99;
@@ -53,61 +62,27 @@ authcontext auth_passwd_new_user_pass(const char *user, const char *pass) {
 #ifdef AUTH_PASSWD_SHADOW
     spw = getspnam(user);
     if (!spw) return NULL;
+    user_passwd = spw->sp_pwdp;
+#else
+    user_passwd = pw->pw_passwd;
 #endif /* AUTH_PASSWD_SHADOW */
 
-    if ((I = stringmap_find(config, "auth-passwd-mailspool-dir"))) mailspool_dir = (char*)I->v;
-#ifdef AUTH_PASSWD_MAILSPOOL_DIR
-    else mailspool_dir = AUTH_PASSWD_MAILSPOOL_DIR;
-#else
-    else {
-        print_log(LOG_ERR, _("auth_passwd_new_user_pass: no mailspool directory known about"));
-        return NULL;
-    }
-#endif
-
-    /* Obtain gid to use. */
+    /* Obtain gid to use */
     if ((I = stringmap_find(config, "auth-passwd-mail-group"))) {
-        gid = atoi((char*)I->v);
-        if (!gid) {
-            struct group *grp;
-            grp = getgrnam((char*)I->v);
-            if (!grp) {
-                print_log(LOG_ERR, _("auth_passwd_new_user_pass: auth-passwd-mail-group directive `%s' does not make sense"), (char*)I->v);
-                return NULL;
-            }
-            gid = grp->gr_gid;
+        if (!parse_gid((char*)I->v, &gid)) {
+            print_log(LOG_ERR, _("auth_passwd_new_user_pass: auth-passwd-mail-group directive `%s' does not make sense"), (char*)I->v);
+            return NULL;
         }
         use_gid = 1;
     }
-#ifdef AUTH_PASSWD_MAIL_GID
-    else {
-        gid = AUTH_PAM_MAIL_GID;
-        use_gid = 1;
+
+    /* Now we need to authenticate the user; we will leave finding the
+     * mailspool for later.
+     */
+    if (!strcmp(crypt(pass, user_passwd), user_passwd)) {
+        a = authcontext_new(pw->pw_uid, use_gid ? gid : pw->pw_gid, NULL, NULL, pw->pw_dir, NULL);
     }
-#endif
-
-    /* Now we need to authenticate the user. */
-#ifdef AUTH_PASSWD_SHADOW
-    /* Using shadow passwords. */
-    if (!strcmp(crypt(pass, spw->sp_pwdp), spw->sp_pwdp)) {
-#else
-    /* Using normal passwords. */
-    if (!strcmp(crypt(pass, pw->pw_passwd), pw->pw_passwd)) {
-#endif /* AUTH_PASSWD_SHADOW */
-        /* OK, user is authenticated. */
-        char *s;
-        size_t l;
-        s = (char*)malloc(l = (strlen(mailspool_dir) + 1 + strlen(user) + 1));
-
-        if (s) {
-            snprintf(s, l, "%s/%s", mailspool_dir, user);
-            a = authcontext_new(pw->pw_uid,
-                    use_gid ? gid : pw->pw_gid,
-                    s);
-            free(s);
-        }
-    }
-
+    
     return a;
 }
 

@@ -17,7 +17,7 @@
 #include <sys/types.h>
 
 #include "authswitch.h"
-#include "mailspool.h"
+#include "mailbox.h"
 #include "tokenise.h"
 #include "vector.h"
 
@@ -42,12 +42,12 @@ typedef struct _connection {
 
     enum pop3_state state;  /* from rfc1939 */
 
-    time_t idlesince;         /* used to implement timeouts */
+    time_t idlesince;       /* used to implement timeouts */
 
     int n_auth_tries, n_errors;
     char *user, *pass;      /* state accumulated */
     authcontext a;
-    mailspool m;
+    mailbox m;
 } *connection;
 
 /* From rfc1939 */

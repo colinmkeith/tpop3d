@@ -91,3 +91,44 @@ fail:
 
     return S;
 }
+
+/* config_get_int:
+ * Get an integer value from a config string. Returns 1 on success, -1 on
+ * failure, or 0 if no value was found.
+ */
+extern stringmap config; /* in main.c */
+
+int config_get_int(const char *directive, int *value) {
+    item *I = stringmap_find(config, directive);
+    char *s, *t;
+    if (!value) return -1;
+    if (!I) return 0;
+
+    s = (char*)I->v;
+    if (!*s) return -1;
+    errno = 0;
+    *value = strtol(s, &t, 10);
+    if (*t) return -1;
+
+    return errno == ERANGE ? -1 : 1;
+}
+
+/* config_get_float:
+ * Get an integer value from a config string. Returns 1 on success, -1 on
+ * failure, or 0 if no value was found.
+ */
+int config_get_float(const char *directive, float *value) {
+    item *I = stringmap_find(config, directive);
+    char *s, *t;
+    if (!value) return -1;
+    if (!I) return 0;
+
+    s = (char*)I->v;
+    if (!*s) return -1;
+    errno = 0;
+    *value = strtod(s, &t);
+    if (*t) return -1;
+
+    return errno == ERANGE ? -1 : 1;
+}
+

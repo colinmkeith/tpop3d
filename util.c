@@ -12,12 +12,17 @@ static const char rcsid[] = "$Id$";
 #include "configuration.h"
 #endif /* HAVE_CONFIG_H */
 
+#include <errno.h>
 #include <fcntl.h>
+#include <pwd.h>
+#include <grp.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <syslog.h>
 #include <unistd.h>
+#include <sys/mman.h>
 
 #include "errprintf.h"
 #include "util.h"
@@ -100,3 +105,130 @@ int inet_aton(const char *s, struct in_addr *ip) {
 }                                                                               
 #endif
 
+/* write_file:
+ * Send to socket sck the header and up to n lines of the body of a message
+ * which begins at offset msgoffset + skip in the file referenced by fd, which
+ * is assumed to be a mappable object. Lines which begin . are escaped as
+ * required by RFC1939, and each line is terminated with `\r\n'. If n is -1,
+ * the whole message is sent. Returns 1 on success or 0 on failure.
+ *
+ * XXX Assumes that the message on disk uses only '\n' to indicate EOL.
+ */
+int write_file(int fd, int sck, size_t msgoffset, size_t skip, size_t msglength, int n) {
+    char *filemem;
+    char *p, *q, *r;
+    size_t length, offset;
+    
+    offset = msgoffset - (msgoffset % PAGESIZE);
+    length = (msgoffset + msglength + PAGESIZE) ;
+    length -= length % PAGESIZE;
+
+    filemem = mmap(0, length, PROT_READ, MAP_PRIVATE, fd, offset);
+    if (filemem == MAP_FAILED) {
+        print_log(LOG_ERR, "write_file: mmap: %m");
+        return 0;
+    }
+
+    /* Find the beginning of the message headers */
+    p = filemem + (msgoffset % PAGESIZE);
+    r = p + msglength;
+    p += skip;
+
+    /* Send the message headers */
+    do {
+        q = memchr(p, '\n', r - p);
+        if (!q) q = r;
+        errno = 0;
+        /* Escape a leading ., if present. */
+        if (*p == '.' && !try_write(sck, ".", 1)) goto write_failure;
+        /* Send line itself. */
+        if (!try_write(sck, p, q - p) || !try_write(sck, "\r\n", 2))
+            goto write_failure;
+        p = q + 1;
+    } while (*p != '\n');
+    ++p;
+
+    errno = 0;
+    if (!try_write(sck, "\r\n", 2)) {
+        print_log(LOG_ERR, "write_file: write: %m");
+        munmap(filemem, length);
+        return 0;
+    }
+    
+    /* Now send the message itself */
+    while (p < r && n) {
+        if (n > 0) --n;
+
+        q = memchr(p, '\n', r - p);
+        if (!q) q = r;
+        errno = 0;
+
+        /* Escape a leading ., if present. */
+        if (*p == '.' && !try_write(sck, ".", 1)) goto write_failure;
+        /* Send line itself. */
+        if (!try_write(sck, p, q - p) || !try_write(sck, "\r\n", 2))
+            goto write_failure;
+
+        p = q + 1;
+    }
+    if (munmap(filemem, length) == -1)
+        print_log(LOG_ERR, "write_file: munmap: %m");
+    
+    errno = 0;
+    if (!try_write(sck, ".\r\n", 3)) {
+        print_log(LOG_ERR, "write_file: write: %m");
+        return 0;
+    } else return 1;
+
+write_failure:
+    print_log(LOG_ERR, "write_file: write: %m");
+    munmap(filemem, length);
+    return 0;
+}
+
+/* parse_uid:
+ * Get a user id from a user name or number. Sets u and returns 1 on success,
+ * or returns 0 on failure.
+ */
+int parse_uid(const char *user, uid_t *u) {
+    char *v;
+    long l;
+    
+    /* Numeric user id? */
+    l = strtol(user, &v, 10);
+    if (v && !*v) {
+        *u = (uid_t)l;
+        return 1;
+    } else {
+        struct passwd *pw = getpwnam(user);
+        if (pw) {
+            *u = pw->pw_uid;
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+/* parse_gid:
+ * Get a group id from a group name or number. Sets g and returns 1 on
+ * success, or returns 0 on failure.
+ */
+gid_t parse_gid(const char *group, gid_t *g) {
+    char *v;
+    long l;
+    /* Numeric group id? */
+    l = strtol(group, &v, 10);
+    if (v && !*v) {
+        *g = (gid_t)l;
+        return 1;
+    } else {
+        struct group *grp = getgrnam(group);
+        if (grp) {
+            *g = grp->gr_gid;
+            return 1;
+        }
+    }
+
+    return 0;
+}

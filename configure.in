@@ -12,94 +12,135 @@ dnl
 AC_INIT(auth_mysql.c)
 AC_CONFIG_AUX_DIR(config)
 AM_CONFIG_HEADER(configuration.h)
-AM_INIT_AUTOMAKE(tpop3d, 1.2.4)
+AM_INIT_AUTOMAKE(tpop3d, 1.3.0)
 
 AC_DEFINE_UNQUOTED(TPOP3D_VERSION, "$VERSION", [The tpop3d version number])
 
 dnl Check which options are enabled...
 
-AC_ARG_ENABLE(flock-locking,
-    [  --enable-flock-locking  Enable flock(2) locking [default=no]],
-    [enable_flock=$enableval],
-    [enable_flock=no])
+dnl The various authentication options.
 
-AC_ARG_ENABLE(fcntl-locking,
-    [  --enable-fcntl-locking  Enable fcntl(2) locking [default=yes]],
-    [enable_fcntl=$enableval],
-    [enable_fcntl=yes])
-
-AC_ARG_ENABLE(dotfile-locking,
-    [  --enable-dotfile-locking
-                          Enable dotfile locking [default=yes]],
-    [enable_dotfile=$enableval],
-    [enable_dotfile=yes])
-
-AC_ARG_ENABLE(cclient-locking,
-    [  --enable-cclient-locking
-                          Enable C-Client locking [default=yes]],
-    [enable_cclient=$enableval],
-    [enable_cclient=yes])
-
-AC_ARG_ENABLE(cclient-uses-fcntl,
-    [  --enable-cclient-uses-fcntl
-                          Lock C-Client lockfiles with fcntl(2), rather than
-                          flock(2). [default=no]],
-    [enable_cclient_uses_fcntl=$enableval],
-    [enable_cclient_uses_fcntl=no])
-
-AC_ARG_ENABLE(suppress-cclient-metadata,
-    [  --enable-suppress-cclient-metadata
-                          Suppress C-Client metadata [default=yes]],
-    [enable_suppress_cclient_metadata=$enableval],
-    [enable_suppress_cclient_metadata=yes])
-
-dnl The various authentication options...
+AC_ARG_ENABLE(auth-pam,
+        [
+The following options control the selection of authentication drivers, which
+are responsible for authenticating users and selecting the locations of their
+mailboxes.
+ 
+  --enable-auth-pam       Enable PAM authentication. [default=yes]],
+    [enable_pam=$enableval],
+    [enable_pam="yes"])
 
 AC_ARG_ENABLE(auth-passwd,
-        [  --enable-auth-passwd    Enable /etc/passwd authentication. [default=no]],
+        [
+  --enable-auth-passwd    Enable /etc/passwd authentication. [default=no]],
     [enable_auth_passwd=$enableval],
     [enable_auth_passwd="no"])
 
 AC_ARG_ENABLE(shadow-passwords,
-        [  --enable-shadow-passwords
-                          auth_passwd should use /etc/shadow. [default=no]],
+        [    --enable-shadow-passwords  auth_passwd should use /etc/shadow.
+                               [default=no]],
     [enable_shadow=$enableval],
     [enable_shadow="no"])
 
-AC_ARG_ENABLE(auth-pam,
-        [  --enable-auth-pam       Enable PAM authentication. [default=yes]],
-    [enable_pam=$enableval],
-    [enable_pam="yes"])
+
+AC_ARG_WITH(mailspool-directory,
+    [
+  The following option sets the fallback location for Unix user mailboxes (not
+  those for virtual domain users). It can be overridden from the configuration
+  file. Deprecated.
+
+    --with-mailspool-directory=DIR  Set the mailspool directory.
+                                    [default=/var/spool/mail]],
+
+    [mspool=$withval],
+    [mspool="/var/spool/mail"])
 
 AC_ARG_ENABLE(auth-mysql,
-        [  --enable-auth-mysql     Enable auth_mysql (vmail-sql) authentication.
+        [
+  --enable-auth-mysql     Enable auth_mysql (vmail-sql) authentication.
                           [default=no]],
     [enable_auth_mysql=$enableval],
     [enable_auth_mysql="no"])
 
 AC_ARG_WITH(mysql-root,
-        [  --with-mysql-root=DIR   Set root of MySQL distribution.  Should contain
-                          include/mysql/mysql.h and lib/mysql/libmysqlclient.so
-                          [default=/usr]],
+        [    --with-mysql-root=DIR   Set root of MySQL distribution used by auth_mysql.
+                            Should contain include/mysql/mysql.h and
+                            lib/mysql/libmysqlclient.so [default=/usr]],
     [mysql_root=$withval],
     [mysql_root="/usr"])
 
-dnl Choose the type of messages the server sends users...
+AC_ARG_ENABLE(auth-other,
+        [  --enable-auth-other     Enable authentication by an external program
+                          [default=no]],
+    [enable_auth_other=$enableval],
+    [enable_auth_other="no"])
 
+dnl Mailbox types.
+
+AC_ARG_ENABLE(mbox-bsd,
+        [
+The following options control the selection of mailbox drivers, which are
+responsible for reading messages from disk and supplying them to the client.
+
+  --enable-mbox-bsd       Enable support for traditional BSD mailbox format
+                          [default=yes]],
+    [enable_mbox_bsd=$enableval],
+    [enable_mbox_bsd="yes"])
+
+AC_ARG_ENABLE(flock-locking,
+    [
+  The following options control the methods of file locking used by the
+  mbox_bsd driver. See the INSTALL file for more information.
+    
+    --enable-flock-locking    Enable flock(2) locking [default=no]],
+    [enable_flock=$enableval],
+    [enable_flock=no])
+
+AC_ARG_ENABLE(fcntl-locking,
+    [    --enable-fcntl-locking    Enable fcntl(2) locking [default=yes]],
+    [enable_fcntl=$enableval],
+    [enable_fcntl=yes])
+
+AC_ARG_ENABLE(dotfile-locking,
+    [    --enable-dotfile-locking  Enable dotfile locking [default=yes]],
+    [enable_dotfile=$enableval],
+    [enable_dotfile=yes])
+
+AC_ARG_ENABLE(cclient-locking,
+    [    --enable-cclient-locking  Enable C-Client locking [default=yes]],
+    [enable_cclient=$enableval],
+    [enable_cclient=yes])
+
+AC_ARG_ENABLE(cclient-fcntl,
+    [    --enable-cclient-fcntl    Lock C-Client lockfiles with fcntl(2),
+                              rather than flock(2). [default=no]
+        ],
+
+    [enable_cclient_uses_fcntl=$enableval],
+    [enable_cclient_uses_fcntl=no])
+
+AC_ARG_ENABLE(mbox-maildir,
+        [ --enable-mbox-maildir    Enable support for the Maildir format of Qmail
+                          [default=no]],
+    [enable_mbox_maildir=$enableval],
+    [enable_mbox_maildir="no"])
+
+
+dnl Suppress metadata messages used by C-Client
+AC_ARG_ENABLE(suppress-cclient-metadata,
+    [
+The following options control miscellaneous features.
+    
+  --enable-suppress-cclient-metadata  Suppress C-Client metadata [default=yes]],
+    [enable_suppress_cclient_metadata=$enableval],
+    [enable_suppress_cclient_metadata=yes])
+
+
+dnl Choose the type of messages the server sends users...
 AC_ARG_ENABLE(snide-comments,
-        [  --disable-snide-comments
-                          Use less snide responses],
+        [  --disable-snide-comments            Use less snide responses],
     [enable_snide=$enableval],
     [enable_snide="yes"])
-
-dnl FIXME: change to a configuration file option...
-
-AC_ARG_WITH(mailspool-directory,
-    [  --with-mailspool-directory=DIR
-                          Set the mailspool directory.
-                          [default=/var/spool/mail]],
-    [mspool=$withval],
-    [mspool="/var/spool/mail"])
 
 dnl Some options mainly useful for development/debugging.
 
@@ -118,12 +159,21 @@ you have trouble with tpop3d:
 
 AC_ARG_ENABLE(backtrace,
     [  --enable-backtrace      Enable backtrace(3) reporting for crash debugging.
-                          [default=no]],
+                          [default=no]
+        
+Confused? You should be. Read the INSTALL file for more information.
+        ],
     [enable_backtrace=$enableval],
     [enable_backtrace=no])
 
 dnl Now do some configuration based on these options; nothing done
 dnl here should have awkward dependencies.
+
+dnl Authentication drivers.
+if test x"$enable_pam" = x"yes"
+then
+    AC_DEFINE(AUTH_PAM,1,[Use PAM authentication.])
+fi
 
 if test x"$enable_auth_passwd" = x"yes" || test x"$enable_shadow" = x"yes"
 then
@@ -135,16 +185,59 @@ then
     AC_DEFINE(AUTH_PASSWD_SHADOW,1,[Use shadow password authentication.])
 fi
 
-if test x"$enable_pam" = x"yes"
-then
-    AC_DEFINE(AUTH_PAM,1,[Use PAM authentication.])
-fi
-
 if test x"$enable_auth_mysql" = x"yes"
 then
     AC_DEFINE(AUTH_MYSQL,1,[Use vmail-sql style authentication.])
 fi
 
+if test x"$enable_auth_other" = x"yes"
+then
+    AC_DEFINE(AUTH_OTHER,1,[Use an external program for authentication.])
+    dnl all machines should have -lm, so don't check for it
+    LDFLAGS="$LDFLAGS -lm"  
+fi
+
+dnl Mailbox drivers
+if test x"$enable_mbox_bsd" = x"yes"
+then
+    AC_DEFINE(MBOX_BSD,1,[Enable support for BSD mailspools.])
+
+    dnl Various locking options apply:
+    if test x"$enable_cclient" = x"yes"
+    then
+        AC_DEFINE(WITH_CCLIENT_LOCKING,1,[Turns on C-Client locking.])
+    fi
+
+    if test x"$enable_cclient_uses_fcntl" = x"yes"
+    then
+        AC_DEFINE(CCLIENT_USES_FCNTL,1,[Use fcntl(2) rather than flock(2) to lock C-Client lock files.])
+    fi
+
+    if test x"$enable_dotfile" = x"yes"
+    then
+        AC_DEFINE(WITH_DOTFILE_LOCKING,1,[Use NFS safe dotfile locking.])
+    fi
+
+    if test x"$enable_flock" = x"yes"
+    then
+        AC_DEFINE(WITH_FLOCK_LOCKING,1,[Turns on flock(2) locking.])
+    fi
+
+    if test x"$enable_fcntl" = x"yes"
+    then
+        AC_DEFINE(WITH_FCNTL_LOCKING,1,[Turns on fcntl(2) locking.])
+    fi
+fi
+
+if test x"$enable_mbox_maildir" = x"yes"
+then
+    AC_DEFINE(MBOX_MAILDIR,1,[Enable support for Qmail-style maildir mailboxes.])
+fi
+
+if test x"$enable_suppress_cclient_metadata" = x"yes"
+then
+    AC_DEFINE(IGNORE_CCLIENT_METADATA,1,[Suppress the metadata messages stored by the WU C-client library.])
+fi
 
 if test x"$enable_snide" = x"no"
 then
@@ -156,9 +249,7 @@ then
     AC_DEFINE(APPALLING_BACKTRACE_HACK,1,[Produce a backtrace if the program crashes.])
 fi
 
-
-AC_DEFINE_UNQUOTED( MAILSPOOL_DIR, "$mspool", [Tells tpop3d where the mailspool is.] )
-
+AC_DEFINE_UNQUOTED(MAILSPOOL_DIR, "$mspool", [Fallback mailspool location.] )
 
 if test x"$enable_auth_mysql" = x"yes"
 then
@@ -167,40 +258,13 @@ then
     CPPFLAGS="$CPPFLAGS -I$mysql_root/include/mysql"
 fi
 
-
-if test x"$enable_cclient" = x"yes"
-then
-    AC_DEFINE(WITH_CCLIENT_LOCKING,1,[Turns on C-Client locking.])
-fi
-
-if test x"$enable_cclient_uses_fcntl" = x"yes"
-then
-    AC_DEFINE(CCLIENT_USES_FCNTL,1,[Uses fcntl(2) rather than flock(2) to lock C-Client lock files.])
-fi
-
-if test x"$enable_dotfile" = x"yes"
-then
-    AC_DEFINE(WITH_DOTFILE_LOCKING,1,[Use NFS safe dotfile locking.])
-fi
-
-if test x"$enable_flock" = x"yes"
-then
-    AC_DEFINE(WITH_FLOCK_LOCKING,1,[Turns on flock(2) locking.])
-fi
-
-if test x"$enable_fcntl" = x"yes"
-then
-    AC_DEFINE(WITH_FCNTL_LOCKING,1,[Turns on fcntl(2) locking.])
-fi
-
-
 dnl Checks for programs.
 AC_PROG_CC
 
 dnl Checks for libraries.
 
-AC_SEARCH_LIBS( socket, socket )
-AC_SEARCH_LIBS( gethostbyname, nsl socket )
+AC_SEARCH_LIBS(socket, socket)
+AC_SEARCH_LIBS(gethostbyname, nsl socket)
 
 if test x"$enable_efence" = x"yes"
 then
@@ -333,7 +397,6 @@ then
     AC_CHECK_FUNC(mysql_init, [], AC_MSG_ERROR([[vmail-sql authentication enabled, but mysql_init doesn't seem to be available.]]))
 
 fi
-
 
 dnl If flock and fcntl are selected, there's a chance that they
 dnl will deadlock.  We do a test for this here...

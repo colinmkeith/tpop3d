@@ -131,24 +131,12 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
 
     /* Obtain gid to use */
     if ((I = stringmap_find(config, "auth-mysql-mail-group"))) {
-        gid = atoi((char*)I->v);
-        if (!gid) {
-            struct group *grp;
-            grp = getgrnam((char*)I->v);
-            if (!grp) {
-                print_log(LOG_ERR, _("auth_mysql_new_apop: auth-mysql-mail-group directive `%s' does not make sense"), (char*)I->v);
-                return NULL;
-            }
-            gid = grp->gr_gid;
+        if (!parse_gid((char*)I->v, &gid)) {
+            print_log(LOG_ERR, _("auth_mysql_new_apop: auth-mysql-mail-group directive `%s' does not make sense"), (char*)I->v);
+            return NULL;
         }
         use_gid = 1;
     }
-#ifdef AUTH_MYSQL_MAIL_GID
-    else {
-        gid = AUTH_PAM_MAIL_GID;
-        use_gid = 1;
-    }
-#endif
 
     domain = name + strcspn(name, "@%!");
     if (domain == name || !*domain) return NULL;
@@ -190,9 +178,9 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
         case 1: {
                 MYSQL_ROW row = mysql_fetch_row(result);
                 unsigned long *lengths;
-                char *mailbox;
                 struct passwd *pw;
                 unsigned char this_digest[16];
+                char *mailbox;
                 MD5_CTX ctx;
 
                 /* These are "can't happen" errors */
@@ -214,28 +202,20 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
                 pw = getpwnam((const char*)row[2]);
 
                 if (!pw) {
-                    print_log(LOG_ERR, _("auth_mysql_new_apop: getpwnam(%s): %m"), (const char*)row[2]);
+                    print_log(LOG_ERR, "auth_mysql_new_apop: getpwnam(%s): %m", (const char*)row[2]);
                     break;
                 }
 
-                /* It would be bad to allow a virtual domain user to log in as
-                 * root....
+                /* We will let the program figure out which sort of mailbox
+                 * use later.
                  */
-                if (!pw->pw_uid) {
-                    print_log(LOG_ERR, _("auth_mysql_new_apop: unix user for domain is root"));
-                    break;
-                }
-
-                mailbox = (char*)malloc(l = (lengths[0] + lengths[1] + 2));
-                snprintf(mailbox, l, "%s/%s", row[0], row[1]);
-
-                a = authcontext_new(pw->pw_uid,
-                                    use_gid ? gid : pw->pw_gid,
-                                    mailbox);
-
+                mailbox = (char*)malloc(lengths[0] + lengths[1] + 2);
+                sprintf(mailbox, "%s/%s", row[0], row[1]);
+                a = authcontext_new(pw->pw_uid, use_gid ? gid : pw->pw_gid,
+                                    NULL, mailbox, NULL, domain); /* note default mailbox type */
                 free(mailbox);
 
-		break;
+                break;
             }
 
         default:
@@ -294,25 +274,13 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
 
     /* Obtain gid to use */
     if ((I = stringmap_find(config, "auth-mysql-mail-group"))) {
-        gid = atoi((char*)I->v);
-        if (!gid) {
-            struct group *grp;
-            grp = getgrnam((char*)I->v);
-            if (!grp) {
-                print_log(LOG_ERR, _("auth_mysql_new_user_pass: auth-mysql-mail-group directive `%s' does not make sense"), (char*)I->v);
-                return NULL;
-            }
-            gid = grp->gr_gid;
+        if (!parse_gid((char*)I->v, &gid)) {
+            print_log(LOG_ERR, _("auth_mysql_new_apop: auth-mysql-mail-group directive `%s' does not make sense"), (char*)I->v);
+            return NULL;
         }
         use_gid = 1;
     }
-#ifdef AUTH_PAM_MAIL_GID
-    else {
-        gid = AUTH_PAM_MAIL_GID;
-        use_gid = 1;
-    }
-#endif
-    
+
     domain = user + strcspn(user, "@%!");
     if (domain == user || !*domain) return NULL;
     ++domain;
@@ -354,7 +322,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
 
         switch (i = mysql_num_rows(result)) {
         case 0:
-            print_log(LOG_WARNING, "auth_mysql_new_user_pass: failed login for %s@%s", local_part, domain);
+            print_log(LOG_WARNING, _("auth_mysql_new_user_pass: failed login for %s@%s"), local_part, domain);
             break;
         case 1: {
                 MYSQL_ROW row = mysql_fetch_row(result);
@@ -372,24 +340,13 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
                     break;
                 }
 
-                /* It would be bad to allow a virtual domain user to log in as
-                 * root....
-                 */
-                if (!pw->pw_uid) {
-                    print_log(LOG_ERR, _("auth_mysql_new_user_pass: unix user for domain is root"));
-                    break;
-                }
-
                 mailbox = (char*)malloc(l = (lengths[0] + lengths[1] + 2));
                 snprintf(mailbox, l, "%s/%s", row[0], row[1]);
-
-                a = authcontext_new(pw->pw_uid,
-                                    use_gid ? gid : pw->pw_gid,
-                                    mailbox);
-
+                a = authcontext_new(pw->pw_uid, use_gid ? gid : pw->pw_gid,
+                                    NULL, mailbox, NULL, domain); /* note default mailbox type. */
                 free(mailbox);
 
-		break;
+                break;
             }
 
         default:

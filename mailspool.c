@@ -17,11 +17,12 @@
  *
  */
 
-static const char rcsid[] = "$Id$";
-
 #ifdef HAVE_CONFIG_H
 #include "configuration.h"
 #endif /* HAVE_CONFIG_H */
+
+#ifdef MBOX_BSD
+static const char rcsid[] = "$Id$";
 
 #include <errno.h>
 #include <fcntl.h>
@@ -41,7 +42,7 @@ static const char rcsid[] = "$Id$";
 
 #include "connection.h"
 #include "locks.h"
-#include "mailspool.h"
+#include "mailbox.h"
 #include "md5.h"
 #include "util.h"
 
@@ -106,34 +107,48 @@ fail:
     return 0;
 }
 
+/* indexpoint_new:
+ * Make an indexpoint.
+ */
+indexpoint indexpoint_new(const size_t offset, const size_t length, const size_t msglength, const void *data) {
+    indexpoint x;
+
+    x = (indexpoint)malloc(sizeof(struct _indexpoint));
+    
+    if (!x) return NULL;
+    memset(x, 0, sizeof(struct _indexpoint));
+
+    x->offset = offset;
+    x->length = length;
+    x->msglength = msglength;
+
+    return x;
+}
+
 /* mailspool_new_from_file:
  * Open a file, lock it, and form an index of the messages in it.
  */
-mailspool mailspool_new_from_file(const char *filename) {
-    mailspool M;
+mailbox mailspool_new_from_file(const char *filename) {
+    mailbox M, failM = NULL;
     int i;
     struct timeval tv1, tv2;
     float f;
     
-    M = (mailspool)malloc(sizeof(struct _mailspool));
+    M = (mailbox)malloc(sizeof(struct _mailbox));
     if (!M) return NULL;
 
-    memset(M, 0, sizeof(struct _mailspool));
-
+    memset(M, 0, sizeof(struct _mailbox));
+    M->delete = mailspool_delete;
+    M->apply_changes = mailspool_apply_changes;
+    M->send_message = mailspool_send_message;
+    
     if (stat(filename, &(M->st)) == -1) {
-        if ( errno == ENOENT ) {
-            /* No mailspool */
-            print_log(LOG_INFO, _("mailspool_new_from_file: stat(%s): doesn't exist (is empty)"), filename);
-            M->name = strdup("/dev/null");
-            M->fd = -1;
-            M->isempty = 1;
-            M->index = vector_new();
-            return M;
-        } else {
-            /* Oops. */
-            print_log(LOG_INFO, "mailspool_new_from_file: stat(%s): %m", filename);
-            goto fail;
-        }
+        /* If the mailspool doesn't exist, fail silently, since this may be
+         * getting called from find_mailbox.
+         */
+        if (errno == ENOENT) failM = MBOX_NOENT;
+        else print_log(LOG_INFO, "mailspool_new_from_file: stat(%s): %m", filename);
+        goto fail;
     } else M->name = strdup(filename);
     
     /* FIXME Naive locking strategy. */
@@ -153,7 +168,7 @@ mailspool mailspool_new_from_file(const char *filename) {
     }
 
     if (M->fd == -1) {
-        print_log(LOG_ERR, _("mailspool_new_from_file: failed to lock %s: %m"), filename);
+        print_log(LOG_ERR, "mailspool_new_from_file: failed to lock %s: %m", filename);
         goto fail;
     }
 
@@ -165,7 +180,7 @@ mailspool mailspool_new_from_file(const char *filename) {
 
     gettimeofday(&tv2, NULL);
     f = (float)(tv2.tv_sec - tv1.tv_sec) + 1e-6 * (float)(tv2.tv_usec - tv1.tv_usec);
-    print_log(LOG_DEBUG, _("mailspool_new_from_file: indexed mailspool %s (%d bytes) in %0.3fs"), filename, (int)M->st.st_size, f);
+    print_log(LOG_DEBUG, "mailspool_new_from_file: indexed mailspool %s (%d bytes) in %0.3fs", filename, (int)M->st.st_size, f);
     
     return M;
 
@@ -175,7 +190,18 @@ fail:
         if (M->fd != -1) close(M->fd);
         free(M);
     }
-    return NULL;
+    return failM;
+}
+
+/* mailspool_delete:
+ * Deletion specific to mailspools.
+ */
+void mailspool_delete(mailbox m) {
+    if (!m) return;
+    if (m->name) file_unlock(m->fd, m->name);
+    if (m->fd != -1) close(m->fd);
+    
+    mailbox_delete(m);
 }
 
 /* memstr:
@@ -187,14 +213,14 @@ static char *memstr(const char *haystack, size_t h_len, const char *needle, size
     const char *p;
 
     if (n_len > h_len)
-	return NULL;
+    return NULL;
 
     p = (const char*) memchr(haystack, *needle, h_len - n_len);
     while (p) {
-	if (!memcmp(p, needle, n_len))
-	    return (char*)p;
-	else
-	    p = (const char*)memchr(p + 1, *needle, (haystack + h_len - n_len) - p - 1);
+    if (!memcmp(p, needle, n_len))
+        return (char*)p;
+    else
+        p = (const char*)memchr(p + 1, *needle, (haystack + h_len - n_len) - p - 1);
     }
 
     return NULL;
@@ -204,9 +230,7 @@ static char *memstr(const char *haystack, size_t h_len, const char *needle, size
  * Build an index of a mailspool. Uses mmap(2) for speed. Assumes that
  * mailspools use only '\n' to indicate EOL.
  */
-#define PAGESIZE        getpagesize()
-
-vector mailspool_build_index(mailspool M) {
+vector mailspool_build_index(mailbox M) {
     char *filemem, *p, *q;
     size_t len, len2;
     item *t;
@@ -277,10 +301,9 @@ vector mailspool_build_index(mailspool M) {
     if (M->index->n_used >= 1) {
         p = memstr(filemem, ((indexpoint)M->index->ary->v)->msglength, "\n\n", 2);
         if (p) {
-            /* XXX are the c-client messages internationalised? */
             const char hdr1[] = "\nX-IMAP: ", hdr2[] = "Subject: DON'T DELETE THIS MESSAGE -- FOLDER INTERNAL DATA\n";
             if (memstr(filemem, p - filemem, hdr1, strlen(hdr1)) && memstr(filemem, p - filemem, hdr2, strlen(hdr2))) {
-                print_log(LOG_DEBUG, _("mailspool_build_index(%s): skipping c-client metadata"), M->name);
+                print_log(LOG_DEBUG, "mailspool_build_index(%s): skipping c-client metadata", M->name);
                 free(M->index->ary->v);
                 vector_remove(M->index, M->index->ary);
             }
@@ -293,123 +316,17 @@ vector mailspool_build_index(mailspool M) {
     return M->index;
 }
 
-/* indexpoint_new:
- * Make an indexpoint.
- */
-indexpoint indexpoint_new(const size_t offset, const size_t length, const size_t msglength, const void *data) {
-    indexpoint x;
-
-    x = (indexpoint)malloc(sizeof(struct _indexpoint));
-    
-    if (!x) return NULL;
-    memset(x, 0, sizeof(struct _indexpoint));
-
-    x->offset = offset;
-    x->length = length;
-    x->msglength = msglength;
-
-    return x;
-}
-
-/* mailspool_delete:
- * Delete a mailspool object (but don't actually delete messages in the
- * mailspool... the terminology is from C++ so it doesn't have to be logical).
- */
-void mailspool_delete(mailspool m) {
-    if (!m) return;
-    if (m->index) vector_delete_free(m->index);
-    if (m->name) {
-        if (strcmp(m->name, "/dev/null") != 0) file_unlock(m->fd, m->name);
-        free(m->name);
-    }
-    if (m->fd != -1) close(m->fd);
-    free(m);
-}
-
 /* mailspool_send_message:
- * Send the header and n lines of the body of message number i from the
- * mailspool, escaping lines which begin . as required by RFC1939. Returns 1
- * on success or 0 on failure. The whole message is sent if n == -1.
- *
- * XXX Assumes that mailspools use only '\n' to indicate EOL.
+ * front-end to util.c::write_file
  */
-#define try_write(a, b, c)      (xwrite((a), (b), (c)) == (c))
 
-int mailspool_send_message(const mailspool M, int sck, const int i, int n) {
-    char *filemem;
-    size_t offset, length;
+int mailspool_send_message(const mailbox M, int sck, const int i, int n) {
     indexpoint x;
-    char *p, *q, *r;
 
     if (!M) return 0;
     if (i < 0 || i >= M->index->n_used) return 0;
     x = (indexpoint)M->index->ary[i].v;
-
-    offset = x->offset - (x->offset % PAGESIZE);
-    length = (x->offset + x->msglength + PAGESIZE) ;
-    length -= length % PAGESIZE;
-
-    filemem = mmap(0, length, PROT_READ, MAP_PRIVATE, M->fd, offset);
-    if (filemem == MAP_FAILED) {
-        print_log(LOG_ERR, "mailspool_send_message: mmap: %m");
-        return 0;
-    }
-
-    /* Find the beginning of the message headers */
-    p = filemem + (x->offset % PAGESIZE);
-    r = p + x->msglength;
-    p += x->length + 1;
-
-    /* Send the message headers */
-    do {
-        q = memchr(p, '\n', r - p);
-        if (!q) q = r;
-        errno = 0;
-        /* Escape a leading ., if present. */
-        if (*p == '.' && !try_write(sck, ".", 1)) goto write_failure;
-        /* Send line itself. */
-        if (!try_write(sck, p, q - p) || !try_write(sck, "\r\n", 2))
-            goto write_failure;
-        p = q + 1;
-    } while (*p != '\n');
-    ++p;
-
-    errno = 0;
-    if (!try_write(sck, "\r\n", 2)) {
-        print_log(LOG_ERR, "mailspool_send_message: write: %m");
-        munmap(filemem, length);
-        return 0;
-    }
-    
-    /* Now send the message itself */
-    while (p < r && n) {
-        if (n > 0) --n;
-
-        q = memchr(p, '\n', r - p);
-        if (!q) q = r;
-        errno = 0;
-
-        /* Escape a leading ., if present. */
-        if (*p == '.' && !try_write(sck, ".", 1)) goto write_failure;
-        /* Send line itself. */
-        if (!try_write(sck, p, q - p) || !try_write(sck, "\r\n", 2))
-            goto write_failure;
-
-        p = q + 1;
-    }
-    if (munmap(filemem, length) == -1)
-        print_log(LOG_ERR, "mailspool_send_message: munmap: %m");
-    
-    errno = 0;
-    if (!try_write(sck, ".\r\n", 3)) {
-        print_log(LOG_ERR, "mailspool_send_message: write: %m");
-        return 0;
-    } else return 1;
-
-write_failure:
-    print_log(LOG_ERR, "mailspool_send_message: write: %m");
-    munmap(filemem, length);
-    return 0;
+    return write_file(M->fd, sck, x->offset, x->length + 1, x->msglength, n);
 }
 
 /* mailspool_apply_changes:
@@ -460,7 +377,7 @@ write_failure:
  * A special case occurs where the section to be deleted is at the end of the
  * file, at which point we can just ftruncate(2).
  */
-int mailspool_apply_changes(mailspool M) {
+int mailspool_apply_changes(mailbox M) {
     char *filemem, *s, *d;
     size_t len;
     item *I, *J, *K, *End;
@@ -498,7 +415,7 @@ int mailspool_apply_changes(mailspool M) {
     while (I < End && !((indexpoint)I->v)->deleted) ++I;
     if (I == End) {
         if (munmap(filemem, len) == -1) print_log(LOG_ERR, "mailspool_send_message: munmap: %m");
-        print_log(LOG_ERR, _("mailspool_apply_changes(%s): inconsistency in mailspool data"), M->name);
+        print_log(LOG_ERR, "mailspool_apply_changes(%s): inconsistency in mailspool data", M->name);
         return 0;
     }
     d = filemem + ((indexpoint)I->v)->offset;
@@ -541,3 +458,4 @@ int mailspool_apply_changes(mailspool M) {
     return 1;
 }
 
+#endif /* MBOX_BSD */

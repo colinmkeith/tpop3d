@@ -11,6 +11,12 @@
 #ifndef __LOCKS_H_ /* include guard */
 #define __LOCKS_H_
 
+#ifdef HAVE_CONFIG_H
+#include "configuration.h"
+#endif /* HAVE_CONFIG.H */
+
+#ifdef MBOX_BSD
+
 #if !defined(WITH_FCNTL_LOCKING) && !defined(WITH_FLOCK_LOCKING) && !defined(WITH_DOTFILE_LOCKING)
 #   warning "No locking scheme defined; using dotfiles and flock(2)."
 #   define WITH_FCNTL_LOCKING
@@ -35,5 +41,7 @@ int dotfile_unlock(const char *);
 #ifdef WITH_CCLIENT_LOCKING
 int cclient_steal_lock(int);
 #endif
+
+#endif /* MBOX_BSD */
 
 #endif /* __LOCKS_H_ */

@@ -134,7 +134,7 @@ void connection_delete(connection c) {
     close(c->s);
 
     if (c->a) authcontext_delete(c->a);
-    if (c->m) mailspool_delete(c->m);
+    if (c->m) (c->m)->delete(c->m);
 
     if (c->domain)    free(c->domain);
     if (c->idstr)     free(c->idstr);
@@ -221,10 +221,10 @@ pop3command connection_parsecommand(connection c) {
     if (verbose) {
         char *s;
         int i, l;
-        l = sizeof("connection_parsecommand: client : received `'") + strlen(c->idstr);
+        l = strlen(_("connection_parsecommand: client %s: received `")) + 2 + strlen(c->idstr);
         for (i = 0; i < pc->toks->toks->n_used; ++i) l += strlen((char*)(pc->toks->toks->ary[i].v)) + 6;
         s = (char*)malloc(l);
-        sprintf(s, "connection_parsecommand: client %s: received `", c->idstr);
+        sprintf(s, _("connection_parsecommand: client %s: received `"), c->idstr);
         for (i = 0; i < pc->toks->toks->n_used; ++i) {
             if (i == 0 || pc->cmd != PASS) strcat(s, (char*)(pc->toks->toks->ary[i].v));
             else strcat(s, "[...]");
@@ -290,7 +290,7 @@ int connection_sendresponse(connection c, const int success, const char *s) {
     m = xwrite(c->s, x, l = strlen(x));
     free(x);
     if (verbose)
-        print_log(LOG_DEBUG, "connection_sendresponse: client %s: sent `%s %s'", c->idstr, success? "+OK" : "-ERR", s);
+        print_log(LOG_DEBUG, _("connection_sendresponse: client %s: sent `%s %s'"), c->idstr, success? "+OK" : "-ERR", s);
     return (m == l);
 }
 

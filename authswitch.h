@@ -11,17 +11,19 @@
 #ifndef __AUTHSWITCH_H_ /* include guard */
 #define __AUTHSWITCH_H_
 
+#include <stdio.h>
 #include <stdlib.h>
 
 #include <sys/types.h>
+#include "mailbox.h"
 
 typedef struct _authcontext {
     uid_t uid;
     gid_t gid;
-    char *mailspool;
-    /* Some random information which is filled in by the auth switch */
-    char *auth;
-    char *credential;
+    char *mboxdrv, *mailbox;    /* Name of mailbox driver and mailbox. */
+    
+    char *auth;                 /* Name of authentication driver, eg `pam'.                      */
+    char *user, *domain, *home; /* Name of user, associated domain, and their home directory.    */
 } *authcontext;
 
 struct authdrv {
@@ -33,12 +35,12 @@ struct authdrv {
     /* Attempt to build authcontext from APOP; parameters are name, original
      * timestamp, and supplied digest.
      */
-    authcontext (*auth_new_apop)(const char *, const char *, const unsigned char *);
+    authcontext (*auth_new_apop)(const char *name, const char *timestamp, const unsigned char *digest);
     
     /* Attempt to build authcontext from USER and PASS; parameters are name
      * and password.
      */
-    authcontext (*auth_new_user_pass)(const char *, const char *);
+    authcontext (*auth_new_user_pass)(const char *user, const char *password);
 
     /* Shut down this authentication driver, and free associated resources. */
     void        (*auth_close)(void);
@@ -50,12 +52,17 @@ struct authdrv {
     char *description;
 };
 
+void authswitch_describe(FILE *fp);
+
 int authswitch_init();
-authcontext authcontext_new_apop(const char *timestamp, const char *name, unsigned char *digest);
-authcontext authcontext_new_user_pass(const char *user, const char *pass);
+authcontext authcontext_new_apop(const char *name, const char *timestamp, const unsigned char *digest, const char *domain);
+authcontext authcontext_new_user_pass(const char *user, const char *pass, const char *domain);
 void authswitch_close();
 
-authcontext authcontext_new(const uid_t uid, const gid_t gid, const char *mailspool);
+authcontext authcontext_new(const uid_t uid, const gid_t gid, const char *mboxdrv, const char *mailbox, const char *home, const char *domain);
 void authcontext_delete(authcontext);
+
+/* Function to find a mailbox according to the config file. */
+mailbox find_mailbox(authcontext a);
 
 #endif /* __AUTHSWITCH_H_ */

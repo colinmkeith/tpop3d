@@ -18,8 +18,8 @@ static const char rcsid[] = "$Id$";
 #include <syslog.h>
 #include <time.h>
 #include <unistd.h>
+#include <netinet/in.h>    /* define struct sockaddr_in before arpa/inet.h's macros */
 #include <arpa/inet.h>
-#include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 
@@ -30,7 +30,7 @@ static const char rcsid[] = "$Id$";
 extern int verbose;
 
 /* hex_digest:
- * Print a dump of a message hash.
+ * Make a hex version of a digest.
  */
 static char *hex_digest(const unsigned char *u) {
     static char hex[33] = {0};
@@ -60,7 +60,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 connection_sendresponse(c, 0, _("No, that's not right."));
                 return do_nothing;
             } else if (c->user) {
-                connection_sendresponse(c, 0, _("But you already said \"USER\"."));
+                connection_sendresponse(c, 0, _("But you already said `USER'."));
                 return do_nothing;
             } else {
                 c->user = strdup((char*)p->toks->toks->ary[1].v);
@@ -80,12 +80,12 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 connection_sendresponse(c, 0, _("No, that's not right."));
                 return do_nothing;
             } else if (c->pass) {
-                connection_sendresponse(c, 0, _("But you already said \"PASS\"."));
+                connection_sendresponse(c, 0, _("But you already said `PASS'."));
                 return do_nothing;
             } else {
                 c->pass = strdup(p->toks->toks->ary[1].v);
                 if (!c->pass) {
-                    connection_sendresponse(c, 0, "You must give a password.");
+                    connection_sendresponse(c, 0, _("You must give a password."));
                     return do_nothing;
                 }
             }
@@ -104,7 +104,6 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 name =      (char*)p->toks->toks->ary[1].v;
                 hexdigest = (char*)p->toks->toks->ary[2].v;
 
-                ++c->n_auth_tries;
                 if (c->n_auth_tries == MAX_AUTH_TRIES) {
 #ifndef NO_SNIDE_COMMENTS
                     connection_sendresponse(c, 0, _("This is ridiculous. I give up."));
@@ -114,8 +113,10 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     return close_connection;
                 }
 
+                ++c->n_auth_tries;
+
                 if (!name || *name == 0) {
-                    connection_sendresponse(c, 0, _("No, that's not right."));
+                    connection_sendresponse(c, 0, _("That's not right."));
                 }
                 
                 if (strlen(hexdigest) != 32) {
@@ -156,15 +157,16 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     ++hexdigest;
                 }
 
-                c->a = authcontext_new_apop(name, c->timestamp, digest);
+                c->a = authcontext_new_apop(name, c->timestamp, digest, c->domain);
                 
+                /* XXX this is broken */
                 if (!c->a && append_domain && c->domain && strcspn(name, "@%!") == strlen(name)) {
                     /* OK, if we have a domain name, try appending that. */
                     char *nn = (char*)malloc(strlen(name) + strlen(c->domain) + 2);
                     strcpy(nn, name);
                     strcat(nn, "@");
                     strcat(nn, c->domain);
-                    c->a = authcontext_new_apop(nn, c->timestamp, digest);
+                    c->a = authcontext_new_apop(nn, c->timestamp, digest, c->domain);
                     free(nn);
 
                 }
@@ -172,13 +174,12 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 if (c->a) {
                     /* Now save a new ID string for this client. */
                     free(c->idstr);
-                    c->idstr =(char*)malloc(strlen(c->a->credential) + 2 + strlen(inet_ntoa(c->sin.sin_addr)) + 16);
-                    sprintf(c->idstr, "[%d]%s(%s)", c->s, c->a->credential, inet_ntoa(c->sin.sin_addr));
+                    c->idstr =(char*)malloc(strlen(c->a->user) + 2 + strlen(inet_ntoa(c->sin.sin_addr)) + 16);
+                    sprintf(c->idstr, "[%d]%s(%s)", c->s, c->a->user, inet_ntoa(c->sin.sin_addr));
 
                     c->state = transaction;
                     return fork_and_setuid;
                 } else {
-                    ++c->n_auth_tries;
                     if (c->n_auth_tries == MAX_AUTH_TRIES) {
 #ifndef NO_SNIDE_COMMENTS
                         connection_sendresponse(c, 0, _("This is ridiculous. I give up."));
@@ -187,6 +188,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
 #endif
                         return close_connection;
                     } else {
+                        ++c->n_auth_tries;
 #ifndef NO_SNIDE_COMMENTS
                         connection_sendresponse(c, 0, _("Lies! Try again!"));
 #else
@@ -217,22 +219,22 @@ enum connection_action connection_do(connection c, const pop3command p) {
 
         /* Do we now have enough information to authenticate using USER/PASS? */
         if (!c->a && c->user && c->pass) {
-            c->a = authcontext_new_user_pass(c->user, c->pass);
+            c->a = authcontext_new_user_pass(c->user, c->pass, c->domain);
             if (!c->a && append_domain && c->domain && strcspn(c->user, "@%!") == strlen(c->user)) {
                 /* OK, if we have a domain name, try appending that. */
                 char *nn = (char*)malloc(strlen(c->user) + strlen(c->domain) + 2);
                 strcpy(nn, c->user);
                 strcat(nn, "@");
                 strcat(nn, c->domain);
-                c->a = authcontext_new_user_pass(nn, c->pass);
+                c->a = authcontext_new_user_pass(nn, c->pass, c->domain);
                 free(nn);
             }
 
             if (c->a) {
                 /* Now save a new ID string for this client. */
                 free(c->idstr);
-                c->idstr =(char*)malloc(strlen(c->a->credential) + 2 + strlen(inet_ntoa(c->sin.sin_addr)) + 16);
-                sprintf(c->idstr, "[%d]%s(%s)", c->s, c->a->credential, inet_ntoa(c->sin.sin_addr));
+                c->idstr =(char*)malloc(strlen(c->a->user) + 2 + strlen(inet_ntoa(c->sin.sin_addr)) + 16);
+                sprintf(c->idstr, "[%d]%s(%s)", c->s, c->a->user, inet_ntoa(c->sin.sin_addr));
 
                 memset(c->pass, 0, strlen(c->pass));
                 c->state = transaction;
@@ -346,9 +348,10 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 int nn = 0;
                 connection_sendresponse(c, 1, _("Scan list follows:"));
                 vector_iterate(c->m->index, J) {
-                    if (!((indexpoint)J->v)->deleted) {
+                    indexpoint m = (indexpoint)J->v;
+                    if (!m->deleted) {
                         char response[32] = {0};
-                        snprintf(response, 31, "%d %d", 1 + J - c->m->index->ary, ((indexpoint)J->v)->msglength - ((indexpoint)J->v)->length - 1);
+                        snprintf(response, 31, "%d %d", 1 + J - c->m->index->ary, m->msglength - m->length - 1);
                         connection_sendline(c, response);
                         ++nn;
                     }
@@ -370,12 +373,14 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     connection_sendresponse(c, 0, _("That message is no more."));
                 else {
                     char response[64] = {0};
+                    print_log(LOG_INFO, "UIDL %d (hash = %s)", msg_num+1, I->hash);
                     snprintf(response, 63, "%d %s", 1 + msg_num, hex_digest(I->hash));
                     connection_sendresponse(c, 1, response);
                 }
             } else {
                 item *J;
                 int nn = 0;
+                print_log(LOG_INFO, "UIDL");
                 connection_sendresponse(c, 1, _("ID list follows:"));
                 vector_iterate(c->m->index, J) {
                     if (!((indexpoint)J->v)->deleted) {
@@ -408,10 +413,11 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     connection_sendresponse(c, 0, _("That message is no more."));
                 else {
                     if (verbose)
-                        print_log(LOG_DEBUG, _("connection_do: client %s: sending message %d (%d bytes)"), c->idstr, msg_num + 1, ((indexpoint)c->m->index->ary[msg_num].v)->msglength);
+                        print_log(LOG_DEBUG, _("connection_do: client %s: sending message %d (%d bytes)"),
+                                    c->idstr, msg_num + 1, ((indexpoint)c->m->index->ary[msg_num].v)->msglength);
                     connection_sendresponse(c, 1, _("Message follows:"));
-                    if (!mailspool_send_message(c->m, c->s, msg_num, -1)) {
-                        connection_sendresponse(c, 0, "Oops");
+                    if (!(c->m)->send_message(c->m, c->s, msg_num, -1)) {
+                        connection_sendresponse(c, 0, _("Oops"));
                         return close_connection;
                     }
                     /* That might have taken a long time. */
@@ -438,19 +444,18 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 }
                 
                 if (verbose)
-                    print_log(LOG_DEBUG, _("connection_do: client %s: sending headers and up to %d lines of message %d (part of %d bytes)"),
-                                c->idstr, arg2, msg_num + 1, ((indexpoint)c->m->index->ary[msg_num].v)->msglength);
+                    print_log(LOG_DEBUG, _("connection_do: client %s: sending headers and up to %d lines of message %d (< %d bytes)"),
+                                c->idstr, arg2, msg_num + 1, (int)((indexpoint)c->m->index->ary[msg_num].v)->msglength);
                 connection_sendresponse(c, 1, _("Message follows:"));
 
-                if (!mailspool_send_message(c->m, c->s, msg_num, arg2)) {
-                    connection_sendresponse(c, 0, "Oops.");
+                if (!(c->m)->send_message(c->m, c->s, msg_num, arg2)) {
+                    connection_sendresponse(c, 0, _("Oops."));
                     return close_connection;
                 }
                 /* That might have taken a long time. */
                 c->idlesince = time(NULL);
                 if (verbose)
-                    print_log(LOG_DEBUG, _("connection_do: client %s: sent headers and up to %d lines of message %d"),
-                                c->idstr, arg2, msg_num + 1);
+                    print_log(LOG_DEBUG, _("connection_do: client %s: sent headers and up to %d lines of message %d"), c->idstr, arg2, msg_num + 1);
                 break;
             }
                 
@@ -469,13 +474,13 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 item *I;
                 vector_iterate(c->m->index, I) ((indexpoint)I->v)->deleted = 0;
                 c->m->numdeleted = 0;
-                connection_sendresponse(c, 1, "Done.");
+                connection_sendresponse(c, 1, _("Done."));
                 break;
             }
 
         case QUIT:
             /* Now perform UPDATE */
-            if (mailspool_apply_changes(c->m)) connection_sendresponse(c, 1, _("Done."));
+            if ((c->m)->apply_changes(c->m)) connection_sendresponse(c, 1, _("Done"));
             else connection_sendresponse(c, 0, _("Something went wrong."));
             return close_connection;
             
@@ -483,7 +488,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
             connection_sendresponse(c, 1, _("I'm still here."));
             break;
 
-	case LAST:
+    case LAST:
             connection_sendresponse(c, 0, _("Sorry, the LAST command was removed in RFC1725."));
             break;
 
@@ -499,7 +504,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
         return do_nothing;
     } else {
         /* Can't happen, but keep the compiler quiet... */
-        connection_sendresponse(c, 0, _("Unknown state, closing connection."));
+        connection_sendresponse(c, 0, _("connection_do: unknown state, closing connection."));
         return close_connection;
     }
 }
@@ -511,12 +516,20 @@ enum connection_action connection_do(connection c, const pop3command p) {
 int connection_start_transaction(connection c) {
     if (!c) return 0;
     
-    if (c->a->uid != getuid() || c->a->gid != getgid()) {
-        print_log(LOG_ERR, _("connection_start_transaction: wrong uid/gid"));
+    if (c->a->gid != getgid()) {
+        print_log(LOG_ERR, _("connection_start_transaction: wrong gid"));
+        return 0;
+    }
+    if (c->a->uid != getuid()) {
+        print_log(LOG_ERR, _("connection_start_transaction: wrong uid"));
         return 0;
     }
     
-    c->m = mailspool_new_from_file(c->a->mailspool);
+    if (c->a->mailbox) {
+        c->m = mailbox_new(c->a->mailbox, NULL);
+        if (c->m == MBOX_NOENT) c->m = emptymbox_new(NULL);
+    } else
+        c->m = find_mailbox(c->a);
 
     if (!c->m) return 0;
     else return 1;

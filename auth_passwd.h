@@ -11,6 +11,10 @@
 #ifndef __AUTH_PASSWD_H_ /* include guard */
 #define __AUTH_PASSWD_H_
 
+#ifdef HAVE_CONFIG_H
+#include "configuration.h"
+#endif /* HAVE_CONFIG_H */
+
 #ifdef AUTH_PASSWD
 
 #include "authswitch.h"
