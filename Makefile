@@ -6,7 +6,7 @@
 # $Id$
 #
 
-VERSION = 0.9
+VERSION = 1.0
 IDLE_TIMEOUT = 30   # seconds before we time out clients
 
 CFLAGS  += -g -DTPOP3D_VERSION='"$(VERSION)"' -DIDLE_TIMEOUT=$(IDLE_TIMEOUT) -Wall

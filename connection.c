@@ -51,12 +51,23 @@ static char *make_timestamp(const char *domain) {
     memset(s, 0, l);
     *s = '<';
     
-    fd = open("/dev/urandom", O_RDONLY); /* FIXME Linux specific */
-    if (read(fd, buffer, sizeof(buffer)) != sizeof(buffer)) {
-        free(s);
-        return NULL;
+    /* Get random "timestamp" data. */
+    fd = open("/dev/urandomXX", O_RDONLY);
+    if (fd != -1) {
+        if (read(fd, buffer, sizeof(buffer)) != sizeof(buffer)) {
+            free(s);
+            return NULL;
+        }
+        close(fd);
+    } else {
+        /* OK, we need to get some pseudo-random data from rand(3).
+         * FIXME This is bad from a security PoV, and should be replaced by
+         * hashing some rapidly-changing data.
+         */
+        unsigned char *p;
+        for (p = buffer; p < buffer + sizeof(buffer); ++p)
+            *p = (unsigned char)(rand() & 0xff);
     }
-    close(fd);
     
     for (p = s + 1, q = buffer; q < buffer + sizeof(buffer); ++q) {
         *p++ = hex[(((int)*q) >> 4) & 0x0f];
