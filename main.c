@@ -34,6 +34,12 @@ static const char rcsid[] = "$Id$";
 #include "vector.h"
 #include "util.h"
 
+/* The socket send buffer is set to this, so that we don't end up in a
+ * position that we send so much data that the client will not have received
+ * all of it before we time them out.
+ */
+#define MAX_DATA_IN_FLIGHT      1024
+
 #ifdef __SVR4
 /* inet_aton:
  * Implementation of inet_aton for machines (Solaris [cough]) which do not
@@ -211,7 +217,7 @@ void net_loop(vector listen_addrs) {
         fd_set readfds;
         item *t;
         listitem I, J;
-        struct timeval tv = {10, 0}; /* Must be less than IDLE_TIMEOUT but otherwise value is unimportant */
+        struct timeval tv = {1, 0}; /* Must be less than IDLE_TIMEOUT but otherwise value is unimportant */
         int n = 0, e;
 
         FD_ZERO(&readfds);
@@ -229,9 +235,9 @@ void net_loop(vector listen_addrs) {
         }
 
         e = select(n + 1, &readfds, NULL, NULL, &tv);
-        if (e == -1) {
+        if (e == -1 && errno != EINTR) {
             print_log(LOG_WARNING, "net_loop: select: %m");
-        } else if (e > 0) {
+        } else if (e >= 0) {
             /* Check for new incoming connections */
             if (listen_addrs) vector_iterate(listen_addrs, t) {
                 listener L = (listener)t->v;
@@ -239,8 +245,12 @@ void net_loop(vector listen_addrs) {
                     struct sockaddr_in sin;
                     size_t l = sizeof(sin);
                     int s = accept(L->s, (struct sockaddr*)&sin, &l);
+                    int a = MAX_DATA_IN_FLIGHT;
                     if (s == -1) print_log(LOG_ERR, "net_loop: accept: %m");
-                    else {
+                    else if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, &a, sizeof(a)) == -1) {
+                        print_log(LOG_ERR, "net_loop: setsockopt: %m");
+                        close(s);
+                    } else {
                         if (num_running_children >= max_running_children) {
                             char m[] = "-ERR Sorry, I'm too busy right now\r\n";
                             write(s, m, strlen(m));

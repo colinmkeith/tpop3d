@@ -306,6 +306,8 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     }
                 }
                 connection_sendline(c, ".");
+                /* That might have taken a long time. */
+                c->lastcmd = time(NULL);
             }
             break;
 
@@ -328,6 +330,9 @@ enum connection_action connection_do(connection c, const pop3command p) {
                         connection_sendresponse(c, 0, "Oops");
                         return close_connection;
                     }
+                    /* That might have taken a long time. */
+                    c->lastcmd = time(NULL);
+
                 }
                 break;
             } else {
@@ -347,11 +352,12 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     break;
                 }
 
-                connection_sendresponse(c, 1, "Here it comes...");
                 if (!mailspool_send_message(c->m, c->s, msg_num, arg2)) {
                     connection_sendresponse(c, 0, "Oops");
                     return close_connection;
                 }
+                /* That might have taken a long time. */
+                c->lastcmd = time(NULL);
                 break;
             }
                 
