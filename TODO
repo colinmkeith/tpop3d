@@ -71,9 +71,13 @@ $Id$
 
 * Non-constant UID in auth-flatfile
 
-* Undefine IGNORE_CCLIENT_METADATA when we don't have BSD mailspool support.
+* Undefine IGNORE_CCLIENT_METADATA when we don't have BSD mailspool support
 
-* Warn if configuration files or private keys are world-readable.
+* Warn if configuration files or private keys are world-readable
 
 * Fix the libcrypt/libcrypto/crypt(3) linking-order issue identified by
   Travis Miller (emails of 20030820)
+
+* Offer an option to disconnect users who fail to issue STLS before USER
+
+* Underlying connection closed... TLS bug (email of 20030906).

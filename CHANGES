@@ -6,6 +6,9 @@ on some systems. Corrected a small error in README.bulletins.
 
 Added the log-bad-passwords option, inspired by a patch from Kevin Bonner.
 
+Fixed a bug in password handling which prevented passwords in the MySQL format
+from working.
+
 1.5.1
 
 tpop3d now supports the WHOSON protocol (http://whoson.sourceforge.net/) for

@@ -15,6 +15,6 @@
 /* tls.c */
 int tls_init(void);
 SSL_CTX *tls_create_context(const char *certfile, const char *pkeyfile);
-void tls_close(void);
+void tls_close(SSL_CTX *ctx);
 
 #endif /* __TLS_H_ */

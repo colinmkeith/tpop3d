@@ -162,7 +162,7 @@ listener listener_new(const struct sockaddr_in *addr, const char *domain
             }
         }
     }
-#endif
+#endif /* USE_TLS */
 
     return L;
 
@@ -181,6 +181,10 @@ void listener_delete(listener L) {
     if (L->have_re)
         regfree(&L->re);
     xfree(L->regex);
+#endif
+#ifdef USE_TLS
+    if (L->tls.ctx)
+        tls_close(L->tls.ctx);
 #endif
     xfree(L);
 }

@@ -113,6 +113,7 @@ static void maildir_unlock(const char *dirname) {
     lockdirname = xmalloc(strlen(dirname) + sizeof("/.poplock"));
     sprintf(lockdirname, "%s/.poplock", dirname);
     rmdir(lockdirname); /* Nothing we can do if this fails. */
+    xfree(lockdirname);
 }
 
 

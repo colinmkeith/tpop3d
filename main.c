@@ -313,6 +313,7 @@ int parse_listeners(const char *stmt) {
 skip:
         xfree(host);
         xfree(port);
+        xfree(domain);
 #ifdef USE_TLS
         xfree(cert);
         xfree(pkey);

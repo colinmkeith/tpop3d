@@ -258,7 +258,7 @@ int check_password(const char *who, const char *pwhash, const char *pass, const 
         mysql_make_scrambled_password(hash, pass);
         /* The MySQL password format changed, and we should accept either a 16-
          * or 8-character long hash. */
-        switch (n = strlen(pwhash)) {
+        switch (n = strlen(realhash)) {
             case 8:
                 return strncmp(hash, realhash, 8) == 0;
 
