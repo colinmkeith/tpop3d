@@ -10,6 +10,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.3  2000/10/09 23:39:48  chris
+ * Fixed strclr(const string) bug.
+ *
  * Revision 1.2  2000/10/02 18:20:19  chris
  * Added config file support.
  *
@@ -94,7 +97,7 @@ int auth_mysql_init() {
 fail:
     if (username) strclr(username);
     if (password) strclr(password);
-    if (hostname) strclr(hostname);
+    if (hostname && hostname != localhost) strclr(hostname);
     if (database) strclr(database);
 
     return ret;
