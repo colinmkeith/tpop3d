@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.4  2000/10/10 00:13:38  chris
+ * Added more useful logging.
+ *
  * Revision 1.3  2000/10/02 18:20:19  chris
  * Added config file support.
  *
@@ -69,7 +72,10 @@ authcontext auth_pam_new_user_pass(const char *user, const char *pass) {
     gid_t gid;
 
     pw2 = getpwnam(user);
-    if (!pw2) return NULL;
+    if (!pw2) {
+        syslog(LOG_ERR, "auth_pam_new_user_pass: getpwnam(%s): unknown user (%m)", user);
+        return NULL;
+    }
     else memcpy(&pw, pw2, sizeof(pw));
 
     /* Obtain facility name. */
@@ -131,7 +137,8 @@ authcontext auth_pam_new_user_pass(const char *user, const char *pass) {
                                 s);
             free(s);
         }
-    }
+    } else syslog(LOG_ERR, "auth_pam_new_user_pass: pam_authenticate(%s): %s", user, pam_strerror(pamh, r));
+
 
     r = pam_end(pamh, n);
 
