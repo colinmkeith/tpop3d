@@ -1,6 +1,6 @@
 /*
  * main.c:
- * main loop for pop3 server
+ * Entry point, initialisation code and main loop for pop3 server.
  *
  * Copyright (c) 2001 Chris Lightfoot. All rights reserved.
  *
@@ -110,7 +110,8 @@ void listeners_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfds)
             if (s == -1) {
                 if (errno != EAGAIN) print_log(LOG_ERR, "net_loop: accept: %m");
             } else if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, &a, sizeof(a)) == -1) {
-                /* Set a small send buffer so that we get usefully blocking writes. */
+                /* Set a small send buffer so that we get usefully blocking
+                 * writes. */
                 print_log(LOG_ERR, "handle_listeners: setsockopt: %m");
                 close(s);
             } else if (fcntl(s, F_SETFL, 0) == -1) {
@@ -199,7 +200,7 @@ void fork_child(connection *C, listitem *i) {
             /* Get in to the `transaction' state, opening the mailbox. */
             if (connection_start_transaction(c)) {
                 char s[512], *p;
-                strcpy(s, _("Welcome aboard!"))
+                strcpy(s, _("Welcome aboard!"));
                 strcat(s, " ");
                 p = s + strlen(s);
                 switch (c->m->index->n_used) {

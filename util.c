@@ -145,7 +145,8 @@ int write_file(int fd, int sck, size_t msgoffset, size_t skip, size_t msglength,
         if (!try_write(sck, p, q - p) || !try_write(sck, "\r\n", 2))
             goto write_failure;
         p = q + 1;
-    } while (*p != '\n');
+    } while (p < r && *p != '\n');
+
     ++p;
 
     errno = 0;

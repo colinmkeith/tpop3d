@@ -167,12 +167,12 @@ mailbox try_mailbox_locations(const char *specs, const char *user, const char *d
  * case, then a default mailbox driver is assumed.
  *
  * This distinguishes between nonexistent mailboxes and mailboxes which
- * couldn't be opened because of an error. This is to prevent the situation
- * where, say, bsd:/var/spool/mail/$(user) and maildir:$(home)/Maildir are
- * allowed mailbox names, both exist, and the former is locked. It is
- * important the the view of the mailbox presented to the user is consistent,
- * so a failure to lock a given mailspool must not cause the program to go off
- * and use a different one.
+ * couldn't be opened because of an error. This is to prevent SNAFUs where,
+ * say, bsd:/var/spool/mail/$(user) and maildir:$(home)/Maildir are allowed
+ * mailbox names, both exist, and the former is locked. It is important the the
+ * view of the mailbox presented to the user is consistent, so a failure to
+ * lock a given mailspool must not cause the program to go off and use a
+ * different one.
  */
 extern stringmap config;
 

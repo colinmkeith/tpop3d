@@ -58,6 +58,10 @@ mailbox drivers in mind.
   standard perl Makefile.PL ; make ; make install procedure will install it
   for you. The example perl scripts in scripts/ use this module.
 
+  If you wish to write an authenticator in perl, you can also use the
+  auth_perl driver, which embeds a perl interpreter in the main tpop3d daemon.
+  This may well be more efficient than using auth_other.
+
 
 * Developing new mailbox formats
 
@@ -91,7 +95,7 @@ mailbox drivers in mind.
      * value of the function should be explained here, unless they are
      * blindingly obvious.
      */
-    int foo (char *bar) {
+    int foo (const char *bar) {
         /* ... */
     }
 

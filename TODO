@@ -11,6 +11,8 @@ $Id$
   In addition, the mess of mailspool locking should be investigated and better
   documented for the various platforms on which tpop3d runs.
 
+  (Autoconf support goes some way to solving both of these.)
+
 
 * More authentication schemes
 
@@ -18,7 +20,9 @@ $Id$
   popular, but I do not make use of anything like this. However, it would be
   relatively easy to implement such a thing. (This can now be done with
   auth_other or auth_perl, but it might be desirable to have it in the main
-  program.)
+  program.) I do not intend to implement support for additional databases,
+  since it seems better to use the existing code in the various perl DBD
+  modules from auth_perl.
 
 
 * A proper code audit
@@ -71,6 +75,15 @@ $Id$
   authenticator would then have a queue of connections to authenticate. This
   means that thread-unsafe functions such as strtok should be avoided in new
   code.
+  
+  An alternative is to use the fork-on-alarm idiom, where a timer is set
+  immediately prior to embarking upon a potentially-lengthy operation, and,
+  if the timer fires prior to the operation completing, fork is called in the
+  signal handler and the child continues the long operation while the parent
+  carries on doing whatever it was doing before. The problem with this
+  approach is that resources which cannot be shared between parent and child
+  (such as database connections) must be disowned by the parent and
+  reacquired. This is feasible, but would require careful thought.
 
 
 * More example scripts and configs
@@ -80,3 +93,4 @@ $Id$
   directly addressed by examples here; for instance, POP-before-SMTP relaying.
 
   Also, not everyone likes perl; some non-perl examples would be good.
+

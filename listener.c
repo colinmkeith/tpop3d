@@ -71,8 +71,8 @@ listener listener_new(const struct sockaddr_in *addr, const char *domain) {
             print_log(LOG_WARNING, _("listener_new: %s: no domain suffix can be appended for this address"), inet_ntoa(addr->sin_addr));
         } else {
             /* We need to find out an appropriate domain suffix for the address.
-             * FIXME we just take the first address with a "." in it, and use the
-             * part after the ".".
+             * FIXME we just take the first address with a "." in it, and use
+             * the part after the ".".
              */
             char **a, *b;
             b = strchr(he->h_name, '.');

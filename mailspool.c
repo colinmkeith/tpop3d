@@ -11,7 +11,7 @@
  * This also, optionally, allows the metadata stored into mailspools (why,
  * Washington University, why?) by PINE to be ignored. This means that those
  * who use PINE locally and a POP3 client remotely will not find themselves
- * continuously downloading copies of "DON'T DELETE THIS MESSAGE -- ...".
+ * continually downloading copies of "DON'T DELETE THIS MESSAGE -- ...".
  *
  * Copyright (c) 2001 Chris Lightfoot. All rights reserved.
  *
@@ -205,7 +205,7 @@ void mailspool_delete(mailbox m) {
 }
 
 /* memstr:
- * Locate needly, of length n_len, in haystack, of length h_len, returning
+ * Locate needle, of length n_len, in haystack, of length h_len, returning
  * NULL if it is not found.
  */
 static char *memstr(const char *haystack, size_t h_len, const char *needle, size_t n_len)
