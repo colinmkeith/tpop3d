@@ -73,7 +73,7 @@ AC_ARG_ENABLE(auth-ldap,
         [  --enable-auth-ldap      Enable authentication against an LDAP directory.
                           [default=no]],
     [enable_auth_ldap=$enableval],
-    [enable_auth_other="no"])
+    [enable_auth_ldap="no"])
     
 AC_ARG_WITH(openldap-root,
         [    --with-openldap-root=DIR  Root directory of the OpenLDAP installation.
