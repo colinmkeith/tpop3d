@@ -17,6 +17,8 @@
 #include <sys/types.h>
 
 #include "authswitch.h"
+#include "buffer.h"
+#include "listener.h"
 #include "mailbox.h"
 #include "tokenise.h"
 #include "vector.h"
@@ -42,15 +44,10 @@ typedef struct _connection {
     
     char *domain;           /* associated domain suffix         */
     char *timestamp;        /* the rfc1939 "timestamp" we emit  */
-    
-    /* i/o buffers */
-    struct {
-        char *buffer;       /* buffer                           */
-        char *p;            /* where we've got to in the buffer */
-        size_t bufferlen;   /* size of buffer allocated         */
-    }   rdb,                /* buffer for reading from peer     */
-        wrb;                /* buffer for writing to peer       */
 
+    buffer rdb;             /* data read from peer              */
+    buffer wrb;             /* data to write to peer            */
+    
     struct ioabs *io;       /* I/O abstraction structure        */
 
     enum conn_state cstate; /* state of underlying transport    */
@@ -59,7 +56,7 @@ typedef struct _connection {
 
     time_t idlesince;       /* used to implement timeouts       */
     time_t frozenuntil;     /* used to implement freeze on wrong password. */
-    int delayed_shutdown;   /* shutdown after thaw?             */
+    int do_shutdown;        /* shutdown after thaw?             */
 
     int n_auth_tries, n_errors;
     char *user, *pass;      /* authentication state accumulated */
@@ -75,24 +72,12 @@ struct ioabs {
 #define IOABS_WOULDBLOCK        ((ssize_t)-1)
 #define IOABS_ERROR             ((ssize_t)-2)
 
-    /* read:
-     * Read data from the connection. Returns the number of bytes read on
-     * success, zero if the connection is closed gracefully, IOABS_WOULDBLOCK
-     * if the read would block, or IOABS_ERROR if a fatal error occurred. */
-    ssize_t (*read)(connection c, void *buf, size_t count);
-
-    /* write:
-     * Write data to the connection. Returns the number of bytes read on
-     * success, IOABS_WOULDBLOCK if the write would block, or IOABS_ERROR if
-     * a fatal error occurred. */
-    ssize_t (*write)(connection c, const void *buf, size_t count);
-
-    /* strerror:
-     * Obtain an error string representing the last error which occurred on
-     * this connection. This should be called only after read or write return
-     * IOABS_ERROR, and before calling any other I/O function on this
-     * connection. */
-    char* (*strerror)(connection c);
+    /* immediate_write CONNECTION BUFFER COUNT
+     * Immediately write COUNT bytes from BUFFER to CONNECTION. Returns the
+     * number of bytes written on success (may be less than COUNT),
+     * IOABS_WOULDBLOCK if the write cannot complete immediately, or
+     * IOABS_ERROR if a fatal error occurred. */
+    ssize_t (*immediate_write)(connection c, const void *buf, size_t count);
 
     /* pre_ and post_select are called before and after select(2) in the main
      * loop, and should do all I/O related processing. Frozen connection
@@ -103,9 +88,9 @@ struct ioabs {
     void (*pre_select)(connection c, int *n, fd_set *readfds, fd_set *writefds, fd_set *exceptfds);
     
     /* post_select:
-     * Do handling after select has completed. Returns 1 if new data has been
-     * read, 0 if there is not, or IOABS_ERROR if an error occured. May alter
-     * the connection_state of the associated connection. */
+     * Do handling after select has completed. Returns 1 if new data have been
+     * read, 0 if not. May alter the connection_state of the associated
+     * connection. */
     int (*post_select)(connection c, fd_set *readfds, fd_set *writefds, fd_set *exceptfds);
 
     /* shutdown:
@@ -118,17 +103,12 @@ struct ioabs {
     /* destroy:
      * Deallocate the structure and free any associated resources. */
     void (*destroy)(connection c);
-
-    /* should a write be tried immediately on connection_send, or should all
-     * output be buferred? */
-    int permit_immediate_writes;
 };
 
 /* struct ioabs_tcp:
  * I/O abstraction for straight TCP. */
 struct ioabs_tcp {
     struct ioabs und;
-    int x_errno;    /* can't be called errno as that's a macro in Linux */
 };
 
 /* in ioabs_tcp.c */
@@ -150,6 +130,8 @@ struct ioabs_tls {
     int shutdown_blocked_on_write, shutdown_blocked_on_read;
 };
 
+struct ioabs_tls *ioabs_tls_create(void);
+
 #endif /* TPOP3D_TLS */
 
 
@@ -167,8 +149,8 @@ typedef struct _pop3command {
 } *pop3command;
 
 /* Create/destroy connections */
-connection   connection_new(const int s, const struct sockaddr_in *sin, const char *domain);
-void         connection_delete(connection c);
+connection connection_new(int s, const struct sockaddr_in *sin, listener L);
+void connection_delete(connection c);
 
 /* Read data out of the socket into the buffer */
 ssize_t connection_read(connection c);

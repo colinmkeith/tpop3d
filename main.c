@@ -316,102 +316,102 @@ void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfd
 
     for (I = connections; I < connections + max_connections; ++I) {
         connection c;
+        int r;
+
         c = *I;
-        if (c) {
-            int r;
-            int doshutdown = 0; /* flag indicates that c should be shut down */
+        if (!c) continue;
 
-            /* Handle all post-select I/O. */
-            r = c->io->post_select(c, readfds, writefds, exceptfds);
+        /* Handle all post-select I/O. */
+        r = c->io->post_select(c, readfds, writefds, exceptfds);
 
-            /* Error in post_select. */
-            if (r == IOABS_ERROR) {
-                log_print(LOG_ERR, _("connections_post_select: io->post_select: client %s: %s; closing connection"), c->io->strerror(c));
-                doshutdown = 1;
-            } else if (c->cstate == running) {
-                /*
-                 * Handling of POP3 commands, and forking children to handle
-                 * authenticated connections.
-                 */
-                
-                /* May be commands to be read and interpreted. */
-                if (r == 1 && !connection_isfrozen(c)) {
-                    pop3command p;
-                    /* Process as many commands as we can.... */
-                    while (c->cstate == running && (p = connection_parsecommand(c))) {
-                        enum connection_action act;
-                        
-                        act = connection_do(c, p);
-                        pop3command_delete(p);
-                        switch (act) {
-                            case close_connection:
-                                doshutdown = 1;
-                                break;
-
-                            case fork_and_setuid:
-                                if (num_running_children >= max_running_children) {
-                                    connection_sendresponse(c, 0, _("Sorry, I'm too busy right now"));
-                                    log_print(LOG_WARNING, _("connections_post_select: client %s: rejected login owing to high load"), c->idstr);
-                                    doshutdown = 1;
-                                } else {
-                                    if (!fork_child(c))
-                                        doshutdown = 1;
-                                    /* If this is the parent process, c has now been destroyed. */
-                                    if (!post_fork)
-                                        c = NULL;
-                                }
-                                break;
-
-                            default:;
-                        }
-
-                        if (doshutdown || !c)
-                            break;
-                    }
-
-                    if (!c)
-                        continue; /* if connection has been destroyed, do next one */
-                }
-
-                /* Timeout handling. */
-                if (timeout_seconds && (time(NULL) > (c->idlesince + timeout_seconds))) {
-                    /* Connection has timed out. */
-#ifndef NO_SNIDE_COMMENTS
-                    connection_sendresponse(c, 0, _("You can hang around all day if you like. I have better things to do."));
-#else
-                    connection_sendresponse(c, 0, _("Client has been idle for too long."));
-#endif
-                    log_print(LOG_INFO, _("net_loop: timed out client %s"), c->idstr);
-                    doshutdown = 1;
-                }
-            }
-
-            /* Shut down the connection if requested, or if shutdown was
-             * requested when the connection was frozen and it is now thawed
-             * again. */
-            if ((doshutdown || (c->delayed_shutdown && !connection_isfrozen(c))) && connection_shutdown(c) == IOABS_ERROR)
-                log_print(LOG_ERR, _("connections_post_select: connection_shutdown: client %s: %s"), c->io->strerror(c));
-
+        /* At this stage, the connection may be closed or closing. But we
+         * should try to interpret commands anyway, in case the client sends
+         * QUIT and immediately closes the connection. */
+        if (r && !connection_isfrozen(c)) {
             /*
-             * At this point, we need to find out whether this connection has been
-             * closed (i.e., transport completely shut down). If so, we need to
-             * destroy the connection, and, if this is a child process, exit, since
-             * we have no more work to do.
+             * Handling of POP3 commands, and forking children to handle
+             * authenticated connections.
              */
-            if (c->cstate == closed) {
-                /* We should now log the closure of the connection and ending
-                 * of any authenticated session. */
-                if (c->a)
-                    log_print(LOG_INFO, _("connections_post_select: client %s: finished session for `%s' with %s"), c->a->user, c->a->auth);
-                log_print(LOG_INFO, _("connections_post_select: client %s: disconnected; %d/%d bytes read/written"), c->idstr, c->nrd, c->nwr);
+            pop3command p;
+            /* Process as many commands as we can.... */
+            while (c->cstate == running && (p = connection_parsecommand(c))) {
+                enum connection_action act;
 
-                remove_connection(c);
-                connection_delete(c);
-                /* If this is a child process, we exit now. */
-                if (post_fork)
-                    _exit(0);
+                act = connection_do(c, p);
+                pop3command_delete(p);
+                switch (act) {
+                    case close_connection:
+                        c->do_shutdown = 1;
+                        break;
+
+                    case fork_and_setuid:
+                        if (num_running_children >= max_running_children) {
+                            connection_sendresponse(c, 0, _("Sorry, I'm too busy right now"));
+                            log_print(LOG_WARNING, _("connections_post_select: client %s: rejected login owing to high load"), c->idstr);
+                            c->do_shutdown = 1;
+                        } else {
+                            if (!fork_child(c))
+                                c->do_shutdown = 1;
+                            /* If this is the parent process, c has now been destroyed. */
+                            if (!post_fork)
+                                c = NULL;
+                        }
+                        break;
+
+                    default:;
+                }
+
+                if (!c || c->do_shutdown)
+                    break;
             }
+
+            if (!c)
+                continue; /* if connection has been destroyed, do next one */
         }
+
+        /* Timeout handling. */
+        if (timeout_seconds && (time(NULL) > (c->idlesince + timeout_seconds))) {
+            /* Connection has timed out. */
+#ifndef NO_SNIDE_COMMENTS
+            connection_sendresponse(c, 0, _("You can hang around all day if you like. I have better things to do."));
+#else
+            connection_sendresponse(c, 0, _("Client has been idle for too long."));
+#endif
+
+            log_print(LOG_INFO, _("net_loop: timed out client %s"), c->idstr);
+
+            if (c->do_shutdown)
+                c->io->shutdown(c);      /* immediate shutdown */
+            else
+                connection_shutdown(c); /* give a chance to flush buffer (in particular, the error message) */
+        }
+
+        /* Shut down the connection if requested, or if shutdown was
+         * requested when the connection was frozen and it is now thawed
+         * again, or when data remained to be written. */
+        if (c->do_shutdown)
+            connection_shutdown(c);
+
+        /*
+         * At this point, we need to find out whether this connection has been
+         * closed (i.e., transport completely shut down). If so, we need to
+         * destroy the connection, and, if this is a child process, exit, since
+         * we have no more work to do.
+         */
+        if (c->cstate == closed) {
+            /* We should now log the closure of the connection and ending
+             * of any authenticated session. */
+            if (c->a)
+                log_print(LOG_INFO, _("connections_post_select: client %s: finished session for `%s' with %s"), c->idstr, c->a->user, c->a->auth);
+            log_print(LOG_INFO, _("connections_post_select: client %s: disconnected; %d/%d bytes read/written"), c->idstr, c->nrd, c->nwr);
+
+            remove_connection(c);
+            connection_delete(c);
+            /* If this is a child process, we exit now. */
+            if (post_fork)
+                _exit(0);
+        }
+    }
 }
 
 /* net_loop:
@@ -513,12 +513,15 @@ void usage(FILE *fp) {
 "  -p file          Write PID to file (default: don't use a PID file)\n"
 "  -d               Do not detach from controlling terminal\n"
 "  -v               Log traffic to/from server for debugging purposes\n"
+            )
 #ifdef TPOP3D_TLS
+            _(
 "  -P               Permit reading of certificate/private key pass phrases\n"
 "                   for TLS operation from the terminal on startup\n"
+            )
 #endif
 "\n"
-                ), TPOP3D_VERSION, CONFIG_DIR);
+                , TPOP3D_VERSION, CONFIG_DIR);
 
     /* Describe the compiled-in options. */
     authswitch_describe(fp);
@@ -559,7 +562,9 @@ int main(int argc, char **argv, char **envp) {
     int nodaemon = 0;
     char *configfile = CONFIG_DIR"/tpop3d.conf", *s;
     int na, c;
+#ifdef TPOP3D_TLS
     extern int noreadpassphrase; /* in tls.c */
+#endif
 
 #ifdef MTRACE_DEBUGGING
     mtrace(); /* Memory debugging on glibc systems. */

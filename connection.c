@@ -31,6 +31,7 @@ static const char rcsid[] = "$Id$";
 #include <sys/socket.h>
 #include <sys/utsname.h>
 
+#include "buffer.h"
 #include "connection.h"
 #include "listener.h"
 #include "util.h"
@@ -125,11 +126,8 @@ connection connection_new(int s, const struct sockaddr_in *sin, listener L) {
     else sprintf(c->idstr, "[%d]%s", s, c->remote_ip);
 
     /* Read and write buffers */
-    c->rdb.p = c->rdb.buffer = xmalloc(c->rdb.bufferlen = MAX_POP3_LINE);
-    if (!c->rdb.buffer) goto fail;
-
-    c->wrb.p = c->wrb.buffer = xmalloc(c->wrb.bufferlen = MAX_POP3_LINE);
-    if (!c->wrb.buffer) goto fail;
+    c->rdb = buffer_new(1024);
+    c->wrb = buffer_new(1024);
 
     c->timestamp = make_timestamp(c->domain);
     if (!c->timestamp) goto fail;
@@ -183,8 +181,8 @@ void connection_delete(connection c) {
     if (c->remote_ip)  xfree(c->remote_ip);
     if (c->local_ip)   xfree(c->local_ip);
     if (c->idstr)      xfree(c->idstr);
-    if (c->rdb.buffer) xfree(c->rdb.buffer);
-    if (c->wrb.buffer) xfree(c->wrb.buffer);
+    if (c->rdb)        buffer_delete(c->rdb);
+    if (c->wrb)        buffer_delete(c->wrb);
     if (c->io)         c->io->destroy(c);
     if (c->timestamp)  xfree(c->timestamp);
     if (c->user)       xfree(c->user);
@@ -192,69 +190,21 @@ void connection_delete(connection c) {
     xfree(c);
 }
 
-/* connection_read:
- * Read data from the socket into the buffer, if available. Returns
- * IOABS_WOULDBLOCK if a read would block, IOABS_ERROR on error, zero on EOF
- * or the number of bytes read on success. */
-static ssize_t connection_read(connection c) {
-    ssize_t n;
-    if (!c) return -1;
-    if (c->rdb.p == c->rdb.buffer + c->rdb.bufferlen) {
-        log_print(LOG_ERR, _("connection_read: client %s: over-long line"), c->idstr);
-        errno = ENOBUFS;
-        return -1;
-    }
-    n = c->io->read(c, c->rdb.p, c->rdb.buffer + c->rdb.bufferlen - c->rdb.p);
-    if (n > 0) {
-        c->rdb.p += n;
-        c->nrd += n;    /* Keep track of data transferred. */
-    }
-    return n;
-}
-
-/* connection_write:
- * Send pending data, if any, to the client. Returns IOABS_WOULDBLOCK if a
- * write would block, IOABS_ERROR on error or the number of bytes written on
- * success, which may be zero if the write buffer is empty. */
-static ssize_t connection_write(connection c) {
-    ssize_t n;
-    if (connection_isfrozen(c)) return 0;
-    n = c->io->write(c, c->wrb.buffer, c->wrb.p - c->wrb.buffer);
-    if (n > 0) {
-        c->nwr += n;
-        memmove(c->wrb.buffer, c->wrb.buffer + n, c->wrb.p - (c->wrb.buffer + n));
-        c->wrb.p -= n;
-    }
-    return n;
-}
-
-/* ioabs_generic_post_select:
- * Generic post-select handling for an I/O abstraction layer. Attempts to read
- * and write data to and from the buffers. */
-int ioabs_generic_post_select(connection c, const int canread, const int canwrite) {
-    int r;
-    if (canwrite && c->wrb.p > c->wrb.buffer) {
-        r = connection_write(c);
-        if (r == IOABS_ERROR) {
-            c->
-            return IOABS_ERROR;
-        }
-    }
-}
-
-/* connection_isfrozen:
- * Is a connection frozen? */
+/* connection_isfrozen CONNECTION
+ * Is CONNECTION frozen? */
 int connection_isfrozen(connection c) {
     return c->frozenuntil && c->frozenuntil > time(NULL);
 }
 
-/* connection_shutdown:
- * Immediate or delayed shutdown of a connection. */
+/* connection_shutdown CONNECTION
+ * Immediate or delayed shutdown of CONNECTION. If the connection is frozen or
+ * if there are data still to be written, then simply set a flag for later
+ * real shutdown. */
 int connection_shutdown(connection c) {
-    if (connection_isfrozen(c)) {
-        c->delayed_shutdown = 1;
+    if (connection_isfrozen(c) || buffer_available(c->wrb) > 0) {
+        c->do_shutdown = 1;
         return IOABS_WOULDBLOCK;
-    } else return c-io->shutdown(c);
+    } else return c->io->shutdown(c);
 }
 
 /* connection_send_now:
@@ -263,9 +213,9 @@ int connection_shutdown(connection c) {
  * block, or IOABS_ERROR on error. Does not interact with the write buffer at
  * all. */
 static ssize_t connection_send_now(connection c, const char *data, const size_t len) {
-    if (!c->io->permit_immediate_writes || connection_isfrozen(c))
+    if (!c->io->immediate_write || connection_isfrozen(c))
         return 0;
-    return c->io->write(c, data, len);
+    return c->io->immediate_write(c, data, len);
 }
 
 /* connection_send:
@@ -275,31 +225,19 @@ ssize_t connection_send(connection c, const char *data, const size_t l) {
     size_t len;
     ssize_t n;
     len = l;
-    if (c->wrb.p == c->wrb.buffer) {
-        /* Buffer is empty. Try sending the data now. */
+    if (buffer_available(c->wrb) == 0) {
         n = connection_send_now(c, data, len);
         if (n == len) return 1;
-        else if (n == -1 && errno != EAGAIN) return 0;
+        else if (n == IOABS_ERROR) return 0;
         else if (n > 0) {
             data += n;
             len -= n;
-        }
+        } /* else IOABS_WOULDBLOCK */
     }
-    /* Append remaining data to end of buffer. */
-    while (c->wrb.p + len > c->wrb.buffer + c->wrb.bufferlen) {
-        /* Expand buffer. */
-        int d;
-        d = c->wrb.p - c->wrb.buffer;
-        c->wrb.buffer = xrealloc(c->wrb.buffer, c->wrb.bufferlen *= 2);
-        c->wrb.p = c->wrb.buffer + d; 
-    }
-    memcpy(c->wrb.p, data, len);
-    c->wrb.p += len;
 
-    /* Try a send immediately. */
-    if (connection_write(c) == IOABS_ERROR)
-        return 0;
-    else return 1;
+    buffer_push_data(c->wrb, data, len);
+        /* XXX should try a write from the buffer now.... */
+    return 1;
 }
 
 /*
@@ -325,8 +263,8 @@ void connection_freeze(connection c) {
     c->frozenuntil = time(NULL) + 3;
 }
 
-/* connection_parsecommand:
- * Parse a command from the connection, returning NULL if none is available. */
+/* pop3_commands:
+ * Commands the server supports. */
 struct {
     char *s;
     enum pop3_command_code cmd;
@@ -346,43 +284,32 @@ struct {
      {"LAST", LAST},
      {NULL,   UNKNOWN}}; /* last command MUST have s = NULL */
 
+/* connection_parsecommand CONNECTION
+ * Parse a command from CONNECTION, returning NULL if none is available. */
 pop3command connection_parsecommand(connection c) {
-    char *p, *q;
+    static char *line; /* static buffer so we don't spend all day reallocating things... */
+    static size_t llen;
+    size_t i;
+    char *p;
     pop3command pc = NULL;
 
-    /* Skip initial whitespace. */
-    for (p = c->rdb.buffer; p < c->rdb.p && strchr(" \t", *p); ++p);
-    if (p == c->rdb.p) return NULL;
+    if (!(line = buffer_consume_to_mark(c->rdb, "\r\n", 2, line, &llen))
+        && !(line = buffer_consume_to_mark(c->rdb, "\n", 1, line, &llen)))  /* cope with bad clients... */
+        return NULL;
+
+    /* remove trailing eol */
+    for (i = llen - 1; i > 0 && strchr("\r\n", line[i]); --i)
+        line[i] = 0;
+    p = line + strspn(line, " \t"); /* skip leading whitespace */
     
-    /* Find end of command. */
-    for (q = p; q < c->rdb.p && !strchr("\r\n", *q); ++q);
-    if (q == c->rdb.p) return NULL;
-
-    /* Replace trailing newlines with NULs. */
-    for (; q < c->rdb.p && strchr("\r\n", *q); ++q) *q = 0;
-
-    pc = pop3command_new(p);
-
     if (verbose) {
-        char *s;
-        int i, l;
-        l = strlen(_("connection_parsecommand: client %s: received `")) + 2 + strlen(c->idstr);
-        for (i = 0; i < pc->toks->num; ++i) l += strlen((char*)(pc->toks->toks[i])) + 6;
-        s = xmalloc(l);
-        sprintf(s, _("connection_parsecommand: client %s: received `"), c->idstr);
-        for (i = 0; i < pc->toks->num; ++i) {
-            if (i == 0 || pc->cmd != PASS) strcat(s, (char*)(pc->toks->toks[i]));
-            else strcat(s, "[...]");
-            if (i != pc->toks->num - 1) strcat(s, " ");
-        }
-        strcat(s, "'");
-        log_print(LOG_DEBUG, "%s", s);
-        xfree(s);
+        if  (strncasecmp(p, "PASS", 4))
+            log_print(LOG_DEBUG, "connection_parsecommand: client %s: received `%s'", c->idstr, p);
+        else
+            log_print(LOG_DEBUG, "connection_parsecommand: client %s: received `%.4s [...]'", c->idstr, p);
     }
 
-    /* now update the buffer */
-    memmove(c->rdb.buffer, q, c->rdb.buffer + c->rdb.bufferlen - q);
-    c->rdb.p -= q - c->rdb.buffer;
+    pc = pop3command_new(p);
 
     return pc;
 }
