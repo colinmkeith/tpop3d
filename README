@@ -25,7 +25,7 @@ Limitations
 tpop3d hasn't yet had extensive use.
 
 It only works with BSD-style mailboxes, and makes (normal) assumptions
-about their format (in particular, it assumes that separator lines begin
+about their format. In particular, it assumes that separator lines begin
 "\n\nFrom " and end "\n". Most MTAs enforce this.
 
 It makes extensive use of mmap(2).
