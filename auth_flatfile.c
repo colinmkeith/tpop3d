@@ -86,7 +86,7 @@ fail:
  * second field to the password hash. Any subsequent fields are ignored. */
 static char *read_user_passwd(const char *local_part, const char *domain) {
     FILE *fp = NULL;
-    char *filename = NULL;
+    char *filename = NULL, *result = NULL;
     struct sverr err;
     static char *buf, *pwhash;
     static size_t buflen;
@@ -149,6 +149,8 @@ static char *read_user_passwd(const char *local_part, const char *domain) {
         if ((end = strchr(pwhash, ':')))
             *end = 0;
 
+        result = pwhash;
+
         break;
     }
     
@@ -159,7 +161,7 @@ fail:
     if (filename)
         xfree(filename);
 
-    return pwhash;
+    return result;
 }
 
 /* auth_flatfile_new_user_pass:

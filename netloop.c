@@ -375,11 +375,11 @@ static int fork_child(connection c) {
 /* connections_post_select:
  * Called after the main select(2) to do stuff with connections.
  *
- * For each connection, we call its own post_select routine. This will do all sorts
- * of stuff which is hidden to us, including pushing the running/closing/closed
- * state machine around and reading and writing the I/O buffers. We need to try to
- * parse commands when it's indicated that data have been read, and react to the
- * changed state of any connection. */
+ * For each connection, we call its own post_select routine. This will do all
+ * sorts of stuff which is hidden to us, including pushing the
+ * running/closing/closed state machine around and reading and writing the I/O
+ * buffers. We need to try to parse commands when it's indicated that data have
+ * been read, and react to the changed state of any connection. */
 static void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
     static size_t i;
     size_t i0;
@@ -398,7 +398,6 @@ static void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *e
             connections[0] = c;
             connections[i] = NULL;
         }
-        
 
         /* Handle all post-select I/O. */
         r = c->io->post_select(c, readfds, writefds, exceptfds);

@@ -104,3 +104,10 @@ $Id$
   parameters (though in principle we could measure the delay between sending
   +OK... and receiving a new command), so just make this a config file option.
 
+* NTLM authentication
+
+* STLS+APOP issue (email of 20040306)
+
+* Repeated messages (email of 20040325)
+
+* Maildir semantics (email of 20040331)

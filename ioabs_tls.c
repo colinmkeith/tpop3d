@@ -276,14 +276,12 @@ static int ioabs_tls_post_select(connection c, fd_set *readfds, fd_set *writefds
                     return 0;
 
                 case SSL_ERROR_SYSCALL:
-                    if (!e) {
-                        if (ERR_get_error() == 0)
-                            log_print(LOG_ERR, _("ioabs_tls_post_select: client %s: SSL_accept: connection unexpectedly closed by peer"), c->idstr);
-                        else
-                            log_print(LOG_ERR, _("ioabs_tls_post_select: client %s: SSL_accept: %m; closing connection"), c->idstr);
-                        break;
-                    }
-                    /* fall through */
+                    if (ERR_get_error() == 0)
+                        log_print(LOG_ERR, _("ioabs_tls_post_select: client %s: SSL_accept: connection unexpectedly closed by peer"), c->idstr);
+                    else
+                        log_print(LOG_ERR, _("ioabs_tls_post_select: client %s: SSL_accept: %m; closing connection"), c->idstr);
+                    break;
+                        
                 case SSL_ERROR_SSL:
                 default:
                     log_print(LOG_ERR, _("ioabs_tls_post_select: client %s: SSL_accept: %s; closing connection"), c->idstr, ERR_reason_error_string(ERR_get_error()));
