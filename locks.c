@@ -92,18 +92,41 @@ int flock_lock(int fd) {
 
 /* flock_unlock:
  * Attempt to unlock a file using flock(2) locking. Returns 0 on success or -1
- * on failure.
- */
+ * on failure. */
 int flock_unlock(int fd) {
     return flock(fd, LOCK_UN);
 }
 #endif /* WITH_FLOCK_LOCKING */
 
 #ifdef WITH_DOTFILE_LOCKING
+/* dotfile_check_stale:
+ * If the named lockfile exists, then check whether the PID inside it is one
+ * for an extant process. If it is not, remove it. */
+static void dotfile_check_stale(const char *file) {
+    int fd;
+    char buf[16] = {0};
+    fd = open(file, O_RDONLY);
+    if (fd == -1) return;
+    if (read(fd, buf, sizeof(buf) - 1) > 0) {
+        int i;
+        i = strspn(buf, "0123456789");
+        if (i > 0 && buf[i] == '\n') {
+            pid_t p;
+            /* Have a valid PID, possibly. */
+            buf[i] = 0;
+            p = (pid_t)atoi(buf);
+            if (p > 1 && kill(p, 0) == -1 && errno == ESRCH
+                && unlink(file) == 0)
+                /* File exists but process doesn't. */
+                log_print(LOG_INFO, _("dotfile_check_stale: removed stale lockfile `%s' (pid was %d)"), file, (int)p);
+        }
+    }
+    close(fd);
+}
+
 /* dotfile_lock:
  * Attempt to lock a file by constructing a lockfile having the name of the
- * file with ".lock" appended. Returns 0 on success or -1 on failure.
- */
+ * file with ".lock" appended. Returns 0 on success or -1 on failure. */
 int dotfile_lock(const char *name) {
     char *lockfile = xmalloc(strlen(name) + 6), *hitchfile = NULL;
     char pidstr[16];
@@ -116,6 +139,8 @@ int dotfile_lock(const char *name) {
     /* Make name for lockfile. */
     if (!lockfile) goto fail;
     sprintf(lockfile, "%s.lock", name);
+
+    dotfile_check_stale(lockfile);
 
     /* Make a name for a hitching-post file. */
     if (uname(&uts) == -1) goto fail;
@@ -141,8 +166,7 @@ int dotfile_lock(const char *name) {
     unlink(hitchfile);
 
     /* Were we able to link the hitching post to the lockfile, and if we were,
-     * did it have exactly 2 links when we were done?
-     */
+     * did it have exactly 2 links when we were done? */
     if (rc != 0 && st.st_nlink != 2) {
         log_print(LOG_ERR, _("dotfile_lock(%s): unable to link hitching post to lock file: %m"), name);
         goto fail;
@@ -162,8 +186,7 @@ fail:
  * Unlock a file which has been locked using dotfile locking. Returns 0 on
  * success or -1 on failure.
  *
- * XXX We try to check that this is _our_ lockfile. Is this correct?
- */
+ * XXX We try to check that this is _our_ lockfile. Is this correct? */
 int dotfile_unlock(const char *name) {
     char pidstr[16], pidstr2[16] = {0};
     char *lockfile = xmalloc(strlen(name) + 6);

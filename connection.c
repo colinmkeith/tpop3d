@@ -97,10 +97,10 @@ connection connection_new(int s, const struct sockaddr_in *sin, const char *doma
     c = xcalloc(1, sizeof *c);
 
     c->s = s;
-    memcpy(&(c->sin), sin, sizeof(struct sockaddr_in));
+    c->sin = *sin;
 
     n = sizeof(c->sin_local);
-    if (getsockname(s, (struct sockaddr *)&(c->sin_local), &n) < 0) {
+    if (getsockname(s, (struct sockaddr*)&(c->sin_local), &n) < 0) {
       log_print(LOG_WARNING, _("connection_new: getsockname error %d"), errno);
       goto fail;
     }
@@ -126,6 +126,9 @@ connection connection_new(int s, const struct sockaddr_in *sin, const char *doma
 
     c->timestamp = make_timestamp(c->domain);
     if (!c->timestamp) goto fail;
+
+    /* io abstraction */
+    c->io = (struct ioabs*)ioabs_tcp_create();
     
     c->state = authorisation;
 
@@ -170,9 +173,9 @@ void connection_delete(connection c) {
 }
 
 /* connection_read:
- * Read data from the socket into the buffer, if available. Returns -1 on
- * error or if the read would block (in this case errno is set to EAGAIN)
- * or if the buffer is full; or 0 on EOF or the number of bytes read. */
+ * Read data from the socket into the buffer, if available. Returns
+ * IOABS_WOULDBLOCK if a read would block, IOABS_ERROR on error, zero on EOF
+ * or the number of bytes read on success. */
 ssize_t connection_read(connection c) {
     ssize_t n;
     if (!c) return -1;
@@ -181,56 +184,39 @@ ssize_t connection_read(connection c) {
         errno = ENOBUFS;
         return -1;
     }
-    do {
-        n = read(c->s, c->rdb.p, c->rdb.buffer + c->rdb.bufferlen - c->rdb.p);
-    } while (n == -1 && errno == EINTR);
+    n = c->io->read(c, c->rdb.p, c->rdb.buffer + c->rdb.bufferlen - c->rdb.p);
     if (n > 0) {
         c->rdb.p += n;
         c->nrd += n;    /* Keep track of data transferred. */
     }
-    return n;   /* if a read would block, return -1 with errno == EAGAIN */
+    return n;
 }
 
-#define WRCHUNK     1024    /* the size of chunk in which we write things */
-
 /* connection_write:
- * Send pending data, if any, to the client. Returns -1 on error or if the
- * write would block, in which case errno is set to EAGAIN, or the number of
- * bytes written, which may be 0 if the write buffer is empty. */
+ * Send pending data, if any, to the client. Returns IOABS_WOULDBLOCK if a
+ * write would block, IOABS_ERROR on error or the number of bytes written on
+ * success, which may be zero if the write buffer is empty. */
 ssize_t connection_write(connection c) {
-    char *d;
-    ssize_t n, ntotal = 0;
+    ssize_t n;
     if (c->frozenuntil > time(NULL)) return 0;
-    for (d = c->wrb.buffer; d < c->wrb.p; d += n) {
-        size_t len = WRCHUNK;
-        if (d + WRCHUNK >= c->wrb.p)
-            len = c->wrb.p - d;
-        do {
-            n = write(c->s, d, len);
-        } while (n == -1 && errno == EINTR);
-        if (n == -1) break;
-        else ntotal += n;
+    n = c->io->write(c, c->wrb.buffer, c->wrb.p - c->wrb.buffer);
+    if (n > 0) {
+        c->nwr += n;
+        memmove(c->wrb.buffer, c->wrb.buffer + n, c->wrb.p - (c->wrb.buffer + n));
+        c->wrb.p -= n;
     }
-    if (ntotal > 0) {
-        c->nwr += ntotal;
-        memmove(c->wrb.buffer, c->wrb.buffer + ntotal, c->wrb.p - (c->wrb.buffer + ntotal));
-        c->wrb.p -= ntotal;
-    }
-    return ntotal;
+    return n;
 }
 
 /* connection_send_now:
  * Send the given data to the client immediately, if possible. Returns the
- * number of bytes written on success, or -1 on error or if the write would
- * block. Does not interact with the write buffer at all. */
+ * number of bytes written on success, IOABS_WOULDBLOCK if the write would
+ * block, or IOABS_ERROR on error. Does not interact with the write buffer at
+ * all. */
 static ssize_t connection_send_now(connection c, const char *data, const size_t len) {
-    ssize_t n;
-    if (c->frozenuntil > time(NULL)) return 0;
-    do {
-        n = write(c->s, data, len);
-    } while (n == -1 && errno == EINTR);
-    if (n > 0) c->nwr += n;
-    return n;
+    if (!c->io->permit_immediate_writes || c->frozenuntil > time(NULL))
+        return 0;
+    return c->io->write(c, data, len);
 }
 
 /* connection_send:
@@ -262,7 +248,7 @@ ssize_t connection_send(connection c, const char *data, const size_t l) {
     c->wrb.p += len;
 
     /* Try a send immediately. */
-    if (connection_write(c) == -1 && errno != EAGAIN)
+    if (connection_write(c) == IOABS_ERROR)
         return 0;
     else return 1;
 }

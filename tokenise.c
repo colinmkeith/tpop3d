@@ -14,7 +14,6 @@ static const char rcsid[] = "$Id$";
 
 #include "tokenise.h"
 #include "util.h"
-#include "vector.h"
 
 /* chomp:
  * Remove a CR/CRLF-type combination from the end of a string. */

@@ -10,8 +10,8 @@
 #ifndef __TOKENISE_H_ /* include guard */
 #define __TOKENISE_H_
 
-#include "vector.h"
-
+/* tokens:
+ * Structure associated with tokenising a string. */
 typedef struct _tokens {
     char *str;
     char **toks;

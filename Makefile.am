@@ -14,7 +14,7 @@ tpop3d_SOURCES = auth_mysql.c auth_ldap.c auth_other.c auth_perl.c auth_pam.c \
                  config.c connection.c listener.c locks.c logging.c mailbox.c \
                  maildir.c mailspool.c main.c md5c.c pidfile.c pop3.c \
                  signals.c stringmap.c strtok_r.c substvars.c \
-                 tokenise.c util.c vector.c
+                 tokenise.c util.c vector.c ioabs_tcp.c
 
 noinst_HEADERS = auth_mysql.h auth_ldap.h auth_other.h auth_perl.h auth_pam.h \
                  auth_passwd.h auth_flatfile.h authswitch.h config.h \

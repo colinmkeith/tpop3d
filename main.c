@@ -184,19 +184,9 @@ void listeners_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfds)
 void connections_pre_select(int *n, fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
     connection *J;
     for (J = connections; J < connections + max_connections; ++J)
-        if (*J) {
-            int s;
-            s = (*J)->s;
-            /* Don't add frozen connections to the select masks. */
-            if ((*J)->frozenuntil <= time(NULL)) {
-                FD_SET(s, readfds);
-                /* Only care about writing if the buffer is nonempty. */
-                if ((*J)->wrb.p > (*J)->wrb.buffer)
-                    FD_SET(s, writefds);
-                if (s > *n) *n = s;
-                (*J)->frozenuntil = 0;
-            }
-        }
+        /* Don't add frozen connections to the select masks. */
+        if (*J && (*J)->frozenuntil <= time(NULL))
+            (*J)->io->pre_select(*J, n, readfds, writefds, exceptfds);
 }
 
 /* fork_child:
@@ -260,6 +250,7 @@ void fork_child(connection c) {
             }
 
             /* Get in to the `transaction' state, opening the mailbox. */
+            this_child_connection = c;
             if (connection_start_transaction(c)) {
                 char s[512], *p;
                 strcpy(s, _("Welcome aboard!"));
@@ -279,13 +270,11 @@ void fork_child(connection c) {
                         break;
                 }
                 connection_sendresponse(c, 1, s);
-                this_child_connection = c;
             } else {
                 connection_sendresponse(c, 0, _("Unable to open mailbox; it may be locked by another concurrent session."));
                 connection_delete(c);
                 _exit(0);
             }
-
             break;
 
         case -1:
@@ -326,27 +315,30 @@ void fork_child(connection c) {
  * Called after the main select(2) to do stuff with connections. */
 void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
     connection *I;
-    
+
     for (I = connections; I < connections + max_connections; ++I) {
-        connection c = *I;
+        connection c;
+        c = *I;
         if (c) {
+            int r;
+            r = c->io->post_select(c, readfds, writefds, exceptfds);
             if (!c->closing) {
-                if (FD_ISSET(c->s, readfds)) {
-                    /* Data are available to read from this socket. */
+                if (r & IOABS_TRY_READ) {
+                    /* Data are available to read on this connection. */
                     int n;
                     n = connection_read(c);
                     if (n == 0) {
                         /* Peer closed the connection */
                         log_print(LOG_INFO, _("connections_post_select: connection_read: client %s: closed connection"), c->idstr);
                         c->closing = 1;
-                    } else if (n < 0 && errno != EAGAIN) {
+                    } else if (n == IOABS_ERROR) {
                         /* Some sort of error occurred, and we should close the connection. */
-                        log_print(LOG_ERR, _("connections_post_select: connection_read: client %s: disconnected: %m"), c->idstr);
+                        log_print(LOG_ERR, _("connections_post_select: connection_read: client %s: disconnected: %s"), c->idstr, c->io->strerror(c));
                         c->closing = 1;
-                    } else {
+                    } else if (n > 0) {
                         /* We read some data and should try to interpret command/s. */
                         pop3command p;
-                        while (c && (p = connection_parsecommand(c))) {
+                        while (c && !c->closing && (p = connection_parsecommand(c))) {
                             enum connection_action act;
                             act = connection_do(c, p);
                             pop3command_delete(p);
@@ -360,34 +352,43 @@ void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfd
                                         connection_sendresponse(c, 0, _("Sorry, I'm too busy right now"));
                                         log_print(LOG_WARNING, _("connections_post_select: client %s: rejected login owing to high load"), c->idstr);
                                         c->closing = 1;
-                                        break;
                                     } else {
                                         fork_child(c);
                                         c = NULL;
                                     }
+                                    break;
 
                                 default:;
                             }
                         }
+                        if (!c) continue;
                     }
-                } else if (FD_ISSET(c->s, writefds)) {
+                }
+
+                if (!c)
+                    continue;
+                
+                if (r & IOABS_TRY_WRITE) {
                     /* We can write data to this socket. */
                     ssize_t n;
                     n = connection_write(c);
-                    if (n == -1 && errno != EAGAIN) {
+                    if (n == IOABS_ERROR) {
                         /* Some sort of error occurred, and we should close the connection. */
-                        log_print(LOG_ERR, _("connections_post_select: connection_write: client %s: disconnected: %m"), c->idstr);
+                        log_print(LOG_ERR, _("connections_post_select: connection_write: client %s: disconnected: %s"), c->idstr, c->io->strerror(c));
                         c->closing = 1;
                     } else if (n > 0)
                         c->idlesince = time(NULL);
-                } else if (timeout_seconds && (time(NULL) > (c->idlesince + timeout_seconds))) {
+                }
+                
+                /* Handle connections which are to be timed out. */
+                if (timeout_seconds && (time(NULL) > (c->idlesince + timeout_seconds))) {
                     /* Connection has timed out. */
 #ifndef NO_SNIDE_COMMENTS
                     connection_sendresponse(c, 0, _("You can hang around all day if you like. I have better things to do."));
 #else
                     connection_sendresponse(c, 0, _("Client has been idle for too long."));
 #endif
-                    log_print(LOG_INFO, "net_loop: timed out client %s", c->idstr);
+                    log_print(LOG_INFO, _("net_loop: timed out client %s"), c->idstr);
                     c->closing = 1;
                 }
             }
