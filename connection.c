@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.10  2001/01/11 21:23:35  chris
+ * Minor changes.
+ *
  * Revision 1.9  2000/10/31 23:17:29  chris
  * More paranoia, and more fascist protocol checking.
  *
@@ -46,9 +49,8 @@ static const char rcsid[] = "$Id$";
 #include <time.h>
 #include <unistd.h>
 
-#include <arpa/inet.h>
-
 #include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -63,16 +65,19 @@ static const char rcsid[] = "$Id$";
 #define TIMESTAMP_LEN   32
 static char hex[] = "0123456789abcdef";
 
-static char *make_timestamp() {
+static char *make_timestamp(const char *domain) {
     int fd;
     unsigned char buffer[TIMESTAMP_LEN / 2], *q;
     struct utsname u;
     char *s, *p;
     size_t l;
 
-    if (uname(&u) == -1) return NULL;
+    if (!domain) {
+        if (uname(&u) == -1) return NULL;
+        domain = u.nodename;
+    }
 
-    s = (char*)malloc(l = 1 + TIMESTAMP_LEN + 1 + strlen(u.nodename) + 2);
+    s = (char*)malloc(l = 1 + TIMESTAMP_LEN + 1 + strlen(domain) + 2);
     if (!s) return NULL;
     memset(s, 0, l);
     *s = '<';
@@ -89,7 +94,7 @@ static char *make_timestamp() {
         *p++ = hex[((int)*q) & 0x0f];
     }
     strcat(s, "@");
-    strcat(s, u.nodename);
+    strcat(s, domain);
     strcat(s, ">");
 
     return s;
@@ -98,7 +103,7 @@ static char *make_timestamp() {
 /* connection_new:
  * Create a connection object from a socket.
  */
-connection connection_new(int s, const struct sockaddr_in *sin) {
+connection connection_new(int s, const struct sockaddr_in *sin, const char *domain) {
     connection c = 0;
     c = (connection)malloc(sizeof(struct _connection));
     if (!c) return NULL;
@@ -108,10 +113,12 @@ connection connection_new(int s, const struct sockaddr_in *sin) {
     c->s = s;
     memcpy(&(c->sin), sin, sizeof(struct sockaddr_in));
 
+    if (domain) c->domain = strdup(domain);
+
     c->p = c->buffer = (char*)malloc(c->bufferlen = MAX_POP3_LINE);
     if (!c->buffer) goto fail;
 
-    c->timestamp = make_timestamp();
+    c->timestamp = make_timestamp(c->domain);
     if (!c->timestamp) goto fail;
     
     c->state = authorisation;
@@ -138,6 +145,7 @@ void connection_delete(connection c) {
     if (c->a) authcontext_delete(c->a);
     if (c->m) mailspool_delete(c->m);
 
+    if (c->domain)    free(c->domain);
     if (c->buffer)    free(c->buffer);
     if (c->timestamp) free(c->timestamp);
     if (c->user)      free(c->user);

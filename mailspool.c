@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.11  2001/01/11 21:23:35  chris
+ * Minor changes.
+ *
  * Revision 1.10  2000/10/31 23:17:29  chris
  * More robust locking, with hitching posts.
  *
@@ -90,10 +93,10 @@ extern char *this_lockfile;
 int file_lock(const int fd, const char *name) {
     struct flock fl = {0};
     struct stat st2 = {0};
-    int fd2;
+    int fd2 = -1;
     int ret = 0, rc;
     size_t l;
-    char *lockfile = (char*)malloc(l = (strlen(name) + 6)), *hitchfile;
+    char *lockfile = (char*)malloc(l = (strlen(name) + 6)), *hitchfile = NULL;
     struct utsname uts;
 #ifdef CCLIENT_LOCKING
     char cclient_lockfile[64];
@@ -201,12 +204,14 @@ int file_lock(const int fd, const char *name) {
     ret = 1;
 
 fail:
-    if (lockfile) free(lockfile);
     if (hitchfile) free(hitchfile);
-    if (fl.l_type == F_UNLCK) fcntl(fd, F_SETLK, &fl);
+    if (!ret) {
+        if (lockfile) free(lockfile);
+        if (fl.l_type == F_UNLCK) fcntl(fd, F_SETLK, &fl);
 #ifdef FLOCK_LOCKING
-    flock(fd, LOCK_UN);
+        flock(fd, LOCK_UN);
 #endif /* FLOCK_LOCKING */
+    }
     if (fd2 != -1) close(fd2);
 
     return ret;
@@ -258,7 +263,7 @@ mailspool mailspool_new_from_file(const char *filename) {
     mailspool M;
     int i;
     struct timeval tv1, tv2;
-    double f;
+    float f;
     
     M = (mailspool)malloc(sizeof(struct _mailspool));
     if (!M) return NULL;
@@ -308,10 +313,8 @@ mailspool mailspool_new_from_file(const char *filename) {
     if (!M->index) goto fail;
 
     gettimeofday(&tv2, NULL);
-    f = (float)tv2.tv_sec + (1e-6 * tv2.tv_usec);
-    f -= (float)tv1.tv_sec + (1e-6 * tv1.tv_usec);
-
-    syslog(LOG_DEBUG, "mailspool_new_from_file: indexed mailspool %s (%d bytes) in %0.3lfs", filename, M->st.st_size, f);
+    f = (float)(tv2.tv_sec - tv1.tv_sec) + 1e-6 * (float)(tv2.tv_usec - tv1.tv_usec);
+    syslog(LOG_DEBUG, "mailspool_new_from_file: indexed mailspool %s (%d bytes) in %0.3fs", filename, (int)M->st.st_size, f);
     
     return M;
 

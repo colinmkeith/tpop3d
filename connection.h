@@ -6,6 +6,9 @@
  * $Id$
  *
  * $Log$
+ * Revision 1.6  2001/01/11 21:23:35  chris
+ * Minor changes.
+ *
  * Revision 1.5  2000/10/31 23:17:29  chris
  * Modified pop3_command structure to include vector of tokens.
  *
@@ -56,6 +59,7 @@ enum pop3_state {authorisation, transaction, update};
 typedef struct _connection {
     int s;                  /* connected socket                 */
     struct sockaddr_in sin; /* name of peer                     */
+    char *domain;           /* associated domain suffix         */
     char *buffer;           /* buffer from peer                 */
     char *p;                /* where we've got to in the buffer */
     size_t bufferlen;       /* size of buffer allocated         */
@@ -85,7 +89,7 @@ typedef struct _pop3command {
 } *pop3command;
 
 /* Create/destroy connections */
-connection   connection_new(const int s, const struct sockaddr_in *sin);
+connection   connection_new(const int s, const struct sockaddr_in *sin, const char *domain);
 void         connection_delete(connection c);
 
 /* Read data out of the socket into the buffer */

@@ -7,6 +7,9 @@
 .\" $Id$
 .\"
 .\" $Log$
+.\" Revision 1.2  2001/01/11 21:23:35  chris
+.\" Minor changes.
+.\"
 .\" Revision 1.1  2000/10/28 14:57:04  chris
 .\" Initial revision
 .\"
@@ -55,10 +58,14 @@ Presently-recognised configuration directives are:
 .SS Global options
 
 .TP
-\fBlisten-address\fP: (\fIhostname\fP | \fIIP number\fP)[:\fIport\fP] ...
+\fBlisten-address\fP: (\fIhostname\fP | \fIIP number\fP)[:\fIport\fP][(\fIdomain\fP) ...
 The ports and addresses on which the daemon should listen for incoming
 connections. If any \fIport\fP is not specified, it is assumed to be
-\fBpop-3\fP (110).
+\fBpop-3\fP (110). If \fIdomain\fP is not specified, it is assumed to be the
+section of the name associated with the given address after the first `.', or,
+if no such name can be established, the nodename of the system as determined
+by
+.BR uname (2).
 
 To listen for connections on any interface and the default port, the directive
 
@@ -70,6 +77,16 @@ is sufficient. There is no default for this option.
 \fBmax-children\fP: \fInumber\fP
 The maximum number of child processes which may be activelyserving connections
 at any given time. Consists of a single number.
+
+.TP
+\fBappend-domain\fP: (\fByes\fP|\fBtrue\fP)
+If authentication does not succeed for a given \fIusername\fP, retry with
+\fIusername\fP@\fIdomain\fP, where \fIdomain\fP is the domain name associated
+with the address on which the connection was received. This is intended to
+be used where multiple virtual domains are served from multiple IP addresses.
+This option only takes effect when \fIusername\fP does not contain a
+separator, which may be `@', `%' or `!'.
+
 
 .SS PAM authentication options
 
@@ -92,6 +109,28 @@ Sets the path where mailspools for PAM users are located. Defaults to
 The group name or gid under which access to the mailspool will take place. The
 default for this option is the primary group of the authenticated user, which
 will probably not work. You will normally want to set this to `mail'.
+
+
+.SS Passwd authentication options
+
+These are only available if you compiled tpop3d with \fBauth_passwd\fP support.
+
+.TP
+\fBauth-passwd-enable\fP: (\fByes\fP|\fBtrue\fP)
+Enable authentication using /etc/passwd (and /etc/shadow, if this option was
+selected at compile time).
+
+.TP
+\fBauth-passwd-mailspool-dir\fP: \fIpath\fP
+Sets the path where mailspools for Unix users are located. Defaults to
+\fB/var/spool/mail\fP.
+
+.TP
+\fBauth-passwd-mail-group\fP: (\fIgroup-name\fP | \fIgid\fP)
+The group name or gid under which access to the mailspool will take place. The
+default for this option is the primary group of the authenticated user, which
+will probably not work. You will normally want to set this to `mail'.
+
 
 .SS MySQL authentication options
 

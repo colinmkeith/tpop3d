@@ -6,6 +6,9 @@
  * $Id$
  *
  * $Log$
+ * Revision 1.3  2001/01/11 21:23:35  chris
+ * Minor changes.
+ *
  * Revision 1.2  2000/10/02 18:20:19  chris
  * Added config file support.
  *
@@ -18,10 +21,11 @@
 #ifndef __AUTH_PAM_H_ /* include guard */
 #define __AUTH_PAM_H_
 
+#ifdef AUTH_PAM
 #include "authswitch.h"
 
 /* config directive auth-pam-mailspool-dir */
-#define AUTH_PAM_MAILSPOOL_DIR  "/var/spool/mail"
+#define AUTH_PAM_MAILSPOOL_DIR  MAILSPOOL_DIR
 
 /* Config directive auth-pam-mail-group */
 #undef  AUTH_PAM_MAIL_GID
@@ -32,5 +36,7 @@
 int         auth_pam_init(void);
 authcontext auth_pam_new_user_pass(const char *user, const char *pass);
 void        auth_pam_close(void);
+
+#endif /* AUTH_PAM */
 
 #endif /* __AUTH_PAM_H_ */

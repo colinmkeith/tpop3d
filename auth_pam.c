@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.8  2001/01/11 21:22:45  chris
+ * Minor changes.
+ *
  * Revision 1.7  2000/10/31 23:17:29  chris
  * Added paranoia with snprintf.
  *
@@ -28,7 +31,10 @@
  *
  */
 
+#ifdef AUTH_PAM
 static const char rcsid[] = "$Id$";
+
+#include <sys/types.h> /* BSD needs this here, it seems. */
 
 #include <grp.h>
 #include <pwd.h>
@@ -38,8 +44,6 @@ static const char rcsid[] = "$Id$";
 #include <syslog.h>
 
 #include <security/pam_appl.h>
-
-#include <sys/types.h>
 
 #include "auth_pam.h"
 #include "authswitch.h"
@@ -86,13 +90,10 @@ authcontext auth_pam_new_user_pass(const char *user, const char *pass) {
     char *facility, *mailspool_dir;
     item *I;
     int use_gid = 0;
-    gid_t gid;
+    gid_t gid = 99;
 
     pw2 = getpwnam(user);
-    if (!pw2) {
-        syslog(LOG_ERR, "auth_pam_new_user_pass: getpwnam(%s): unknown user (%m)", user);
-        return NULL;
-    }
+    if (!pw2) return NULL;
     else memcpy(&pw, pw2, sizeof(pw));
 
     /* Obtain facility name. */
@@ -106,19 +107,19 @@ authcontext auth_pam_new_user_pass(const char *user, const char *pass) {
     else mailspool_dir = AUTH_PAM_MAILSPOOL_DIR;
 #else
     else {
-        syslog(LOG_ERR, "auth_pam_new_user_pass: no mailspool directory known about\n");
+        syslog(LOG_ERR, "auth_pam_new_user_pass: no mailspool directory known about");
         return NULL;
     }
 #endif
  
-    /* Obtain gid to use */
+    /* Obtain gid to use. */
     if ((I = stringmap_find(config, "auth-pam-mail-group"))) {
         gid = atoi((char*)I->v);
         if (!gid) {
             struct group *grp;
             grp = getgrnam((char*)I->v);
             if (!grp) {
-                syslog(LOG_ERR, "auth_pam_new_user_pass: auth-pam-mail-group directive `%s' does not make sense", I->v);
+                syslog(LOG_ERR, "auth_pam_new_user_pass: auth-pam-mail-group directive `%s' does not make sense", (char*)I->v);
                 return NULL;
             }
             gid = grp->gr_gid;
@@ -168,3 +169,5 @@ authcontext auth_pam_new_user_pass(const char *user, const char *pass) {
 
     return a;
 }
+
+#endif /* AUTH_PAM */

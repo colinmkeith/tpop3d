@@ -10,6 +10,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.8  2001/01/11 21:22:45  chris
+ * Minor changes.
+ *
  * Revision 1.7  2000/10/31 23:17:29  chris
  * Added paranoia with snprintf.
  *
@@ -36,6 +39,8 @@
 
 #ifdef AUTH_MYSQL
 static const char rcsid[] = "$Id$";
+
+#include <sys/types.h> /* BSD needs this here, apparently. */
 
 #include <grp.h>
 #include <pwd.h>
@@ -153,7 +158,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
             struct group *grp;
             grp = getgrnam((char*)I->v);
             if (!grp) {
-                syslog(LOG_ERR, "auth_mysql_new_apop: auth-mysql-mail-group directive `%s' does not make sense", I->v);
+                syslog(LOG_ERR, "auth_mysql_new_apop: auth-mysql-mail-group directive `%s' does not make sense", (char*)I->v);
                 return NULL;
             }
             gid = grp->gr_gid;
@@ -316,7 +321,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
             struct group *grp;
             grp = getgrnam((char*)I->v);
             if (!grp) {
-                syslog(LOG_ERR, "auth_mysql_new_user_pass: auth-mysql-mail-group directive `%s' does not make sense", I->v);
+                syslog(LOG_ERR, "auth_mysql_new_user_pass: auth-mysql-mail-group directive `%s' does not make sense", (char*)I->v);
                 return NULL;
             }
             gid = grp->gr_gid;

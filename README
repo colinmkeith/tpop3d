@@ -27,6 +27,30 @@ Usage instructions
 Have a look at the man page, tpop3d.8.
 
 
+Installation
+
+Read the makefile, and alter it as appropriate. You will probably want
+to review the authentication schemes available; at present, these are
+
+    auth_pam
+        Uses Pluggable Authentication Modules, with a configurable
+        facility name (by default, `tpop3d').
+
+        This is enabled in the distribution makefile.
+
+    auth_passwd
+        Uses /etc/passwd (and, by a compile time option, /etc/shadow)
+        to authenticate users.
+
+        Not enabled in the distribution makefile.
+
+    auth_mysql
+        Uses a MySQL database, allowing authentication of users in
+        virtual domains.
+
+        Not enabled in the distribution makefile.
+
+
 A note on developing new authentication schemes
 
 The authentication strategy in tpop3d is very simple; a number of
