@@ -114,7 +114,7 @@ SSL_CTX *tls_create_context(const char *certfile, const char *pkeyfile) {
 /* tls_close:
  * Shut down TLS stuff. */
 void tls_close(void) {
-    
+    SSL_CTX_free(ctx);
 }
 
 #endif /* USE_TLS */

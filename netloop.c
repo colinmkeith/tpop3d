@@ -106,7 +106,6 @@ static void listeners_pre_select(int *n, fd_set *readfds, fd_set *writefds, fd_s
 /* listeners_post_select:
  * Called after the main select(2) to allow listening sockets to sort
  * themselves out. */
-
 static void listeners_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
     item *t;
     vector_iterate(listeners, t) {
@@ -187,16 +186,11 @@ static int fork_child(connection c) {
     pid_t ch;
     int childwait, pp[2];
 
-    /* We block SIGCHLD and SIGHUP during this function so as to avoid race
-     * conditions involving a child which exits immediately. */
-    sigemptyset(&chmask);
-    sigaddset(&chmask, SIGCHLD);
-    sigprocmask(SIG_BLOCK, &chmask, NULL);
-
     /* Waiting for ONLOGIN handlers to complete is done using a pipe (when
      * the only tool you have is a hammer...). The parent writes a byte to
      * the pipe when the ONLOGIN handler is finished, and the child blocks
-     * reading from the pipe. */
+     * reading from the pipe. NB do this before messing with the signal
+     * mask. */
     if ((childwait = config_get_bool("onlogin-child-wait"))) {
         if (pipe(pp) == -1) {
             log_print(LOG_ERR, "fork_child: pipe: %m");
@@ -205,12 +199,20 @@ static int fork_child(connection c) {
         }
         /* pp[0] is for reading, pp[1] is for writing */
     }
+    
+    /* We block SIGCHLD and SIGHUP during this function so as to avoid race
+     * conditions involving a child which exits immediately. */
+    sigemptyset(&chmask);
+    sigaddset(&chmask, SIGCHLD);
+    sigprocmask(SIG_BLOCK, &chmask, NULL);
 
     post_fork = 1; /* This is right. See below. */
+    
 #ifdef MTRACE_DEBUGGING
     muntrace(); /* Memory debugging on glibc systems. */
 #endif /* MTRACE_DEBUGGING */
-    switch((ch = fork())) {
+
+    switch ((ch = fork())) {
         case 0:
             /* Child. Dispose of listeners and connections other than this
              * one. */
@@ -261,7 +263,7 @@ static int fork_child(connection c) {
                 }
                 close(pp[0]);
             }
-fprintf(stderr, "completed wait\n");
+
             /* Get in to the `transaction' state, opening the mailbox. */
             this_child_connection = c;
             if (connection_start_transaction(c)) {
@@ -290,7 +292,10 @@ fprintf(stderr, "completed wait\n");
             break;
 
         case -1:
-            /* Error. */
+            /* Error. Note that this is, therefore, still the parent process,
+             * and we must set post_fork appropriately.... */
+            post_fork = 0;
+            sigprocmask(SIG_UNBLOCK, &chmask, NULL);
             log_print(LOG_ERR, "fork_child: fork: %m");
             connection_sendresponse(c, 0, _("Everything was fine until now, but suddenly I realise I just can't go on. Sorry."));
             return 0;
@@ -385,7 +390,7 @@ static void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *e
                             if (!fork_child(c))
                                 c->do_shutdown = 1;
                             /* If this is the parent process, c has now been destroyed. */
-                            if (!post_fork)
+                            else if (!post_fork)
                                 c = NULL;
                         }
                         break;
