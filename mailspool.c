@@ -244,6 +244,13 @@ static unsigned char *memstr(const unsigned char *haystack, const size_t hlen,
     return NULL;
 }
 
+/* getmaplength LENGTH
+ * Return a multiple of the system page size which is equal to or larger than
+ * LENGTH, to be used as a parameter to mmap(2). */
+static size_t getmaplength(const size_t len) {
+    return ((len + PAGESIZE - 1) / PAGESIZE) * PAGESIZE;
+}
+
 /* mailspool_build_index MAILBOX MEMORY
  * Build an index of a mailspool in MAILBOX. Uses mmap(2) for speed; if MEMORY
  * is non-NULL, it is assumed to point to a mapped region on the mailspool
@@ -251,17 +258,18 @@ static unsigned char *memstr(const unsigned char *haystack, const size_t hlen,
  * success or -1 on failure. */
 int mailspool_build_index(mailbox M, char *filemem) {
     char *p, *q;
-    size_t filelen, mappedlen;
+    size_t filelen, mappedlen = 0;
     int first = 0;
 
     if (!M || M->fd == -1) return -1;
 
-    filelen = mappedlen = M->st.st_size;
+    filelen = M->st.st_size;
 
     if (filelen < 16)
         goto end;
 
-    mappedlen += PAGESIZE - (mappedlen % PAGESIZE);
+    mappedlen = getmaplength(filelen);
+
     if (!filemem) {
         if (MAP_FAILED == (filemem = mmap(0, mappedlen, PROT_READ, MAP_PRIVATE, M->fd, 0))) {
             log_print(LOG_ERR, "mailspool_build_index(%s): mmap: %m", M->name);
@@ -429,8 +437,7 @@ int mailspool_apply_changes(mailbox M) {
     }
 
     /* We need to do something more complicated, so map the mailspool. */
-    len = M->st.st_size;
-    len += PAGESIZE - (len % PAGESIZE);
+    len = getmaplength(M->st.st_size);
     filemem = mmap(0, len, PROT_WRITE | PROT_READ, MAP_SHARED, M->fd, 0);
     if (filemem == MAP_FAILED) {
         log_print(LOG_ERR, "mailspool_apply_changes(%s): mmap: %m", M->name);
@@ -712,13 +719,9 @@ int mailspool_load_index(mailbox m) {
 
     /* Should now get a bunch of offset/hash lines. Stuff these into the
      * mailbox object. Also mmap the real mailspool so we can check these. */
-    mappedlen = m->st.st_size;
-
-    if (mappedlen < 16) goto fail;
-
-    mappedlen += PAGESIZE - (mappedlen % PAGESIZE);
-    filemem = mmap(0, mappedlen, PROT_READ, MAP_PRIVATE, m->fd, 0);
-    if (filemem == MAP_FAILED) {
+    if (m->st.st_size < 16) goto fail;
+    mappedlen = getmaplength(m->st.st_size);
+    if (MAP_FAILED == (filemem = mmap(0, mappedlen, PROT_READ, MAP_PRIVATE, m->fd, 0))) {
         log_print(LOG_ERR, "mailspool_load_index(%s): mmap: %m", m->name);
         goto fail;
     }
