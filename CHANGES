@@ -52,6 +52,10 @@ sequenced in this way.) This makes it possible to use the onlogin handler to
 implement POP3 server `bulletins' -- that is, messages which are delivered to
 any user who logs in to the POP3 server.
 
+Fixed a nasty bug in the mailspool reading code which could occur when a
+mailspool was a multiple of PAGESIZE bytes long. Many thanks to Paul Makepeace
+for identifying this problem.
+
 1.4.2
 
 tpop3d now accepts passwords containing spaces. auth-pam now passes the client

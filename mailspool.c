@@ -60,8 +60,9 @@ int mailspool_save_index(mailbox m);
 int mailspool_load_index(mailbox m);
 #endif /* MBOX_BSD_SAVE_INDICES */
 
-/* file_unlock:
- * Unlock a mailspool file. Returns 1 on success or 0 on failure. */
+/* file_unlock FD FILENAME
+ * Unlock a mailspool file using the open FD and given FILENAME. Returns 1 on
+ * success or 0 on failure. */
 int file_unlock(const int fd, const char *name) {
     int r = 1;
  #ifdef WITH_FCNTL_LOCKING
@@ -79,10 +80,10 @@ int file_unlock(const int fd, const char *name) {
     return r;
 }
 
-/* file_lock:
- * Lock a mailspool file. Returns 1 on success or 0 on failure. This uses
- * whatever locking strategies the user has selected with compile-time
- * definitions. */
+/* file_lock FD FILENAME
+ * Lock a mailspool file using the open FD and given FILENAME. Returns 1 on
+ * success or 0 on failure. This uses whatever locking strategies the user has
+ * selected with compile-time definitions. */
 int file_lock(const int fd, const char *name) {
     int l_fcntl, l_flock, l_dotfile;
     l_fcntl = l_flock = l_dotfile = 0;
@@ -119,8 +120,9 @@ fail:
     return 0;
 }
 
-/* mailspool_make_indexpoint:
- * Make an indexpoint. */
+/* mailspool_make_indexpoint INDEXPOINT OFFSET LENGTH MESSAGELENGTH HASH
+ * Save in INDEXPOINT the OFFSET, header LENGTH, MESSAGELENGTH and 16-byte
+ * HASH of a message. */
 void mailspool_make_indexpoint(struct indexpoint *x, const size_t offset, const size_t length, const size_t msglength, const unsigned char *hash) {
     memset(x, 0, sizeof(struct indexpoint));
 
@@ -130,8 +132,8 @@ void mailspool_make_indexpoint(struct indexpoint *x, const size_t offset, const 
     if (hash) memcpy(x->hash, hash, 16);
 }
 
-/* mailspool_new_from_file:
- * Open a file, lock it, and form an index of the messages in it. */
+/* mailspool_new_from_file FILENAME
+ * Open FILENAME, lock it, and form an index of the messages in it. */
 mailbox mailspool_new_from_file(const char *filename) {
     mailbox M, failM = NULL;
     int i;
@@ -208,7 +210,7 @@ fail:
     return failM;
 }
 
-/* mailspool_delete:
+/* mailspool_delete MAILBOX
  * Deletion specific to mailspools. */
 void mailspool_delete(mailbox m) {
     if (!m) return;
@@ -218,9 +220,9 @@ void mailspool_delete(mailbox m) {
     mailbox_delete(m);
 }
 
-/* memstr:
- * Locate needle, of length n_len, in haystack, of length h_len, returning
- * NULL if it is not found. Uses the Boyer-Moore search algorithm. Cf.
+/* memstr HAYSTACK HLEN NEEDLE NLEN
+ * Locate NEEDLE, of length NLEN, in HAYSTACK, of length HLEN, returning NULL
+ * if it is not found. Uses the Boyer-Moore search algorithm. Cf.
  *  http://www-igm.univ-mlv.fr/~lecroq/string/node14.html */
 static unsigned char *memstr(const unsigned char *haystack, const size_t hlen,
                              const unsigned char *needle, const size_t nlen) {
@@ -242,10 +244,11 @@ static unsigned char *memstr(const unsigned char *haystack, const size_t hlen,
     return NULL;
 }
 
-/* mailspool_build_index:
- * Build an index of a mailspool. Uses mmap(2) for speed. Assumes that
- * mailspools use only '\n' to indicate EOL. Returns 0 on success or -1 on
- * failure. */
+/* mailspool_build_index MAILBOX MEMORY
+ * Build an index of a mailspool in MAILBOX. Uses mmap(2) for speed; if MEMORY
+ * is non-NULL, it is assumed to point to a mapped region on the mailspool
+ * file. Assumes that mailspools use only '\n' to indicate EOL. Returns 0 on
+ * success or -1 on failure. */
 int mailspool_build_index(mailbox M, char *filemem) {
     char *p, *q;
     size_t filelen, mappedlen;
@@ -341,7 +344,7 @@ end:
     return 0;
 }
 
-/* mailspool_sendmessage:
+/* mailspool_sendmessage MAILBOX CONNECTION I NLINES
  * Front-end to connection_sendmessage in util.c. */
 int mailspool_sendmessage(const mailbox M, connection c, const int i, int n) {
     struct indexpoint *x;
@@ -359,7 +362,7 @@ int mailspool_sendmessage(const mailbox M, connection c, const int i, int n) {
     return connection_sendmessage(c, M->fd, x->offset, x->length + 1, x->msglength, n);
 }
 
-/* mailspool_apply_changes:
+/* mailspool_apply_changes MAILBOX
  * Apply deletions to a mailspool by mapping it and copying it in blocks.
  * Returns 1 on success or 0 on failure.
  *
@@ -512,7 +515,7 @@ int mailspool_apply_changes(mailbox M) {
  * the world among the giant redwoods, collapsing suspension bridges, and
  * 1970s software empires. */
 
-/* mailspool_find_index:
+/* mailspool_find_index MAILBOX
  * Find the name of a mailspool's index file, using the spec in the config
  * file. */
 extern stringmap config;
@@ -580,7 +583,7 @@ char index_signature[] =
 "# server. If you delete this file, it will be automatically recreated by\n"
 "# tpop3d. So don't do that.\n";
 
-/* mailbox_save_index:
+/* mailbox_save_index MAILBOX
  * Save an index of a mailspool. Returns 1 on success or 0 on failure. Uses
  * stdio, which is unfortunate but makes it a bit easier to write. The
  * mailspool must be locked when this is called. Makes some attempt to avoid
@@ -658,7 +661,7 @@ fail:
     return ret;
 }
 
-/* mailspool_load_index:
+/* mailspool_load_index MAILBOX
  * Attempts to construct a mailspool index from a saved index file, if one
  * exists and is of the correct format. We may find that we need to re-parse
  * the tail of the file; this is done by calling into the `normal'
