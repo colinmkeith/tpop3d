@@ -45,6 +45,23 @@ LDLIBS += -lpam -ldl
 #CFLAGS += -D_REENTRANT     # Solaris
 #LDLIBS += -lnsl -lsocket   # Solaris
 
+# If you want to be able to authenticate users in virtual domains against a
+# MySQL database, switch these on. This uses the vmail-sql authentication
+# schema (see http://www.ex-parrot.com/~chris/vmail-sql), but could easily
+# be adapted to use another. For an example, apply mysql_crypt.patch, which
+# modifies auth_mysql to use passwords hashed with crypt(3) rather than MD5.
+#MYSQLROOT = /software
+#CFLAGS   += -DAUTH_MYSQL -I$(MYSQLROOT)/include/mysql
+#LDFLAGS  += -L$(MYSQLROOT)/lib/mysql
+#LDLIBS   += -lmysqlclient
+
+# Some people may find that users whose POP3 clients report errors from the
+# server verbatim complain at the wording of some server responses. If you are
+# in this position, you can uncomment the following line (not recommended; in
+# my view, this is a technical solution to a social problem, and anyway users
+# should get used to their computers being rude to them).
+#CFLAGS += -DNO_SNIDE_COMMENTS
+
 # Locking:
 # tpop3d supports a number of ways to lock mailspools as compile-time options.
 #
@@ -70,7 +87,9 @@ LDLIBS += -lpam -ldl
 # In addition, tpop3d can steal locks from PINE and other cooperating
 # programs which are based on the C-Client library from Washington University.
 # Internally, the C-Client library may use (normally) flock(2) or (on some
-# systems) fcntl(2).
+# systems) fcntl(2). tpop3d does not establish C-Client locks itself. If this
+# is confusing, read the C-Client source; however, I do not guarantee that
+# this will enlighten you.
 #
 # It is, unfortunately, not safe simply to turn everything on and hope for the
 # best. Some systems, such as modern BSDs, implement flock and fcntl using
@@ -113,12 +132,6 @@ CFLAGS += -DIGNORE_CCLIENT_METADATA
 # For Electric Fence malloc(3) debugging, uncomment the following two lines:
 #LDFLAGS += -umalloc -ufree -ucalloc -urealloc
 #LDLIBS  += -lefence
-
-# For vmail-sql MySQL support, uncomment the following
-#MYSQLROOT = /software
-#CFLAGS   += -DAUTH_MYSQL -I$(MYSQLROOT)/include/mysql
-#LDFLAGS  += -L$(MYSQLROOT)/lib/mysql
-#LDLIBS   += -lmysqlclient
 
 TXTS =  README          \
 	PORTABILITY     \
