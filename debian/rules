@@ -16,7 +16,7 @@ configure: configure-stamp
 configure-stamp:
 	dh_testdir
 	# Add here commands to configure the package.
-	./configure --prefix=/usr --disable-flock-locking --enable-fcntl-locking --enable-dotfile-locking --enable-cclient-locking --enable-backtrace --enable-ignore-cclient-metadata --enable-auth-pam --disable-electric-fence --disable-snide-comments
+	./configure --prefix=/usr --disable-flock-locking --enable-fcntl-locking --enable-dotfile-locking --enable-cclient-locking --enable-backtrace --enable-ignore-cclient-metadata --enable-auth-pam --disable-auth-perl --disable-electric-fence --disable-snide-comments
 
 	touch configure-stamp
 

@@ -14,6 +14,8 @@ static const char rcsid[] = "$Id$";
 #include "configuration.h"
 #endif /* HAVE_CONFIG_H */
 
+#ifdef AUTH_PERL
+
 #include <sys/types.h>
 
 #include <pwd.h>
@@ -331,3 +333,4 @@ fail:
 #undef INVALID
 }
 
+#endif
