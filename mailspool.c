@@ -63,6 +63,7 @@ static const char rcsid[] = "$Id$";
 extern char *this_lockfile;
 
 int file_lock(const int fd, const char *name) {
+    char pidstr[16];
     struct flock fl = {0};
     struct stat st2 = {0};
     int fd2 = -1;
@@ -92,7 +93,10 @@ int file_lock(const int fd, const char *name) {
     snprintf(hitchfile, l, "%s.%ld.%ld.%s", name, (long)getpid(), (long)time(NULL), uts.nodename);
 
     /* Try to fcntl-lock the file. */
-    if (fcntl(fd, F_SETLK, &fl) == -1) goto fail;
+    if (fcntl(fd, F_SETLK, &fl) == -1) {
+        print_log(LOG_ERR, "file_locK(%s): fcntl(F_SETLK): %m", name);
+        goto fail;
+    }
 
     /* Now change the flock structure so that a call to fcntl will unlock the
      * file.
@@ -101,7 +105,10 @@ int file_lock(const int fd, const char *name) {
 
 #ifdef FLOCK_LOCKING
     /* Attempt to flock the file. */
-    if (flock(fd, LOCK_EX | LOCK_NB) == -1) goto fail;
+    if (flock(fd, LOCK_EX | LOCK_NB) == -1) {
+        print_log(LOG_ERR, "file_locK(%s): flock(LOCK_EX): %m", name);
+        goto fail;
+    }
 #endif /* FLOCK_LOCKING */
 
 #ifdef CCLIENT_LOCKING
@@ -155,6 +162,13 @@ int file_lock(const int fd, const char *name) {
     fd2 = open(hitchfile, O_EXCL|O_CREAT|O_WRONLY, 0440);
     if (fd2 == -1) {
         print_log(LOG_ERR, "file_lock(%s): unable to create hitching post: %m", name);
+        goto fail;
+    }
+
+    /* Now, write our process ID into the lockfile. */
+    sprintf(pidstr, "%d\n", (int)getpid());
+    if (xwrite(fd, pidstr, strlen(pidstr)) != strlen(pidstr)) {
+        print_log(LOG_ERR, "file_lock(%s): failed to write PID to hitching post: %m", name);
         goto fail;
     }
 

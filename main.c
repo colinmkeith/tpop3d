@@ -373,6 +373,7 @@ void net_loop(vector listen_addrs) {
                                     if (!c->a->uid) {
                                         print_log(LOG_ERR, "net_loop: client %s: authentication context has UID of 0", c->idstr);
                                         connection_sendresponse(c, 0, "Everything's really bad");
+                                        connection_delete(c);
                                         exit(0);
                                     }
 
@@ -380,10 +381,12 @@ void net_loop(vector listen_addrs) {
                                     if (setgid(c->a->gid) == -1) {
                                         print_log(LOG_ERR, "net_loop: setgid(%d): %m", c->a->gid);
                                         connection_sendresponse(c, 0, "Everything was fine until now, but suddenly I realise I just can't go on. Sorry.");
+                                        connection_delete(c);
                                         exit(0);
                                     } else if (setuid(c->a->uid) == -1) {
                                         print_log(LOG_ERR, "net_loop: setuid(%d): %m", c->a->uid);
                                         connection_sendresponse(c, 0, "Everything was fine until now, but suddenly I realise I just can't go on. Sorry.");
+                                        connection_delete(c);
                                         exit(0);
                                     }
 
@@ -396,6 +399,7 @@ void net_loop(vector listen_addrs) {
                                         connection_sendresponse(c, 0,
                                                 errno == EAGAIN ? "Mailspool locked; do you have another concurrent session?"
                                                                 : "Oops. Something went wrong.");
+                                        connection_delete(c);
                                         exit(0);
                                     }
 
@@ -477,8 +481,21 @@ void child_signal_handler(const int i) {
  * Set the relevant signals to be ignored/handled.
  */
 void set_signals() {
-    int ignore_signals[] = {SIGPIPE, SIGHUP, SIGALRM, SIGUSR1, SIGUSR2, SIGIO, SIGLOCK, 0};
-    int die_signals[] = {SIGINT, SIGTERM, SIGQUIT, SIGABRT, SIGSEGV, SIGBUS, SIGFPE, 0};
+    int ignore_signals[] = {SIGPIPE, SIGHUP, SIGALRM, SIGUSR1, SIGUSR2, SIGFPE,
+#ifdef SIGIO        
+        SIGIO,
+#endif
+#ifdef SIGVTALRM
+        SIGVTALRM,
+#endif
+#ifdef SIGLOST
+        SIGLOST,
+#endif
+#ifdef SIGPWR
+        SIGPWR,
+#endif
+        0};
+    int die_signals[] = {SIGINT, SIGTERM, SIGQUIT, SIGABRT, SIGSEGV, SIGBUS, 0};
     int *i;
     struct sigaction sa;
 
