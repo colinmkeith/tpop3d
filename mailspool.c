@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.2  2000/09/27 23:57:15  chris
+ * Various changes.
+ *
  * Revision 1.1  2000/09/26 22:23:36  chris
  * Initial revision
  *
@@ -22,6 +25,7 @@ static const char rcsid[] = "$Id$";
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "connection.h"
 #include "mailspool.h"
 #include "md5.h"
 
@@ -114,7 +118,8 @@ static char *memstr(const char *haystack, size_t h_len, const char *needle, size
 }
 
 /* mailspool_build_index:
- * Build an index of a mailspool. Uses mmap(2) for speed.
+ * Build an index of a mailspool. Uses mmap(2) for speed. Assumes that
+ * mailspools use only '\n' to indicate EOL.
  */
 #define PAGESIZE        getpagesize()
 #define NUMPAGES	8
@@ -225,3 +230,92 @@ indexpoint indexpoint_new(const size_t offset, const size_t length, const size_t
 
     return x;
 }
+
+/* mailspool_send_message:
+ * Send the header and n lines of the body of message number i from the
+ * mailspool, escaping lines which begin . as required by RFC1939. Returns 1
+ * on success or 0 on failure. The whole message is sent if n == -1.
+ *
+ * Assumes that mailspools use only '\n' to indicate EOL.
+ */
+int mailspool_send_message(const mailspool M, int sck, const int i, int n) {
+    char *filemem;
+    size_t offset, length;
+    indexpoint x;
+    char *p, *q, *r;
+    int A;
+    
+    if (!M) return 0;
+    if (i < 0 || i >= M->index->n_used) return 0;
+    x = (indexpoint)M->index->ary[i].v;
+
+    offset = x->offset - (x->offset % PAGESIZE);
+    length = (x->offset + x->msglength + PAGESIZE) ;
+    length -= length % PAGESIZE;
+
+    filemem = mmap(0, length, PROT_READ, MAP_PRIVATE, M->fd, offset);
+    if (filemem == MAP_FAILED) {
+        syslog(LOG_ERR, "mailspool_send_message: mmap: %m");
+        return 0;
+    }
+
+    /* Find the beginning of the message headers */
+    p = filemem + (x->offset % PAGESIZE);
+    r = p + x->msglength;
+    p += x->length + 1;
+
+    /* Send the message headers */
+    do {
+        q = memchr(p, '\n', r - p);
+        if (!q) q = r;
+        errno = 0;
+        if ((*p == '.' && write(sck, ".", 1) != 1) || write(sck, p, q - p) != (q - p) || write(sck, "\r\n", 2) != 2) {
+            syslog(LOG_ERR, "mailspool_send_message: write: %m");
+            munmap(filemem, length);
+            return 0;
+        }
+        p = q + 1;
+    } while (*p != '\n');
+    ++p;
+
+    errno = 0;
+    if (write(sck, "\r\n", 2) != 2) {
+        syslog(LOG_ERR, "mailspool_send_message: write: %m");
+        munmap(filemem, length);
+        return 0;
+    }
+
+    /* Now send the message itself */
+    while (p < r && n) {
+        if (n > 0) --n;
+
+        q = memchr(p, '\n', r - p);
+        if (!q) q = r;
+        errno = 0;
+        if ((*p == '.' && write(sck, ".", 1) != 1) || write(sck, p, q - p) != (q - p) || write(sck, "\r\n", 2) != 2) {
+            syslog(LOG_ERR, "mailspool_send_message: write: %m");
+            munmap(filemem, length);
+            return 0;
+        }
+        p = q + 1;
+    }
+
+    if (munmap(filemem, length) == -1)
+        syslog(LOG_ERR, "mailspool_send_message: munmap: %m");
+    errno = 0;
+    if ((A = write(sck, ".\r\n", 3)) != 3) {
+        syslog(LOG_ERR, "mailspool_send_message: write: %d %m", A);
+        return 0;
+    } else return 1;
+}
+
+/* mailspool_apply_changes:
+ * Apply a set of changes to a mailspool, by copying the relevant sections
+ * into a temporary file in the mail spool directory, unlinking the existing
+ * file and then moving the temporary file onto the old file name. Returns 1
+ * on success or 0 on failure.
+ */
+int mailspool_apply_changes(mailspool m) {
+
+}
+
