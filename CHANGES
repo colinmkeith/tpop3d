@@ -13,7 +13,9 @@ SO_SNDBUF socket parameter. Fixed a couple of memory leaks; thanks to Richard
 Fuchs and Daniel Tiefnig from Inode for identifying those and supplying a
 patch. The same authors also supplied code to enable recursion into subfolders
 of a maildir mailbox (maildir-recursion config option). Added support for SHA1
-passwords, and fixed a bug in the MD5 base64 password code.
+passwords, and fixed a bug in the MD5 base64 password code. By default, commit
+changes on close-after-QUIT (`Microsoft Outlook bug' workaround), with an
+option to restore the previous, correct, behaviour.
 
 1.5.3
 
