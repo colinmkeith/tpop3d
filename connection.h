@@ -40,6 +40,8 @@ enum pop3_state {authorisation, transaction, update};
 typedef struct _connection {
     int s;                  /* connected socket                 */
     struct sockaddr_in sin; /* name of peer                     */
+    char *idstr;            /* some identifying information     */
+    
     char *domain;           /* associated domain suffix         */
     char *buffer;           /* buffer from peer                 */
     char *p;                /* where we've got to in the buffer */

@@ -6,17 +6,6 @@
 .\"
 .\" $Id$
 .\"
-.\" $Log$
-.\" Revision 1.3  2001/01/13 02:51:14  chris
-.\" *** empty log message ***
-.\"
-.\" Revision 1.2  2001/01/11 21:23:35  chris
-.\" Minor changes.
-.\"
-.\" Revision 1.1  2000/10/28 14:57:04  chris
-.\" Initial revision
-.\"
-.\"
 .SH NAME
 tpop3d \- small, fast, extensible POP3 server
 .SH SYNOPSIS
@@ -43,13 +32,23 @@ using facility \fBmail\fP.
 .SS OPTIONS
 
 .TP
-.B -d
-do not fork to become a daemon, but stay attached to a controlling terminal
-and print log messages to standard error as well as the syslog
+.B -h
+Print a brief usage summary.
 
 .TP
 .BI -f\  file
-read configuration from \fIfile\fP, instead of from \fB/etc/tpop3d\fP.
+Read configuration from \fIfile\fP, instead of from \fB/etc/tpop3d\fP.
+
+.TP
+.B -d
+Do not fork to become a daemon, but stay attached to a controlling terminal
+and print log messages to standard error as well as the syslog
+
+.TP
+.B -v
+Log traffic being sent to/from the server, for debugging purposes; tpop3d will
+log commands and responses sent, but not passwords or the actual content of
+messages.
 
 .SH CONFIGURATION FILE
 

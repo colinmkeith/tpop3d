@@ -40,6 +40,9 @@ static const char rcsid[] = "$Id$";
  */
 #define MAX_DATA_IN_FLIGHT      8192
 
+/* Should we be verbose about data going to/from the client? */
+int verbose;
+
 #ifdef __SVR4
 /* inet_aton:
  * Implementation of inet_aton for machines (Solaris [cough]) which do not
@@ -280,7 +283,7 @@ void net_loop(vector listen_addrs) {
                         } else {
                             connection c = connection_new(s, &sin, L->domain);
                             if (c) list_push_back(connections, item_ptr(c));
-                            print_log(LOG_INFO, "net_loop: connection from %s", inet_ntoa(sin.sin_addr));
+                            print_log(LOG_INFO, "net_loop: client %s: connected", c->idstr);
                         }
                     }
                 }
@@ -294,7 +297,7 @@ void net_loop(vector listen_addrs) {
                     n = connection_read(c);
                     if (n == 0) {
                         /* Peer closed the connection */
-                        print_log(LOG_INFO, "net_loop: connection_read: peer %s closed connection", inet_ntoa(c->sin.sin_addr));
+                        print_log(LOG_INFO, "net_loop: connection_read: client %s: closed connection", c->idstr);
                         connection_delete(c);
                         I = list_remove(connections, I);
                         if (post_fork) exit(0);
@@ -303,7 +306,7 @@ void net_loop(vector listen_addrs) {
                         /* Some sort of error occurred, and we should close
                          * the connection.
                          */
-                        print_log(LOG_ERR, "net_loop: connection_read: closed connection to %s: %m", inet_ntoa(c->sin.sin_addr));
+                        print_log(LOG_ERR, "net_loop: connection_read: client %s: disconnected: %m", c->idstr);
                         connection_delete(c);
                         I = list_remove(connections, I);
                         if (post_fork) exit(0);
@@ -325,7 +328,7 @@ void net_loop(vector listen_addrs) {
                             case fork_and_setuid:
                                 if (num_running_children >= max_running_children) {
                                     connection_sendresponse(c, 0, "Sorry, I'm too busy right now");
-                                    print_log(LOG_INFO, "net_loop: rejected login by %s owing to high load", c->a->credential);
+                                    print_log(LOG_INFO, "net_loop: client %s: rejected login owing to high load", c->idstr);
                                     connection_delete(c);
                                     I = list_remove(connections, I);
                                     c = NULL;
@@ -350,7 +353,7 @@ void net_loop(vector listen_addrs) {
 
                                     /* We never access mailspools as root. */
                                     if (!c->a->uid) {
-                                        print_log(LOG_ERR, "net_loop: authentication context has UID of 0");
+                                        print_log(LOG_ERR, "net_loop: client %s: authentication context has UID of 0", c->idstr);
                                         connection_sendresponse(c, 0, "Everything's really bad");
                                         exit(0);
                                     }
@@ -414,7 +417,7 @@ void net_loop(vector listen_addrs) {
                 } else if (time(NULL) > (((connection)(I->d.v))->lastcmd + IDLE_TIMEOUT)) {
                     /* Connection has timed out. */
                     connection_sendresponse((connection)(I->d.v), 0, "You can hang around all day if you like. I have better things to do.");
-                    print_log(LOG_INFO, "net_loop: timed out connection from %s", inet_ntoa(((connection)I->d.v)->sin.sin_addr));
+                    print_log(LOG_INFO, "net_loop: timed out client %s", ((connection)I->d.v)->idstr);
                     connection_delete((connection)(I->d.v));
                     if (post_fork) exit(0);
                     I = list_remove(connections, I);
@@ -483,16 +486,17 @@ void set_signals() {
  * Print usage information.
  */
 void usage(FILE *fp) {
-    fprintf(fp, "\n"
+    fprintf(fp, "tpop3d, version " TPOP3D_VERSION "\n"
+                "\n"
                 "tpop3d [options]\n"
                 "\n"
                 "  -h       display this message\n"
                 "  -f file  read configuration from file\n"
                 "  -d       do not detach from controlling terminal\n"
+                "  -v       log traffic to/from server for debugging purposes\n"
                 "\n"
                 "tpop3d, copyright (c) 2000-2001 Chris Lightfoot <chris@ex-parrot.com>\n"
-                "  http://www.ex-parrot.com/~chris/tpop3d/\n"
-                "This is tpop3d version " TPOP3D_VERSION "\n"
+                "home page: http://www.ex-parrot.com/~chris/tpop3d/\n"
                 "\n"
                 "This program is free software; you can redistribute it and/or modify\n"
                 "it under the terms of the GNU General Public License as published by\n"
@@ -531,6 +535,10 @@ int main(int argc, char **argv) {
                 case 'f':
                     ++p;
                     configfile = *p;
+                    break;
+
+                case 'v':
+                    verbose = 1;
                     break;
 
                 default:
