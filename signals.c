@@ -14,7 +14,6 @@ static const char rcsid[] = "$Id$";
 
 #include <errno.h>
 #include <signal.h>
-#include <string.h>
 #include <syslog.h>
 
 #include <sys/wait.h>
@@ -68,28 +67,28 @@ void set_signals() {
     int restart_signals[]   = {SIGHUP, 0};
     int die_signals[]       = {SIGQUIT, SIGABRT, SIGSEGV, SIGBUS, 0};
     int *i;
-    struct sigaction sa;
+    struct sigaction sa, saz = {0};
 
     for (i = ignore_signals; *i; ++i) {
-        memset(&sa, 0, sizeof(sa));
+        sa = saz;
         sa.sa_handler = SIG_IGN;
         sigaction(*i, &sa, NULL);
     }
 
     for (i = terminate_signals; *i; ++i) {
-        memset(&sa, 0, sizeof(sa));
+        sa = saz;
         sa.sa_handler = terminate_signal_handler;
         sigaction(*i, &sa, NULL);
     }
     
     for (i = restart_signals; *i; ++i) {
-        memset(&sa, 0, sizeof(sa));
+        sa = saz;
         sa.sa_handler = restart_signal_handler;
         sigaction(*i, &sa, NULL);
     }
 
     for (i = die_signals; *i; ++i) {
-        memset(&sa, 0, sizeof(sa));
+        sa = saz;
         sa.sa_handler = die_signal_handler;
         sigaction(*i, &sa, NULL);
     }

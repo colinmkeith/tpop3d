@@ -34,7 +34,7 @@ static const char rcsid[] = "$Id$";
  * Information relating to the LDAP server and queries against same. */
 static struct {
     char *hostname;
-    short port;
+    int port;
     char *dn, *searchdn, *password;
     uid_t uid;
     gid_t gid;
@@ -132,7 +132,7 @@ int auth_ldap_init(void) {
     ldap_free_urldesc(urldesc);
 
     if (verbose)
-        log_print(LOG_DEBUG, _("auth_ldap_init: using DN %s on %s:%d"), ldapinfo.dn, ldapinfo.hostname, ldapinfo.port);
+        log_print(LOG_DEBUG, _("auth_ldap_init: using DN %s on %s:%d"), ldapinfo.dn ? ldapinfo.dn : "n/a", ldapinfo.hostname, ldapinfo.port);
 
     /* Obtain search DN and password used to connect to the server. */
     if (!(ldapinfo.searchdn = config_get_string("auth-ldap-searchdn"))) {
@@ -249,7 +249,7 @@ authcontext auth_ldap_new_user_pass(const char *username, const char *local_part
             log_print(LOG_ERR, "auth_ldap_new_user_pass: ldap_simple_bind_s: %s", ldap_err2string(ret));
             ldap_unbind(ldapinfo.ldap);  /* not much we can do if this fails.... */
             ldapinfo.ldap = NULL;
-        }
+        } else break;
         if (!ldapinfo.ldap)
             auth_ldap_connect();
     }
@@ -390,7 +390,7 @@ fail:
 /* auth_ldap_close:
  * Close the ldap connection. */
 void auth_ldap_close() {
-  ldap_unbind(ldapinfo.ldap);
+  if (ldapinfo.ldap) ldap_unbind(ldapinfo.ldap);
 }
 
 /* auth_ldap_postfork:

@@ -30,7 +30,12 @@ static struct logfac {
     int fac;
 } facil[] = {
         {"mail",        LOG_MAIL},
+#ifdef LOG_AUTHPRIV
         {"authpriv",    LOG_AUTHPRIV},
+#endif
+#ifdef LOG_AUTH
+        {"auth",        LOG_AUTH},
+#endif
         {"daemon",      LOG_DAEMON},
         {"user",        LOG_USER},
         
