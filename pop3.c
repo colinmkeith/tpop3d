@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.4  2000/10/09 17:38:36  chris
+ * Now indexes mailspools from 1 a la RFC1939.
+ *
  * Revision 1.3  2000/10/02 18:22:19  chris
  * Supports most of POP3.
  *
@@ -146,11 +149,11 @@ enum connection_action connection_do(connection c, const pop3command p) {
             if (a && strlen(a) > 0) {
                 char *b;
                 msg_num = strtol(a, &b, 10);
+                --msg_num; /* RFC1939 demands that mailspools be indexed from 1 */
                 if (!b || b == a) msg_num = -1;
                 else if (msg_num >= 0 && msg_num < c->m->index->n_used) {
                     have_msg_num = 1;
                     I = (indexpoint)c->m->index->ary[msg_num].v;
-                    fprintf(stderr, "obtained msg_num = %d (%s)\n", msg_num, a);
                 }
                 free(a);
             }
@@ -165,7 +168,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                         connection_sendresponse(c, 0, "That message is no more");
                     else {
                         char response[32];
-                        snprintf(response, 31, "%d %d", msg_num, I->msglength - I->length - 1);
+                        snprintf(response, 31, "%d %d", 1 + msg_num, I->msglength - I->length - 1);
                         connection_sendresponse(c, 1, response);
                     }
                 else connection_sendresponse(c, 0, "Not a valid message number");
@@ -175,7 +178,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 vector_iterate(c->m->index, J) {
                     if (!((indexpoint)J->v)->deleted) {
                         char response[48];
-                        snprintf(response, 47, "%d %d", J - c->m->index->ary, ((indexpoint)J->v)->msglength - ((indexpoint)J->v)->length - 1);
+                        snprintf(response, 47, "%d %d", 1 + J - c->m->index->ary, ((indexpoint)J->v)->msglength - ((indexpoint)J->v)->length - 1);
                         connection_sendline(c, response);
                     }
                 }
@@ -193,7 +196,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                         connection_sendresponse(c, 0, "That message is no more");
                     else {
                         char response[64];
-                        snprintf(response, 63, "%d %s", msg_num, hex_digest(I->hash));
+                        snprintf(response, 63, "%d %s", 1 + msg_num, hex_digest(I->hash));
                         connection_sendresponse(c, 1, response);
                     }
                 else connection_sendresponse(c, 0, "Not a valid message number");
@@ -203,7 +206,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 vector_iterate(c->m->index, J) {
                     if (!((indexpoint)J->v)->deleted) {
                         char response[64];
-                        snprintf(response, 63, "%d %s", J - c->m->index->ary, hex_digest(((indexpoint)J->v)->hash));
+                        snprintf(response, 63, "%d %s", 1 + J - c->m->index->ary, hex_digest(((indexpoint)J->v)->hash));
                         connection_sendline(c, response);
                     }
                 }
@@ -242,7 +245,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     break;
                 }
 
-                msg_num = strtol(p->tail, &x, 10);
+                msg_num = strtol(p->tail, &x, 10) - 1; /* RFC1939 demands that mailspools be indexed from 1 */
                 if (x == a) {
                     connection_sendresponse(c, 0, "Which message do you want to see?");
                     break;
@@ -295,7 +298,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
             break;
 
         default:
-            connection_sendresponse(c, 0, "Oops");
+            connection_sendresponse(c, 0, "Huh?");
             break;
         }
 
