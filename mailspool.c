@@ -314,7 +314,7 @@ void mailspool_delete(mailspool m) {
 
     if (m->index) vector_delete_free(m->index);
 
-    if (m->name || m->fd != -1) {
+    if ((m->name && strcmp(m->name, "/dev/null") != 0)) {
         file_unlock(m->fd, m->name);
         close(m->fd);
     }

@@ -97,9 +97,9 @@ connection connection_new(int s, const struct sockaddr_in *sin, const char *doma
 
     if (domain) c->domain = strdup(domain);
 
-    c->idstr = (char*)malloc(strlen(inet_ntoa(sin->sin_addr)) + 1 + (domain ? strlen(domain) : 0) + 1);
-    if (domain) sprintf(c->idstr, "%s/%s", inet_ntoa(sin->sin_addr), domain);
-    else sprintf(c->idstr, "%s", inet_ntoa(sin->sin_addr));
+    c->idstr = (char*)malloc(strlen(inet_ntoa(sin->sin_addr)) + 1 + (domain ? strlen(domain) : 0) + 16);
+    if (domain) sprintf(c->idstr, "[%d]%s/%s", s, inet_ntoa(sin->sin_addr), domain);
+    else sprintf(c->idstr, "[%d]%s", s, inet_ntoa(sin->sin_addr));
 
     c->p = c->buffer = (char*)malloc(c->bufferlen = MAX_POP3_LINE);
     if (!c->buffer) goto fail;

@@ -168,8 +168,8 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 if (c->a) {
                     /* Now save a new ID string for this client. */
                     free(c->idstr);
-                    c->idstr =(char*)malloc(strlen(c->a->credential) + 2 + strlen(inet_ntoa(c->sin.sin_addr)) + 1);
-                    sprintf(c->idstr, "%s(%s)", c->a->credential, inet_ntoa(c->sin.sin_addr));
+                    c->idstr =(char*)malloc(strlen(c->a->credential) + 2 + strlen(inet_ntoa(c->sin.sin_addr)) + 16);
+                    sprintf(c->idstr, "[%d]%s(%s)", c->s, c->a->credential, inet_ntoa(c->sin.sin_addr));
 
                     c->state = transaction;
                     return fork_and_setuid;
@@ -227,8 +227,8 @@ enum connection_action connection_do(connection c, const pop3command p) {
             if (c->a) {
                 /* Now save a new ID string for this client. */
                 free(c->idstr);
-                c->idstr =(char*)malloc(strlen(c->a->credential) + 2 + strlen(inet_ntoa(c->sin.sin_addr)) + 1);
-                sprintf(c->idstr, "%s(%s)", c->a->credential, inet_ntoa(c->sin.sin_addr));
+                c->idstr =(char*)malloc(strlen(c->a->credential) + 2 + strlen(inet_ntoa(c->sin.sin_addr)) + 16);
+                sprintf(c->idstr, "[%d]%s(%s)", c->s, c->a->credential, inet_ntoa(c->sin.sin_addr));
 
                 memset(c->pass, 0, strlen(c->pass));
                 c->state = transaction;
