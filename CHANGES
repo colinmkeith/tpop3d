@@ -1,6 +1,28 @@
 Changes for tpop3d
 $Id$
 
+1.3.2
+
+Minor changes, and an update for auth_mysql to allow passwords in formats
+other than the default straight MD5 checksums. Different formats are denoted
+by a prefixed token enclosed in { }. Presently supported are:
+
+    {crypt}...          crypt(3) hash
+    {crypt_md5}...      crypt_md5 hash
+    {plaintext}...      plaintext password
+    {md5} or no prefix  old-style simple MD5 password
+
+This facility replaces the old apop_password field in the database; instead,
+APOP users should arrange for their passwords to be recorded in the plaintext
+format as above.
+
+The new vmail-sql will work.
+
+1.3.1
+
+Minor changes, and the addition of auth_perl for implementing authenticators
+as fragments of perl code.
+
 1.3.0
 
 Incorporated autoconf support from Mark Longair, maildir support from Paul

@@ -4,6 +4,19 @@ $Id$
 tpop3d is designed with the development of new authentication schemes and
 mailbox drivers in mind.
 
+* Architecture
+
+  tpop3d is a daemon server which forks subprocesses to handle incoming
+  connections. All authentication and book-keeping is done by the main server
+  process, which runs as root; all access to mailspools is done by
+  subprocesses, which drop privileges before opening the mailspools.
+
+  When an incoming connection needs to be authenticated, its credentials are
+  passed to all available authentication drivers in turn, until either one
+  authenticates it (perhaps also setting the location of the mailbox to use),
+  or all drivers have been tried, in which case the attempt has failed.
+
+
 * Developing new authentication schemes
 
   The authentication strategy in tpop3d is very simple; a number of

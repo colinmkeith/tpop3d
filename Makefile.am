@@ -68,21 +68,22 @@ man_MANS = tpop3d.8 tpop3d.conf.5
 
 SUBDIRS = init.d config
 
-tpop3d.cat: tpop3d.8
+tpop3d..cat: tpop3d.8
 	(echo -e ".pl 1100i" ; cat tpop3d.8 ; echo ".pl \n(nlu+10") | groff -Tascii -man > tpop3d.cat
+
+tpop3d.conf.cat: tpop3d.conf.5
+	(echo -e ".pl 1100i" ; cat tpop3d.conf.5 ; echo ".pl \n(nlu+10") | groff -Tascii -man > tpop3d.conf.cat
 
 ## These need to be distributed along with configure:
 
 EXTRA_DIST = bootstrap \
              mysql_crypt.patch \
-             CREDITS \
-             PORTABILITY \
+             CREDITS PORTABILITY CHANGES HACKING TODO \
              $(man_MANS) \
-             tpop3d.cat \
+             tpop3d.cat tpop3d.conf.cat \
              scripts/dotapopfile scripts/nasty \
              TPOP3D-AuthDriver/AuthDriver.pm TPOP3D-AuthDriver/Changes \
              TPOP3D-AuthDriver/MANIFEST TPOP3D-AuthDriver/Makefile.PL TPOP3D-AuthDriver/test.pl
              
-
 MAINTERCLEANFILES = Makefile.in aclocal.m4 configure configuration.h.in \
                     stamp-h.in
