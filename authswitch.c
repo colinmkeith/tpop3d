@@ -325,7 +325,7 @@ void authswitch_onlogin(const authcontext A, const char *clienthost, const char 
      * -ldrac. */
     if (drac_server) {
         char *errmsg;
-        if (dracauth(drac_server, inet_addr(host), &errmsg))
+        if (dracauth(drac_server, inet_addr(clienthost), &errmsg))
             log_print(LOG_ERR, "authswitch_onlogin: dracauth: %s", errmsg);
     }
 #endif /* USE_DRAC */

@@ -171,6 +171,7 @@ static ssize_t ioabs_tls_immediate_write(connection c, const void *buf, size_t c
 
     if (n > 0) {
         c->nwr += n;
+        c->idlesince = time(NULL);
         return n;
     }
 

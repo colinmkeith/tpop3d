@@ -42,8 +42,10 @@ static ssize_t ioabs_tcp_immediate_write(connection c, const void *buf, size_t c
     do
         n = write(c->s, buf, count);
     while (n == -1 && errno == EINTR);
-    if (n > 0)
+    if (n > 0) {
         c->nwr += n;
+        c->idlesince = time(NULL);
+    }
     if (n == -1) {
         if (errno == EAGAIN)
             return IOABS_WOULDBLOCK;
@@ -121,6 +123,7 @@ static int ioabs_tcp_post_select(connection c, fd_set *readfds, fd_set *writefds
             if (n > 0) {
                 buffer_consume_bytes(c->wrb, n);
                 c->nwr += n;
+                c->idlesince = time(NULL);
             }
         } while (n > 0);
         if (n == -1 && errno != EAGAIN) {
