@@ -1,0 +1,29 @@
+Things To Do
+$Id$
+
+* More portability
+
+I only use tpop3d on Linux, but would be interested in getting it running
+elsewhere. This is likely to happen only on a case-by-case basis, since I
+don't have access to that many machines to play with and my time is limited.
+
+Also, there are some deficiencies in the way that locking happens on Solaris
+at the moment. In particular, the c-client locking needs to use fcntl locks
+on that platform. This should be easy to implement.
+
+* More authentication schemes
+
+Virtual-domain schemes which use /etc/passwd-style flat text files seem to be
+popular, but I do not make use of anything like this. However, it would be
+relatively easy to implement such a thing.
+
+* A proper code audit
+
+tpop3d is, as far as I know, free of obvious security deficiencies. I do not
+believe that it contains any buffer overruns, and it does not make use of
+temporary files, so is unlikely to suffer from /tmp race conditions. I have
+thought about denial-of-service attacks, and I think that it is safe from the
+most obvious ones.
+
+Nevertheless, a full security audit would be nice....
+

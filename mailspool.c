@@ -1,6 +1,13 @@
 /*
  * mailspool.c:
- * Berkeley mailspool handling
+ * Berkeley mailspool handling.
+ *
+ * Note that this makes _no_ attempt to handle the awful SysVism of not
+ * quoting /^From / in body text and attempting to use Content-Length to
+ * figure out where messages start and end.
+ *
+ * See
+ * http://home.netscape.com/eng/mozilla/2.0/relnotes/demo/content-length.html
  *
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *

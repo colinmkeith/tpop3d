@@ -73,6 +73,7 @@ CFLAGS += -DFLOCK_LOCKING
 TXTS =  README          \
 	PORTABILITY     \
         COPYING         \
+        TODO            \
         tpop3d.8        \
         tpop3d.cat      \
         init.d/tpop3d

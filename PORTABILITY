@@ -28,7 +28,8 @@ far:
   c-client locking on Solaris, which could be an issue if you want to use
   tpop3d with PINE.
 
-  You will also need to link with libnsl and libsocket (-lnsl and -lsocket).
+  You will also need to link with libnsl and libsocket (-lnsl and -lsocket),
+  and probably change MAILSPOOL_DIR to "/var/mail".
 
 * Others
 
