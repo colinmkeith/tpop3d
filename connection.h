@@ -6,6 +6,9 @@
  * $Id$
  *
  * $Log$
+ * Revision 1.2  2000/10/02 18:20:19  chris
+ * Minor changes.
+ *
  * Revision 1.1  2000/09/18 23:43:38  chris
  * Initial revision
  *
@@ -21,11 +24,13 @@
 #include <sys/types.h>
 
 #include "authswitch.h"
+#include "mailspool.h"
 #include "vector.h"
 
 #define MAX_POP3_LINE       1024        /* should be sufficient */
 
 #define MAX_AUTH_TRIES      3
+#define MAX_ERRORS          8
 
 enum pop3_state {authorisation, transaction, update}; 
 
@@ -40,15 +45,10 @@ typedef struct _connection {
 
     enum pop3_state state;  /* from rfc1939 */
 
-    int n_auth_tries;
+    int n_auth_tries, n_errors;
     char *user, *pass;      /* state accumulated */
     authcontext a;
-
-    uid_t uid;
-    gid_t gid;
-/*    char *username;
-    char *mailspool;
-    vector mailspool_index;*/
+    mailspool m;
 } *connection;
 
 /* From rfc1939 */
@@ -73,6 +73,9 @@ ssize_t connection_read(connection c);
 /* Send a response, given in s (without the trailing \r\n) */
 int connection_sendresponse(connection c, const int success, const char *s);
 
+/* Send a line, given in s (without the trailing \r\n) */
+int connection_sendline(connection c, const char *s);
+
 /* Attempt to parse a connection from a peer, returning NULL if no command was
  * parsed.
  */
@@ -82,6 +85,9 @@ enum connection_action { do_nothing, close_connection, fork_and_setuid };
 
 /* Do a command */
 enum connection_action connection_do(connection c, const pop3command p);
+
+/* Open the mailspool etc. */
+int connection_start_transaction(connection c);
 
 /* Commands */
 pop3command pop3command_new(const enum pop3_command_code cmd, const char *s1, const char *s2);

@@ -6,6 +6,9 @@
  * $Id$
  *
  * $Log$
+ * Revision 1.2  2000/10/02 18:22:19  chris
+ * Minor changes.
+ *
  * Revision 1.1  2000/09/18 23:43:38  chris
  * Initial revision
  *
@@ -30,6 +33,9 @@ typedef struct _vector{
 
 vector vector_new();
 void vector_delete(vector);
+void vector_delete_free(vector);
+
+vector vector_new_from_string(const char*);
 
 void  vector_push_back(vector, const item);
 void  vector_pop_back(vector);

@@ -1,11 +1,14 @@
 /*
- * authswitch.h:
+ * authswitch.h: authentication drivers
  *
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Id$
  *
  * $Log$
+ * Revision 1.2  2000/10/02 18:20:19  chris
+ * Minor changes.
+ *
  * Revision 1.1  2000/09/18 23:43:38  chris
  * Initial revision
  *
@@ -23,6 +26,9 @@ typedef struct _authcontext {
     uid_t uid;
     gid_t gid;
     char *mailspool;
+    /* Some random information which is filled in by the auth switch */
+    char *auth;
+    char *credential;
 } *authcontext;
 
 struct authdrv {

@@ -6,6 +6,9 @@
  * $Id$
  *
  * $Log$
+ * Revision 1.2  2000/10/02 18:21:25  chris
+ * Minor changes.
+ *
  * Revision 1.1  2000/09/18 23:43:38  chris
  * Initial revision
  *
@@ -28,6 +31,7 @@ typedef struct _list {
 
 list list_new();
 void list_delete(list);
+void list_delete_free(list);
 
 void list_push_back(list, const item);
 void list_pop_back(list);
@@ -37,6 +41,6 @@ void list_pop_front(list);
 
 listitem list_remove(list, listitem);
 
-#define list_iterate(_l, _t)    for (_t = _l->front; _t; _t = _t->next)
+#define list_iterate(_l, _t)    for (_t = _l->front; _t; _t ? _t = _t->next : 0)
 
 #endif /* __LIST_H_ */
