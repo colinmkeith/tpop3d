@@ -1,7 +1,19 @@
 #!/usr/bin/perl -w
 #
 # bulletins:
-# Deliver bulletins to POP3 users. Use via tpop3d's auth-perl.
+# Deliver bulletins to POP3 users.
+#
+# This is designed to be used with auth-perl, though with a simple
+# modification (making the function below a method of a TPOP3D::AuthDriver
+# subclass) it could run in auth-other, too.
+#
+# Configuration options:
+#
+#   onlogin-child-wait:     yes     # delay mailbox locking
+#   auth-perl-enable:       yes
+#   auth-perl-start:        do '/etc/mail/bulletins';   # or whatever
+#   auth-perl-onlogin:      onlogin_bulletins_handler
+#
 #
 # Copyright (c) 2003 Chris Lightfoot. All rights reserved.
 # Email: chris@ex-parrot.com; WWW: http://www.ex-parrot.com/~chris/
@@ -22,7 +34,10 @@ use GDBM_File;
 # GDBM database for each bulletin to record the addresses of users to whom it
 # has been delivered, so as to ensure that each user receives only one copy of
 # each bulletin. Bulletins are delivered to user mailboxes using the local mail
-# transport agent, though this behaviour could be changed if required.
+# transport agent. If your MTA queues locally submitted messages, rather than
+# delivering them immediately, the bulletins may not in fact be read until a
+# later POP3 session. If this is a problem, either reconfigure your MTA for
+# immediate delivery or modify the below to perform message delivery itself.
 sub onlogin_bulletins_handler ($) {
     my $req = shift;
     my $resp = { };
@@ -78,3 +93,4 @@ sub onlogin_bulletins_handler ($) {
     return { };
 }
 
+1;
