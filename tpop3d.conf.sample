@@ -16,8 +16,8 @@ listen-address: 0.0.0.0
 # the certificate /usr/local/etc/tpop3d-cert:
 #listen-address: 0.0.0.0;tls=stls,/usr/local/etc/tpop3d-cert
 
-# maximum number of connections to serve at any given time. [default: 16]
-#max-children: 16
+# maximum number of connections to serve at any given time. [default: 100]
+#max-children: 100
 
 # append-domain: (yes|true)
 # Fall back onto authenticating with username@domain if required, where
