@@ -1,6 +1,12 @@
 Changes for tpop3d
 $Id$
 
+1.2.2
+
+Minor changes; addition of a -DNO_SNIDE_COMMENTS compile-time option to please
+Mark, whose user community complained about "You can hang around all day if
+you like, I have better things to do".
+
 1.2.1
 
 Various fixes; added a patch for crypt(3) passwords in auth_mysql, and added

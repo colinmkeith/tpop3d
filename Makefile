@@ -188,8 +188,8 @@ HDRS =  auth_mysql.h	\
 tpop3d: depend $(OBJS) Makefile
 	$(CC) $(LDFLAGS) $(LDLIBS) -o $@ $(OBJS)
 
-tpop3d.cat: tpop3d.8
-	groff -Tascii -man tpop3d.8 > tpop3d.cat
+tpop3d.cat: tpop3d.8 Makefile
+	(echo -e ".pl 1100i" ; cat tpop3d.8 ; echo ".pl \n(nlu+10") | groff -Tascii -man > tpop3d.cat
 
 tarball: nodepend $(SRCS) $(HDRS) $(TXTS)
 	mkdir tpop3d-$(VERSION)

@@ -58,18 +58,6 @@ CCOONNFFIIGGUURRAATTIIOONN FFIILLEE
               section  of  the  name  associated  with  the given
               address after the first `.', or, if  no  such  name
               can  be  established, the nodename of the system as
-
-
-
-                                                                1
-
-
-
-
-
-TPOP3D(8)                                               TPOP3D(8)
-
-
               determined by uunnaammee(2).
 
               To listen for connections on any interface and  the
@@ -124,18 +112,6 @@ TPOP3D(8)                                               TPOP3D(8)
 
        aauutthh--ppaamm--mmaaiill--ggrroouupp: (_g_r_o_u_p_-_n_a_m_e | _g_i_d)
               The  group  name  or  gid under which access to the
-
-
-
-                                                                2
-
-
-
-
-
-TPOP3D(8)                                               TPOP3D(8)
-
-
               mailspool will take place.  The  default  for  this
               option  is  the  primary group of the authenticated
               user, which will probably not work. You  will  nor-
@@ -187,19 +163,6 @@ TPOP3D(8)                                               TPOP3D(8)
        aauutthh--mmyyssqqll--hhoossttnnaammee_: _h_o_s_t_n_a_m_e
               Host  on  which  to  connect  to  MySQL, by default
               llooccaallhhoosstt.
-
-
-
-
-
-
-                                                                3
-
-
-
-
-
-TPOP3D(8)                                               TPOP3D(8)
 
 
        aauutthh--mmyyssqqll--ddaattaabbaassee: _d_a_t_a_b_a_s_e
@@ -255,19 +218,6 @@ FFIILLEESS
        //eettcc//ttppoopp33dd..ccoonnff
 
 
-
-
-
-
-                                                                4
-
-
-
-
-
-TPOP3D(8)                                               TPOP3D(8)
-
-
 SSEEEE AALLSSOO
        eexxiimm(8), iinneettdd(8), ssyysslloogg(3), mmyyssqqll(1), RRFFCC11993399,,
        _h_t_t_p_:_/_/_w_w_w_._e_x_-_p_a_r_r_o_t_._c_o_m_/_~_c_h_r_i_s_/_t_p_o_p_3_d_/,
@@ -304,27 +254,6 @@ CCOOPPYYIINNGG
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                                                                5
+                                                                1
 
 
