@@ -34,8 +34,8 @@ int strip_domain;   /* Automatically try user if user@domain fails? */
 int apop_only;      /* Disconnect any client which says USER. */
 
 /* do_capa CONNECTION COMMAND
- * CAPA command. */
-enum connection_action do_capa(connection c) {
+ * CAPA command; list capabilities. */
+static enum connection_action do_capa(connection c) {
     const char *capas[] = {
             "PIPELINING", "TOP", "USER", "UIDL",
 #ifdef REVEAL_IMPLEMENTATION
@@ -64,7 +64,7 @@ enum connection_action do_capa(connection c) {
 }
 
 /* do_user CONNECTION COMMAND
- * USER command. */
+ * USER command; supply username of client. */
 static enum connection_action do_user(connection c, const pop3command p) {
     if (apop_only) {
         connection_sendresponse(c, 0, _("Sorry, you must use APOP."));
@@ -88,7 +88,7 @@ static enum connection_action do_user(connection c, const pop3command p) {
 }
 
 /* do_pass CONNECTION COMMAND
- * PASS command. */
+ * PASS command; supply password of user. */
 static enum connection_action do_pass(connection c, const pop3command p) {
     if (p->toks->num != 2) {
         connection_sendresponse(c, 0, _("No, that's not right."));
@@ -105,7 +105,7 @@ static enum connection_action do_pass(connection c, const pop3command p) {
 }
 
 /* do_apop CONNECTION COMMAND
- * APOP command. */
+ * APOP command; supply MD5 authentication data. */
 static enum connection_action do_apop(connection c, const pop3command p) {
     char *name, *hexdigest;
     unsigned char digest[16];
@@ -276,7 +276,7 @@ static void do_uidl(connection c, const int msg_num) {
 }
 
 /* do_retr CONNECTION MSGNUM
- * RETR command. */
+ * RETR command; send whole of message MSGNUM. */
 static enum connection_action do_retr(connection c, const int msg_num) {
     if (msg_num != -1) {
         struct indexpoint *curmsg;
@@ -305,8 +305,8 @@ static enum connection_action do_retr(connection c, const int msg_num) {
     return do_nothing;
 }
 
-/* do_top CONNECTION MSGNUM NLINES
- * TOP command. */
+/* do_top CONNECTION MSGNUM NUM
+ * TOP command; send headers and first NUM lines of message MSGNUM. */
 static enum connection_action do_top(connection c, const int msg_num, const int nlines) {
     struct indexpoint *curmsg;
     curmsg = c->m->index + msg_num;
@@ -335,6 +335,22 @@ static enum connection_action do_top(connection c, const int msg_num, const int 
     }
     
     return do_nothing;
+}
+
+/* do_dele
+ * DELE command; delete message. */
+void do_dele(connection c, const int msg_num) {
+    struct indexpoint *curmsg;
+    curmsg = c->m->index + msg_num;
+
+    if (msg_num == -1)
+        connection_sendresponse(c, 0, _("But which message do you want to delete?"));
+    else {
+        curmsg->deleted = 1;
+        connection_sendresponse(c, 1, _("Done."));
+        ++curmbox->numdeleted;
+        curmbox->sizedeleted += curmsg->msglength;
+    }
 }
 
 /* connection_do CONNECTION COMMAND
@@ -481,7 +497,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
         /* Transaction state: do things to mailbox. */
         char *a = NULL;
         int num_args, msg_num = -1, nlines = -1;
-        struct indexpoint *curmsg = NULL, *i;
+        struct indexpoint *i, *curmsg;
         mailbox curmbox;
         char response[32] = {0};
 
@@ -514,6 +530,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
 #endif
                     return do_nothing;
                 }
+                curmsg = c->m->index + msg_num;
             }
         }
 
@@ -550,13 +567,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 break;
 
             case DELE:
-                if (msg_num != -1) {
-                    curmsg->deleted = 1;
-                    connection_sendresponse(c, 1, _("Done."));
-                    ++curmbox->numdeleted;
-                    curmbox->sizedeleted += curmsg->msglength;
-                } else
-                    connection_sendresponse(c, 0, _("Which message do you want to delete?"));
+                do_dele(c, msg_num);
                 break;
 
             case RETR:
