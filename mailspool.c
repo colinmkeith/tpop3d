@@ -112,7 +112,7 @@ int file_lock(const int fd, const char *name) {
      * probably not necessary to make this check.
      */
     if ((fd_cclient_lock = open(cclient_lockfile, O_RDWR)) != -1) {
-        syslog(LOG_DEBUG, "file_lock(%s): found cclient lock file %s", name, cclient_lockfile);
+        print_log(LOG_DEBUG, "file_lock(%s): found cclient lock file %s", name, cclient_lockfile);
        
         if (flock(fd_cclient_lock, LOCK_EX | LOCK_NB) == -1) {
             char other_pid[128];
@@ -126,7 +126,7 @@ int file_lock(const int fd, const char *name) {
             read(fd_cclient_lock, other_pid, sizeof(other_pid));
             p = atoi(other_pid);
             if (p) {
-                syslog(LOG_DEBUG, "file_lock(%s): trying to grab c-client lock from process %d", name, p);
+                print_log(LOG_DEBUG, "file_lock(%s): trying to grab c-client lock from process %d", name, p);
                 kill(p, SIGUSR2);
             }
 
@@ -135,7 +135,7 @@ int file_lock(const int fd, const char *name) {
             /* Now have another go. */
             if (flock(fd_cclient_lock, LOCK_EX | LOCK_NB) == -1) {
                 /* OK, well that didn't work then. */
-                syslog(LOG_ERR, "file_lock(%s): failed to grab c-client lock from process %d", name, p);
+                print_log(LOG_ERR, "file_lock(%s): failed to grab c-client lock from process %d", name, p);
                 close(fd_cclient_lock);
                 goto fail;
             }
@@ -147,7 +147,7 @@ int file_lock(const int fd, const char *name) {
     /* Make lockfile, going via a hitching post. */
     fd2 = open(hitchfile, O_EXCL|O_CREAT|O_WRONLY, 0440);
     if (fd2 == -1) {
-        syslog(LOG_ERR, "file_lock(%s): unable to create hitching post: %m", name);
+        print_log(LOG_ERR, "file_lock(%s): unable to create hitching post: %m", name);
         goto fail;
     }
 
@@ -160,7 +160,7 @@ int file_lock(const int fd, const char *name) {
      * did it have exactly 2 links when we were done?
      */
     if (rc != 0 && st2.st_nlink != 2) {
-        syslog(LOG_ERR, "file_lock(%s): unable to link hitching post to lock file: %m", name);
+        print_log(LOG_ERR, "file_lock(%s): unable to link hitching post to lock file: %m", name);
         goto fail;
     }
     
@@ -200,20 +200,20 @@ int file_unlock(const int fd, const char *name) {
     snprintf(lockfile, l, "%s.lock", name);
 
     if (unlink(lockfile) == -1) {
-        syslog(LOG_ERR, "file_unlock(%s): unlink: %m", name);
+        print_log(LOG_ERR, "file_unlock(%s): unlink: %m", name);
         ret = 0;
     }
 
     free(lockfile);
 
     if (fcntl(fd, F_SETLK, &fl) == -1) {
-        syslog(LOG_ERR, "file_unlock(%s): fcntl: %m", name);
+        print_log(LOG_ERR, "file_unlock(%s): fcntl: %m", name);
         ret = 0;
     }
 
 #ifdef FLOCK_LOCKING
     if (flock(fd, LOCK_UN) == -1) {
-        syslog(LOG_ERR, "file_unlock(%s): flock: %m", name);
+        print_log(LOG_ERR, "file_unlock(%s): flock: %m", name);
         ret = 0;
     }
 #endif /* FLOCK_LOCKING */
@@ -238,7 +238,7 @@ mailspool mailspool_new_from_file(const char *filename) {
     if (stat(filename, &(M->st)) == -1) {
         if ( errno == ENOENT ) {
             /* No mailspool */
-            syslog(LOG_INFO, "mailspool_new_from_file: stat(%s): doesn't exist (is empty)", filename);
+            print_log(LOG_INFO, "mailspool_new_from_file: stat(%s): doesn't exist (is empty)", filename);
             M->name = strdup("/dev/null");
             M->fd = -1;
             M->isempty = 1;
@@ -246,7 +246,7 @@ mailspool mailspool_new_from_file(const char *filename) {
             return M;
         } else {
             /* Oops. */
-            syslog(LOG_INFO, "mailspool_new_from_file: stat(%s): %m", filename);
+            print_log(LOG_INFO, "mailspool_new_from_file: stat(%s): %m", filename);
             goto fail;
         }
     } else M->name = strdup(filename);
@@ -255,7 +255,7 @@ mailspool mailspool_new_from_file(const char *filename) {
     for (i = 0; i < MAILSPOOL_LOCK_TRIES; ++i) {
         M->fd = open(M->name, O_RDWR);
         if (M->fd == -1) {
-            syslog(LOG_ERR, "mailspool_new_from_file: %m");
+            print_log(LOG_ERR, "mailspool_new_from_file: %m");
             goto fail;
         }
      
@@ -267,7 +267,7 @@ mailspool mailspool_new_from_file(const char *filename) {
     }
 
     if (M->fd == -1) {
-        syslog(LOG_ERR, "mailspool_new_from_file: failed to lock %s: %m", filename);
+        print_log(LOG_ERR, "mailspool_new_from_file: failed to lock %s: %m", filename);
         goto fail;
     }
 
@@ -279,7 +279,7 @@ mailspool mailspool_new_from_file(const char *filename) {
 
     gettimeofday(&tv2, NULL);
     f = (float)(tv2.tv_sec - tv1.tv_sec) + 1e-6 * (float)(tv2.tv_usec - tv1.tv_usec);
-    syslog(LOG_DEBUG, "mailspool_new_from_file: indexed mailspool %s (%d bytes) in %0.3fs", filename, (int)M->st.st_size, f);
+    print_log(LOG_DEBUG, "mailspool_new_from_file: indexed mailspool %s (%d bytes) in %0.3fs", filename, (int)M->st.st_size, f);
     
     return M;
 
@@ -337,7 +337,7 @@ vector mailspool_build_index(mailspool M) {
     len += PAGESIZE - (len % PAGESIZE);
     filemem = mmap(0, len, PROT_READ, MAP_PRIVATE, M->fd, 0);
     if (filemem == MAP_FAILED) {
-        syslog(LOG_ERR, "mailspool_build_index(%s): mmap: %m", M->name);
+        print_log(LOG_ERR, "mailspool_build_index(%s): mmap: %m", M->name);
         vector_delete_free(M->index);
         close(M->fd);
         return NULL;
@@ -446,7 +446,7 @@ int mailspool_send_message(const mailspool M, int sck, const int i, int n) {
 
     filemem = mmap(0, length, PROT_READ, MAP_PRIVATE, M->fd, offset);
     if (filemem == MAP_FAILED) {
-        syslog(LOG_ERR, "mailspool_send_message: mmap: %m");
+        print_log(LOG_ERR, "mailspool_send_message: mmap: %m");
         return 0;
     }
 
@@ -461,7 +461,7 @@ int mailspool_send_message(const mailspool M, int sck, const int i, int n) {
         if (!q) q = r;
         errno = 0;
         if ((*p == '.' && write(sck, ".", 1) != 1) || write(sck, p, q - p) != (q - p) || write(sck, "\r\n", 2) != 2) {
-            syslog(LOG_ERR, "mailspool_send_message: write: %m");
+            print_log(LOG_ERR, "mailspool_send_message: write: %m");
             munmap(filemem, length);
             return 0;
         }
@@ -471,7 +471,7 @@ int mailspool_send_message(const mailspool M, int sck, const int i, int n) {
 
     errno = 0;
     if (write(sck, "\r\n", 2) != 2) {
-        syslog(LOG_ERR, "mailspool_send_message: write: %m");
+        print_log(LOG_ERR, "mailspool_send_message: write: %m");
         munmap(filemem, length);
         return 0;
     }
@@ -484,7 +484,7 @@ int mailspool_send_message(const mailspool M, int sck, const int i, int n) {
         if (!q) q = r;
         errno = 0;
         if ((*p == '.' && write(sck, ".", 1) != 1) || write(sck, p, q - p) != (q - p) || write(sck, "\r\n", 2) != 2) {
-            syslog(LOG_ERR, "mailspool_send_message: write: %m");
+            print_log(LOG_ERR, "mailspool_send_message: write: %m");
             munmap(filemem, length);
             return 0;
         }
@@ -492,10 +492,10 @@ int mailspool_send_message(const mailspool M, int sck, const int i, int n) {
     }
 
     if (munmap(filemem, length) == -1)
-        syslog(LOG_ERR, "mailspool_send_message: munmap: %m");
+        print_log(LOG_ERR, "mailspool_send_message: munmap: %m");
     errno = 0;
     if ((A = write(sck, ".\r\n", 3)) != 3) {
-        syslog(LOG_ERR, "mailspool_send_message: write: %d %m", A);
+        print_log(LOG_ERR, "mailspool_send_message: write: %d %m", A);
         return 0;
     } else return 1;
 }
@@ -561,7 +561,7 @@ int mailspool_apply_changes(mailspool M) {
     else if (M->numdeleted == M->index->n_used) {
         /* All messages deleted, so just truncate file at zero. */
         if (ftruncate(M->fd, 0) == -1) {
-            syslog(LOG_ERR, "mailspool_apply_changes(%s): ftruncate: %m", M->name);
+            print_log(LOG_ERR, "mailspool_apply_changes(%s): ftruncate: %m", M->name);
             return 0;
         } else return 1;
     }
@@ -571,7 +571,7 @@ int mailspool_apply_changes(mailspool M) {
     len += PAGESIZE - (len % PAGESIZE);
     filemem = mmap(0, len, PROT_WRITE | PROT_READ, MAP_SHARED, M->fd, 0);
     if (filemem == MAP_FAILED) {
-        syslog(LOG_ERR, "mailspool_apply_changes(%s): mmap: %m", M->name);
+        print_log(LOG_ERR, "mailspool_apply_changes(%s): mmap: %m", M->name);
         close(M->fd);
         return 0;
     }
@@ -583,8 +583,8 @@ int mailspool_apply_changes(mailspool M) {
     /* Find the first message to be deleted. */
     while (I < End && !((indexpoint)I->v)->deleted) ++I;
     if (I == End) {
-        if (munmap(filemem, len) == -1) syslog(LOG_ERR, "mailspool_send_message: munmap: %m");
-        syslog(LOG_ERR, "mailspool_apply_changes(%s): inconsistency in mailspool data", M->name);
+        if (munmap(filemem, len) == -1) print_log(LOG_ERR, "mailspool_send_message: munmap: %m");
+        print_log(LOG_ERR, "mailspool_apply_changes(%s): inconsistency in mailspool data", M->name);
         return 0;
     }
     d = filemem + ((indexpoint)I->v)->offset;
@@ -613,14 +613,14 @@ int mailspool_apply_changes(mailspool M) {
 
     /* Truncate the very end. */
     if (ftruncate(M->fd, d - filemem) == -1) {
-        syslog(LOG_ERR, "mailspool_apply_changes(%s): ftruncate: %m", M->name);
-        if (munmap(filemem, len) == -1) syslog(LOG_ERR, "mailspool_send_message: munmap: %m");
+        print_log(LOG_ERR, "mailspool_apply_changes(%s): ftruncate: %m", M->name);
+        if (munmap(filemem, len) == -1) print_log(LOG_ERR, "mailspool_send_message: munmap: %m");
         return 0;
     }
     
     /* Done, unmap the file. */
     if (munmap(filemem, len) == -1) {
-        syslog(LOG_ERR, "mailspool_send_message: munmap: %m");
+        print_log(LOG_ERR, "mailspool_send_message: munmap: %m");
         return 0;
     }
 

@@ -25,4 +25,15 @@ char *mystrdup(char *, int, char *);
 void *mymalloc(char *, int, size_t);
 void myfree(char *, int, void *);
 */
+
+/* syslog(3) replacement */
+void print_log(int priority, const char *fmt, ...);
+
+#define syslog print_log
+
+/* Some systems do not have inet_aton; use inet_ntop instead. */
+#ifdef __SVR4 /* Solaris */
+#   define inet_aton(a, b)      (inet_pton(AF_INET, (a), (b)) == 1)
+#endif /* __SVR4 */
+
 #endif /* __UTIL_H_ */

@@ -54,19 +54,19 @@ int auth_mysql_init() {
 
     if ((I = stringmap_find(config, "auth-mysql-username"))) username = (char*)I->v;
     else {
-        syslog(LOG_ERR, "auth_mysql_init: no auth-mysql-username directive in config");
+        print_log(LOG_ERR, "auth_mysql_init: no auth-mysql-username directive in config");
         goto fail;
     }
 
     if ((I = stringmap_find(config, "auth-mysql-password"))) password = (char*)I->v;
     else {
-        syslog(LOG_ERR, "auth_mysql_init: no auth-mysql-password directive in config");
+        print_log(LOG_ERR, "auth_mysql_init: no auth-mysql-password directive in config");
         goto fail;
     }
 
     if ((I = stringmap_find(config, "auth-mysql-database"))) database = (char*)I->v;
     else {
-        syslog(LOG_ERR, "auth_mysql_init: no auth-mysql-database directive in config");
+        print_log(LOG_ERR, "auth_mysql_init: no auth-mysql-database directive in config");
         goto fail;
     }
 
@@ -75,12 +75,12 @@ int auth_mysql_init() {
 
     mysql = mysql_init(NULL);
     if (!mysql) {
-        syslog(LOG_ERR, "auth_mysql_init: mysql_init: failed");
+        print_log(LOG_ERR, "auth_mysql_init: mysql_init: failed");
         goto fail;
     }
 
     if (mysql_real_connect(mysql, hostname, username, password, database, 0, NULL, 0) != mysql) {
-        syslog(LOG_ERR, "auth_mysql_init: mysql_real_connect: %s", mysql_error(mysql));
+        print_log(LOG_ERR, "auth_mysql_init: mysql_real_connect: %s", mysql_error(mysql));
         mysql_close(mysql);
         mysql = NULL;
         goto fail;
@@ -132,7 +132,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
             struct group *grp;
             grp = getgrnam((char*)I->v);
             if (!grp) {
-                syslog(LOG_ERR, "auth_mysql_new_apop: auth-mysql-mail-group directive `%s' does not make sense", (char*)I->v);
+                print_log(LOG_ERR, "auth_mysql_new_apop: auth-mysql-mail-group directive `%s' does not make sense", (char*)I->v);
                 return NULL;
             }
             gid = grp->gr_gid;
@@ -156,7 +156,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
     strncpy(local_part, name, domain - name - 1);
     
     if (mysql_ping(mysql) == -1) {
-        syslog(LOG_ERR, "auth_mysql_new_apop: mysql_ping: %s", mysql_error(mysql));
+        print_log(LOG_ERR, "auth_mysql_new_apop: mysql_ping: %s", mysql_error(mysql));
         return NULL;
     }
 
@@ -175,13 +175,13 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
         int i;
 
         if (!result) {
-            syslog(LOG_ERR, "auth_mysql_new_apop: mysql_store_result: %s", mysql_error(mysql));
+            print_log(LOG_ERR, "auth_mysql_new_apop: mysql_store_result: %s", mysql_error(mysql));
             goto fail;
         }
 
         switch (i = mysql_num_rows(result)) {
         case 0:
-            syslog(LOG_WARNING, "auth_mysql_new_apop: attempted login by nonexistent user %s@%s", local_part, domain);
+            print_log(LOG_WARNING, "auth_mysql_new_apop: attempted login by nonexistent user %s@%s", local_part, domain);
             break;
         case 1: {
                 MYSQL_ROW row = mysql_fetch_row(result);
@@ -202,7 +202,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
 
                 /* User was lying */
                 if (memcmp(this_digest, digest, 16)) {
-                    syslog(LOG_WARNING, "auth_mysql_new_apop: failed login for %s@%s", local_part, domain);
+                    print_log(LOG_WARNING, "auth_mysql_new_apop: failed login for %s@%s", local_part, domain);
                     break;
                 }
 
@@ -210,7 +210,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
                 pw = getpwnam((const char*)row[2]);
 
                 if (!pw) {
-                    syslog(LOG_ERR, "auth_mysql_new_apop: getpwnam(%s): %m", (const char*)row[2]);
+                    print_log(LOG_ERR, "auth_mysql_new_apop: getpwnam(%s): %m", (const char*)row[2]);
                     break;
                 }
 
@@ -218,7 +218,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
                  * root....
                  */
                 if (!pw->pw_uid) {
-                    syslog(LOG_ERR, "auth_mysql_new_apop: unix user for domain is root");
+                    print_log(LOG_ERR, "auth_mysql_new_apop: unix user for domain is root");
                     break;
                 }
 
@@ -235,14 +235,14 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
             }
 
         default:
-            syslog(LOG_ERR, "auth_mysql_new_apop: database inconsistency: query for %s returned %d rows", name, i);
+            print_log(LOG_ERR, "auth_mysql_new_apop: database inconsistency: query for %s returned %d rows", name, i);
             break;
         }
 
         mysql_free_result(result);
         
     } else {
-        syslog(LOG_ERR, "auth_mysql_new_apop: mysql_query: %s", mysql_error(mysql));
+        print_log(LOG_ERR, "auth_mysql_new_apop: mysql_query: %s", mysql_error(mysql));
     }
 
 fail:
@@ -295,7 +295,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
             struct group *grp;
             grp = getgrnam((char*)I->v);
             if (!grp) {
-                syslog(LOG_ERR, "auth_mysql_new_user_pass: auth-mysql-mail-group directive `%s' does not make sense", (char*)I->v);
+                print_log(LOG_ERR, "auth_mysql_new_user_pass: auth-mysql-mail-group directive `%s' does not make sense", (char*)I->v);
                 return NULL;
             }
             gid = grp->gr_gid;
@@ -319,7 +319,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
     strncpy(local_part, user, domain - user - 1);
     
     if (mysql_ping(mysql) == -1) {
-        syslog(LOG_ERR, "auth_mysql_new_user_pass: mysql_ping: %s", mysql_error(mysql));
+        print_log(LOG_ERR, "auth_mysql_new_user_pass: mysql_ping: %s", mysql_error(mysql));
         return NULL;
     }
 
@@ -344,13 +344,13 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
         int i;
 
         if (!result) {
-            syslog(LOG_ERR, "auth_mysql_new_user_pass: mysql_store_result: %s", mysql_error(mysql));
+            print_log(LOG_ERR, "auth_mysql_new_user_pass: mysql_store_result: %s", mysql_error(mysql));
             goto fail;
         }
 
         switch (i = mysql_num_rows(result)) {
         case 0:
-            syslog(LOG_WARNING, "auth_mysql_new_user_pass: failed login for %s@%s", local_part, domain);
+            print_log(LOG_WARNING, "auth_mysql_new_user_pass: failed login for %s@%s", local_part, domain);
             break;
         case 1: {
                 MYSQL_ROW row = mysql_fetch_row(result);
@@ -364,7 +364,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
                 pw = getpwnam((const char*)row[2]);
 
                 if (!pw) {
-                    syslog(LOG_ERR, "auth_mysql_new_user_pass: getpwnam(%s): %m", (const char*)row[2]);
+                    print_log(LOG_ERR, "auth_mysql_new_user_pass: getpwnam(%s): %m", (const char*)row[2]);
                     break;
                 }
 
@@ -372,7 +372,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
                  * root....
                  */
                 if (!pw->pw_uid) {
-                    syslog(LOG_ERR, "auth_mysql_new_user_pass: unix user for domain is root");
+                    print_log(LOG_ERR, "auth_mysql_new_user_pass: unix user for domain is root");
                     break;
                 }
 
@@ -389,14 +389,14 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
             }
 
         default:
-            syslog(LOG_ERR, "auth_mysql_new_user_pass: database inconsistency: query for %s@%s returned %d rows", local_part, domain, i);
+            print_log(LOG_ERR, "auth_mysql_new_user_pass: database inconsistency: query for %s@%s returned %d rows", local_part, domain, i);
             break;
         }
 
         mysql_free_result(result);
         
     } else {
-        syslog(LOG_ERR, "auth_mysql_new_user_pass: mysql_query: %s", mysql_error(mysql));
+        print_log(LOG_ERR, "auth_mysql_new_user_pass: mysql_query: %s", mysql_error(mysql));
     }
 
 fail:

@@ -82,7 +82,7 @@ authcontext auth_pam_new_user_pass(const char *user, const char *pass) {
     else mailspool_dir = AUTH_PAM_MAILSPOOL_DIR;
 #else
     else {
-        syslog(LOG_ERR, "auth_pam_new_user_pass: no mailspool directory known about");
+        print_log(LOG_ERR, "auth_pam_new_user_pass: no mailspool directory known about");
         return NULL;
     }
 #endif
@@ -94,7 +94,7 @@ authcontext auth_pam_new_user_pass(const char *user, const char *pass) {
             struct group *grp;
             grp = getgrnam((char*)I->v);
             if (!grp) {
-                syslog(LOG_ERR, "auth_pam_new_user_pass: auth-pam-mail-group directive `%s' does not make sense", (char*)I->v);
+                print_log(LOG_ERR, "auth_pam_new_user_pass: auth-pam-mail-group directive `%s' does not make sense", (char*)I->v);
                 return NULL;
             }
             gid = grp->gr_gid;
@@ -114,7 +114,7 @@ authcontext auth_pam_new_user_pass(const char *user, const char *pass) {
     r = pam_start(facility, user, &conv, &pamh);
 
     if (r != PAM_SUCCESS) {
-        syslog(LOG_ERR, "auth_pam_new_user_pass: pam_start: %s", pam_strerror(pamh, r));
+        print_log(LOG_ERR, "auth_pam_new_user_pass: pam_start: %s", pam_strerror(pamh, r));
         return NULL;
     }
 
@@ -135,12 +135,12 @@ authcontext auth_pam_new_user_pass(const char *user, const char *pass) {
                         s);
                 free(s);
             }
-        } else syslog(LOG_ERR, "auth_pam_new_user_pass: pam_acct_mgmt(%s): %s", user, pam_strerror(pamh, r));
-    } else syslog(LOG_ERR, "auth_pam_new_user_pass: pam_authenticate(%s): %s", user, pam_strerror(pamh, r));
+        } else print_log(LOG_ERR, "auth_pam_new_user_pass: pam_acct_mgmt(%s): %s", user, pam_strerror(pamh, r));
+    } else print_log(LOG_ERR, "auth_pam_new_user_pass: pam_authenticate(%s): %s", user, pam_strerror(pamh, r));
 
     r = pam_end(pamh, n);
 
-    if (r != PAM_SUCCESS) syslog(LOG_ERR, "auth_pam_new_user_pass: pam_end: %s", pam_strerror(pamh, r));
+    if (r != PAM_SUCCESS) print_log(LOG_ERR, "auth_pam_new_user_pass: pam_end: %s", pam_strerror(pamh, r));
 
     return a;
 }

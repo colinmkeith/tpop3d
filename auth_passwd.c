@@ -56,7 +56,7 @@ authcontext auth_passwd_new_user_pass(const char *user, const char *pass) {
     else mailspool_dir = AUTH_PASSWD_MAILSPOOL_DIR;
 #else
     else {
-        syslog(LOG_ERR, "auth_passwd_new_user_pass: no mailspool directory known about");
+        print_log(LOG_ERR, "auth_passwd_new_user_pass: no mailspool directory known about");
         return NULL;
     }
 #endif
@@ -68,7 +68,7 @@ authcontext auth_passwd_new_user_pass(const char *user, const char *pass) {
             struct group *grp;
             grp = getgrnam((char*)I->v);
             if (!grp) {
-                syslog(LOG_ERR, "auth_passwd_new_user_pass: auth-passwd-mail-group directive `%s' does not make sense", (char*)I->v);
+                print_log(LOG_ERR, "auth_passwd_new_user_pass: auth-passwd-mail-group directive `%s' does not make sense", (char*)I->v);
                 return NULL;
             }
             gid = grp->gr_gid;

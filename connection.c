@@ -130,7 +130,7 @@ ssize_t connection_read(connection c) {
     ssize_t n;
     if (!c) return -1;
     if (c->p == c->buffer + c->bufferlen) {
-        syslog(LOG_ERR, "connection_read: over-long line from client %s", inet_ntoa(c->sin.sin_addr));
+        print_log(LOG_ERR, "connection_read: over-long line from client %s", inet_ntoa(c->sin.sin_addr));
         errno = ENOBUFS;
         return -1;
     }

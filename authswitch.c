@@ -86,7 +86,7 @@ int authswitch_init() {
         I = stringmap_find(config, s);
         if (I && (!strcmp(I->v, "yes") || !strcmp(I->v, "true"))) {
             if (aa->auth_init && !aa->auth_init())
-                syslog(LOG_ERR, "failed to initialise %s authentication driver", aa->name);
+                print_log(LOG_ERR, "failed to initialise %s authentication driver", aa->name);
             else {
                 *aar = 1;
                 ++ret;
@@ -110,7 +110,7 @@ authcontext authcontext_new_apop(const char *timestamp, const char *name, unsign
         if (*aar && aa->auth_new_apop && (a = aa->auth_new_apop(timestamp, name, digest))) {
             a->auth = strdup(aa->name);
             a->credential = strdup(name);
-            syslog(LOG_INFO, "authcontext_new_apop: began session for `%s' with %s; uid %d, gid %d", a->credential, a->auth, getuid(), getgid());
+            print_log(LOG_INFO, "authcontext_new_apop: began session for `%s' with %s; uid %d, gid %d", a->credential, a->auth, getuid(), getgid());
             return a;
         }
 
@@ -129,7 +129,7 @@ authcontext authcontext_new_user_pass(const char *user, const char *pass) {
         if (*aar && aa->auth_new_user_pass && (a = aa->auth_new_user_pass(user, pass))) {
             a->auth = strdup(aa->name);
             a->credential = strdup(user);
-            syslog(LOG_INFO, "authcontext_new_user_pass: began session for `%s' with %s; uid %d, gid %d", a->credential, a->auth, a->uid, a->gid);
+            print_log(LOG_INFO, "authcontext_new_user_pass: began session for `%s' with %s; uid %d, gid %d", a->credential, a->auth, a->uid, a->gid);
             return a;
         }
 
@@ -185,7 +185,7 @@ void authcontext_delete(authcontext a) {
      * copy of the data. (This is a hack, and I am ashamed.)
      */
     if (getuid() == a->uid && a->auth && a->credential)
-        syslog(LOG_INFO, "authcontext_delete: finished session for `%s' with %s", a->credential, a->auth);
+        print_log(LOG_INFO, "authcontext_delete: finished session for `%s' with %s", a->credential, a->auth);
 
     if (a->auth) free(a->auth);
     if (a->credential) free(a->credential);

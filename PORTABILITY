@@ -9,9 +9,9 @@ far:
 
 * FreeBSD (and probably other modern BSD systems)
 
-  You will need to comment out the line which enables flock(2) locking, since
-  FreeBSD implements this with fcntl(2) locking; attempting to use both
-  therefore causes tpop3d to deadlock.
+  You will need to comment out the Makefile line which enables flock(2)
+  locking, since FreeBSD implements this with fcntl(2) locking; attempting to
+  use both therefore causes tpop3d to deadlock.
 
   You will need to remove the reference to -ldl, which does not exist on
   FreeBSD (on Linux it is needed to link against PAM with dynamic libraries
@@ -19,6 +19,16 @@ far:
 
   You will probably want to change the definition oF MAILSPOOL_DIR to be
   "/var/mail".
+
+* Solaris (2)
+
+  You will need to disable flock(2) locking, since Solaris does not support
+  this except in BSD compatibility mode (I have not attempted to build tpop3d
+  in BSD mode). For the moment, this means that tpop3d does not support
+  c-client locking on Solaris, which could be an issue if you want to use
+  tpop3d with PINE.
+
+  You will also need to link with libnsl and libsocket (-lnsl and -lsocket).
 
 * Others
 

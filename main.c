@@ -12,6 +12,7 @@ static const char rcsid[] = "$Id$";
 #include <fcntl.h>
 #include <netdb.h>
 #include <signal.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include <syslog.h>
@@ -27,6 +28,7 @@ static const char rcsid[] = "$Id$";
 
 #include "config.h"
 #include "connection.h"
+#include "errprintf.h"
 #include "list.h"
 #include "stringmap.h"
 #include "vector.h"
@@ -63,6 +65,24 @@ int daemon(int nochdir, int noclose) {
     return 0;
 }
 
+/* print_log:
+ * Because many systems do not have LOG_PERROR, we use a custom function to
+ * write an error to the system log, and optionally to standard error as
+ * well.
+ */
+int log_stderr;
+
+void print_log(int priority, const char *fmt, ...) {
+    char *s;
+    va_list ap;
+    va_start(ap, fmt);
+    s = verrprintf(fmt, ap);
+    va_end(ap);
+    syslog(priority, "%s", s);
+    if (log_stderr) fprintf(stderr, "%s\n", s);
+    free(s);
+}
+
 /* For virtual-domains support, we need to find the address and domain name
  * associated with a socket on which we are listening.
  */
@@ -87,21 +107,21 @@ listener listener_new(const struct sockaddr_in *addr, const char *domain) {
     memcpy(&(L->sin), addr, sizeof(struct sockaddr_in));
     L->s = socket(PF_INET, SOCK_STREAM, 0);
     if (L->s == -1) {
-        syslog(LOG_ERR, "listener_new: socket: %m");
+        print_log(LOG_ERR, "listener_new: socket: %m");
         goto fail;
     } else {
         int t = 1;
         if (setsockopt(L->s, SOL_SOCKET, SO_REUSEADDR, &t, sizeof(t)) == -1) {
-            syslog(LOG_ERR, "listener_new: setsockopt: %m");
+            print_log(LOG_ERR, "listener_new: setsockopt: %m");
             goto fail;
         } else if (fcntl(L->s, F_SETFL, O_NONBLOCK) == -1) {
-            syslog(LOG_ERR, "listener_new: fcntl: %m");
+            print_log(LOG_ERR, "listener_new: fcntl: %m");
             goto fail;
         } else if (bind(L->s, (struct sockaddr*)addr, sizeof(struct sockaddr_in)) == -1) {
-            syslog(LOG_ERR, "listener_new: bind(%s:%d): %m", inet_ntoa(addr->sin_addr), ntohs(addr->sin_port));
+            print_log(LOG_ERR, "listener_new: bind(%s:%d): %m", inet_ntoa(addr->sin_addr), ntohs(addr->sin_port));
             goto fail;
         } else if (listen(L->s, SOMAXCONN) == -1) {
-            syslog(LOG_ERR, "listener_new: listen: %m");
+            print_log(LOG_ERR, "listener_new: listen: %m");
             goto fail;
         }
     }
@@ -110,8 +130,8 @@ listener listener_new(const struct sockaddr_in *addr, const char *domain) {
     if (!domain) {
         he = gethostbyaddr((char *)&(addr->sin_addr), sizeof(addr->sin_addr), AF_INET);
         if (!he) {
-            syslog(LOG_WARNING, "listener_new: gethostbyaddr(%s): %s", inet_ntoa(addr->sin_addr), hstrerror(h_errno));
-            syslog(LOG_WARNING, "listener_new: %s: no domain suffix can be appended for this address", inet_ntoa(addr->sin_addr));
+            print_log(LOG_WARNING, "listener_new: gethostbyaddr(%s): cannot resolve name", inet_ntoa(addr->sin_addr));
+            print_log(LOG_WARNING, "listener_new: %s: no domain suffix can be appended for this address", inet_ntoa(addr->sin_addr));
         } else {
             /* We need to find out an appropriate domain suffix for the address.
              * FIXME we just take the first address with a "." in it, and use the
@@ -132,7 +152,7 @@ listener listener_new(const struct sockaddr_in *addr, const char *domain) {
                 }
 
             if (!L->domain)
-                syslog(LOG_WARNING, "listener_new: %s: no suitable domain suffix found for this address", inet_ntoa(addr->sin_addr));
+                print_log(LOG_WARNING, "listener_new: %s: no suitable domain suffix found for this address", inet_ntoa(addr->sin_addr));
         }
     } else L->domain = strdup(domain);
 
@@ -169,7 +189,7 @@ void net_loop(vector listen_addrs) {
     list connections = list_new();
     int post_fork = 0;
 
-    syslog(LOG_INFO, "net_loop: tpop3d version " TPOP3D_VERSION " successfully started");
+    print_log(LOG_INFO, "net_loop: tpop3d version " TPOP3D_VERSION " successfully started");
 
     /* Main select() loop */
     for (;;) {
@@ -200,17 +220,17 @@ void net_loop(vector listen_addrs) {
                     struct sockaddr_in sin;
                     size_t l = sizeof(sin);
                     int s = accept(L->s, (struct sockaddr*)&sin, &l);
-                    if (s == -1) syslog(LOG_ERR, "net_loop: accept: %m");
+                    if (s == -1) print_log(LOG_ERR, "net_loop: accept: %m");
                     else {
                         if (num_running_children >= max_running_children) {
                             char m[] = "-ERR Sorry, I'm too busy right now\r\n";
                             write(s, m, strlen(m));
                             shutdown(s, 2);
-                            syslog(LOG_INFO, "net_loop: rejected connection from %s owing to high load", inet_ntoa(sin.sin_addr));
+                            print_log(LOG_INFO, "net_loop: rejected connection from %s owing to high load", inet_ntoa(sin.sin_addr));
                         } else {
                             connection c = connection_new(s, &sin, L->domain);
                             if (c) list_push_back(connections, item_ptr(c));
-                            syslog(LOG_INFO, "net_loop: connection from %s", inet_ntoa(sin.sin_addr));
+                            print_log(LOG_INFO, "net_loop: connection from %s", inet_ntoa(sin.sin_addr));
                         }
                     }
                 }
@@ -224,7 +244,7 @@ void net_loop(vector listen_addrs) {
                     n = connection_read(c);
                     if (n == 0) {
                         /* Peer closed the connection */
-                        syslog(LOG_INFO, "net_loop: connection_read: peer %s closed connection", inet_ntoa(c->sin.sin_addr));
+                        print_log(LOG_INFO, "net_loop: connection_read: peer %s closed connection", inet_ntoa(c->sin.sin_addr));
                         connection_delete(c);
                         I = list_remove(connections, I);
                         if (post_fork) exit(0);
@@ -233,7 +253,7 @@ void net_loop(vector listen_addrs) {
                         /* Some sort of error occurred, and we should close
                          * the connection.
                          */
-                        syslog(LOG_ERR, "net_loop: connection_read: closed connection to %s: %m", inet_ntoa(c->sin.sin_addr));
+                        print_log(LOG_ERR, "net_loop: connection_read: closed connection to %s: %m", inet_ntoa(c->sin.sin_addr));
                         connection_delete(c);
                         I = list_remove(connections, I);
                         if (post_fork) exit(0);
@@ -255,7 +275,7 @@ void net_loop(vector listen_addrs) {
                             case fork_and_setuid:
                                 if (num_running_children >= max_running_children) {
                                     connection_sendresponse(c, 0, "Sorry, I'm too busy right now");
-                                    syslog(LOG_INFO, "net_loop: rejected login by %s owing to high load", c->a->credential);
+                                    print_log(LOG_INFO, "net_loop: rejected login by %s owing to high load", c->a->credential);
                                     connection_delete(c);
                                     I = list_remove(connections, I);
                                     c = NULL;
@@ -280,18 +300,18 @@ void net_loop(vector listen_addrs) {
 
                                     /* We never access mailspools as root. */
                                     if (!c->a->uid) {
-                                        syslog(LOG_ERR, "net_loop: authentication context has UID of 0");
+                                        print_log(LOG_ERR, "net_loop: authentication context has UID of 0");
                                         connection_sendresponse(c, 0, "Everything's really bad");
                                         exit(0);
                                     }
 
                                     /* Set our gid and uid to that appropriate for the mailspool, as decided by the auth switch. */
                                     if (setgid(c->a->gid) == -1) {
-                                        syslog(LOG_ERR, "net_loop: setgid(%d): %m", c->a->gid);
+                                        print_log(LOG_ERR, "net_loop: setgid(%d): %m", c->a->gid);
                                         connection_sendresponse(c, 0, "Everything was fine until now, but suddenly I realise I just can't go on. Sorry.");
                                         exit(0);
                                     } else if (setuid(c->a->uid) == -1) {
-                                        syslog(LOG_ERR, "net_loop: setuid(%d): %m", c->a->uid);
+                                        print_log(LOG_ERR, "net_loop: setuid(%d): %m", c->a->uid);
                                         connection_sendresponse(c, 0, "Everything was fine until now, but suddenly I realise I just can't go on. Sorry.");
                                         exit(0);
                                     }
@@ -314,7 +334,7 @@ void net_loop(vector listen_addrs) {
 
                                 case -1:
                                     /* Error. */
-                                    syslog(LOG_ERR, "net_loop: fork: %m");
+                                    print_log(LOG_ERR, "net_loop: fork: %m");
                                     connection_sendresponse(c, 0, "Everything was fine until now, but suddenly I realise I just can't go on. Sorry.");
                                     connection_delete(c);
                                     c = NULL;
@@ -344,7 +364,7 @@ void net_loop(vector listen_addrs) {
                 } else if (time(NULL) > (((connection)(I->d.v))->lastcmd + IDLE_TIMEOUT)) {
                     /* Connection has timed out. */
                     connection_sendresponse((connection)(I->d.v), 0, "You can hang around all day if you like. I have better things to do.");
-                    syslog(LOG_INFO, "net_loop: timed out connection from %s", inet_ntoa(((connection)I->d.v)->sin.sin_addr));
+                    print_log(LOG_INFO, "net_loop: timed out connection from %s", inet_ntoa(((connection)I->d.v)->sin.sin_addr));
                     connection_delete((connection)(I->d.v));
                     if (post_fork) exit(0);
                     I = list_remove(connections, I);
@@ -362,7 +382,7 @@ char *this_lockfile;
 
 void die_signal_handler(const int i) {
     struct sigaction sa;
-    syslog(LOG_ERR, "quit: %s", sys_siglist[i]); 
+    print_log(LOG_ERR, "quit: %s", sys_siglist[i]); 
     if (this_child_connection) connection_delete(this_child_connection); 
     if (this_lockfile) unlink(this_lockfile);
     memset(&sa, 0, sizeof(sa));
@@ -454,6 +474,7 @@ int main(int argc, char **argv) {
 
                 case 'd':
                     nodaemon = 1;
+                    log_stderr = 1;
                     break;
 
                 case 'f':
@@ -477,7 +498,7 @@ int main(int argc, char **argv) {
     if (!config) return 1;
 
     /* Start logging */
-    openlog("tpop3d", (nodaemon ? LOG_PERROR : 0) | LOG_PID | LOG_NDELAY, LOG_MAIL);
+    openlog("tpop3d", LOG_PID | LOG_NDELAY, LOG_MAIL);
 
     /* Identify addresses on which to listen.
      * The syntax for these is <addr>[:port][(domain)].
@@ -536,7 +557,7 @@ int main(int argc, char **argv) {
             L = listener_new(&sin, domain);
             if (L) {
                 vector_push_back(listeners, item_ptr(L));
-                syslog(LOG_INFO, "listening on address %s, port %d%s%s", inet_ntoa(L->sin.sin_addr), htons(L->sin.sin_port), (L->domain ? " with domain " : ""), (L->domain ? L->domain : ""));
+                print_log(LOG_INFO, "listening on address %s, port %d%s%s", inet_ntoa(L->sin.sin_addr), htons(L->sin.sin_port), (L->domain ? " with domain " : ""), (L->domain ? L->domain : ""));
             }
         }
 
@@ -570,10 +591,10 @@ int main(int argc, char **argv) {
     /* Start the authentication drivers */
     na = authswitch_init();
     if (!na) {
-        syslog(LOG_ERR, "no authentication drivers were loaded; aborting.");
-        syslog(LOG_ERR, "you may wish to check your config file %s", configfile);
+        print_log(LOG_ERR, "no authentication drivers were loaded; aborting.");
+        print_log(LOG_ERR, "you may wish to check your config file %s", configfile);
         return 1;
-    } else syslog(LOG_INFO, "%d authentication drivers successfully loaded", na);
+    } else print_log(LOG_INFO, "%d authentication drivers successfully loaded", na);
    
     net_loop(listeners);
 

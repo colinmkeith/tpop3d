@@ -1,5 +1,6 @@
 /*
- * pop3.c: implementation of rfc1939 POP3
+ * pop3.c:
+ * implementation of rfc1939 POP3
  *
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
@@ -404,7 +405,7 @@ int connection_start_transaction(connection c) {
     if (!c) return 0;
     
     if (c->a->uid != getuid() || c->a->gid != getgid()) {
-        syslog(LOG_ERR, "connection_start_transaction: wrong uid/gid");
+        print_log(LOG_ERR, "connection_start_transaction: wrong uid/gid");
         return 0;
     }
     
