@@ -293,3 +293,13 @@ move it.
   tpop3d does not use the Message-ID field in the message header, for a number
   of reasons.
 
+
+* Compiler warnings
+
+  If you use GCC to compile tpop3d, you may get some warnings of the form
+
+    warning: missing braces around initializer for `...'
+
+  Ignore these. They are cause by a bug or overzealousness in GCC. Full rant
+  available on request.
+

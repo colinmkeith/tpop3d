@@ -347,9 +347,9 @@ void do_dele(connection c, const int msg_num) {
         connection_sendresponse(c, 0, _("But which message do you want to delete?"));
     else {
         curmsg->deleted = 1;
+        ++c->m->numdeleted;
+        c->m->sizedeleted += curmsg->msglength;
         connection_sendresponse(c, 1, _("Done."));
-        ++curmbox->numdeleted;
-        curmbox->sizedeleted += curmsg->msglength;
     }
 }
 
