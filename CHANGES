@@ -25,6 +25,9 @@ added.
 A bug in the supplied TPOP3D::AuthDriver perl module was fixed, thanks to
 Steve Benson.
 
+A `StartupItem' (Mac OS X startup script) for tpop3d was contributed by
+Gerben Wierda, along with notes on using tpop3d on Mac OS X.
+
 1.3.4
 
 Minor changes, and addition of metadata caching for BSD mailspools; in

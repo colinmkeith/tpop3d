@@ -33,6 +33,10 @@ far:
   You will also need to link with libnsl and libsocket (-lnsl and -lsocket),
   and probably change MAILSPOOL_DIR to "/var/mail".
 
+* Mac OS X (darwin)
+
+  Have a look at README.darwin.
+
 * Others
 
   You tell me....

@@ -15,7 +15,8 @@ and to install it using
 However, it is well worth reviewing the various options to configure before
 proceeding blindly along this route. Below are various notes about configuring
 tpop3d for your system. (In addition to those noted here, tpop3d supports
-standard configure options such as --prefix.)
+standard configure options such as --prefix.) If you are using Mac OS X, please
+also review the contents of README.darwin.
 
 
 * Authentication

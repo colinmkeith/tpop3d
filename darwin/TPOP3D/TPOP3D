@@ -1,0 +1,40 @@
+#!/bin/sh
+
+. /etc/rc.common
+
+##
+# Start pop3d server
+##
+
+if [ "$1" == "start" ]
+then
+	if [ "${MAILSERVER:=-NO-}" = "-YES-" ]
+	then
+		if (ps axww|grep -v grep|grep /usr/local/sbin/tpop3d >/dev/null)
+		then
+			ConsoleMessage "TPOP3D already running"
+		else
+			ConsoleMessage "Starting tpop3d POP3 server"
+			if [ -e /etc/tpop3d.pid ]
+			then
+				ConsoleMessage "Removing stale tpop3d pid file"
+				rm -f /etc/tpop3d.pid
+			fi
+			/usr/local/sbin/tpop3d -p /etc/tpop3d.pid
+		fi
+	fi
+elif [ "$1" == "stop" ]
+then
+	ConsoleMessage "Stopping tpop3d POP3 server"
+	kill -TERM `cat /etc/tpop3d.pid`
+elif [ "$1" == "restart" ]
+then
+	if [ "${MAILSERVER:=-NO-}" = "-YES-" ]
+	then
+		ConsoleMessage "Reloading tpop3d configuration"
+		kill -HUP `cat /etc/tpop3d.pid`
+	else
+		ConsoleMessage "Stopping tpop3d POP3 server"
+		kill -TERM `cat /etc/tpop3d.pid`
+	fi
+fi

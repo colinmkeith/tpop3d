@@ -75,14 +75,15 @@ tpop3d.conf.cat: tpop3d.conf.5
 ## These need to be distributed along with configure:
 
 EXTRA_DIST = bootstrap \
-             mysql_crypt.patch \
-             CREDITS PORTABILITY CHANGES HACKING TODO README.auth_mysql \
+             CREDITS PORTABILITY CHANGES HACKING TODO \
+             README.auth_mysql README.darwin \
              $(man_MANS) \
              tpop3d.cat tpop3d.conf.cat \
              scripts/dotapopfile scripts/nasty scripts/oraclevmail \
              TPOP3D-AuthDriver/AuthDriver.pm TPOP3D-AuthDriver/Changes \
-             TPOP3D-AuthDriver/MANIFEST TPOP3D-AuthDriver/Makefile.PL TPOP3D-AuthDriver/test.pl \
-             darwin/README darwin/StartupParameters.plist darwin/tpop3d
+             TPOP3D-AuthDriver/MANIFEST TPOP3D-AuthDriver/Makefile.PL
+             TPOP3D-AuthDriver/test.pl \
+             darwin/TPOP3D/StartupParameters.plist darwin/TPOP3D/TPOP3D
              
 MAINTERCLEANFILES = Makefile.in aclocal.m4 configure configuration.h.in \
                     stamp-h.in

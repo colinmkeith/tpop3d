@@ -1,0 +1,31 @@
+Notes for installing tpop3d on Mac OS X (darwin)
+$Id$
+
+This information was contributed by Gerben Wierda.
+
+
+1. To build, in the source directory, run
+
+    ./configure --disable-auth-pam --enable-auth-passwd
+
+On Mac OS X 10.1 and later, you need to specify the -flat_namespace option
+when linking Unix-style applications. You can do this by running
+
+    make LDFLAGS=-flat_namespace
+
+then
+
+    make install
+
+2. To install a StartupItem for boot time for tpop3d:
+
+    cp -R darwin/TPOP3D /System/Library/StartupItems
+
+3. To create a default (and working) setting:
+
+    cp darwin/tpop3d.conf.example /etc/tpop3d.conf
+
+4. Then reboot, or run
+
+    /System/Library/StartupItems/TPOP3D/TPOP3D start
+
