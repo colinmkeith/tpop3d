@@ -91,3 +91,10 @@ $Id$
   example code in the OpenSSL distribution which would serve as the starting
   point for an implementation.
 
+
+* Different mailbox types for auth-mysql
+
+  At the moment, auth-mysql selects the `default' mailbox type, by passing
+  NULL to authcontext_new; this should be configurable, or perhaps determined
+  by the database.
+
