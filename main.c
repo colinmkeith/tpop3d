@@ -223,8 +223,10 @@ fail:
  */
 void listener_delete(listener L) {
     if (!L) return;
-    if (L->s != -1)
+    if (L->s != -1) {
         shutdown(L->s, 2);
+        close(L->s);
+    }
     if (L->domain)
         free(L->domain);
     free(L);
@@ -294,6 +296,7 @@ void net_loop(vector listen_addrs) {
                             char m[] = "-ERR Sorry, I'm too busy right now\r\n";
                             xwrite(s, m, strlen(m));
                             shutdown(s, 2);
+                            close(s);
                             print_log(LOG_INFO, "net_loop: rejected connection from %s owing to high load", inet_ntoa(sin.sin_addr));
                         } else {
                             connection c = connection_new(s, &sin, L->domain);
@@ -474,7 +477,7 @@ void child_signal_handler(const int i) {
  * Set the relevant signals to be ignored/handled.
  */
 void set_signals() {
-    int ignore_signals[] = {SIGPIPE, SIGHUP, SIGALRM, 0};
+    int ignore_signals[] = {SIGPIPE, SIGHUP, SIGALRM, SIGUSR1, SIGUSR2, SIGIO, SIGLOCK, 0};
     int die_signals[] = {SIGINT, SIGTERM, SIGQUIT, SIGABRT, SIGSEGV, SIGBUS, SIGFPE, 0};
     int *i;
     struct sigaction sa;

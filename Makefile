@@ -6,7 +6,7 @@
 # $Id$
 #
 
-VERSION = 1.1.2
+VERSION = 1.1.3
 IDLE_TIMEOUT = 30   # seconds before we time out clients
 
 # On machines where gcc is not the default C compiler, you may wish specify

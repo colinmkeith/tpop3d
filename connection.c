@@ -127,6 +127,7 @@ void connection_delete(connection c) {
     if (!c) return;
 
     shutdown(c->s, 2);
+    close(c->s);
 
     if (c->a) authcontext_delete(c->a);
     if (c->m) mailspool_delete(c->m);
