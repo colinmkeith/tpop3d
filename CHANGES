@@ -5,6 +5,8 @@ Fixed a couple of errors in the man page and configuration directives which
 got lost; thanks to Haris Hudji. Increased the default value for max-children
 from 16 to 100. Fixed a typo in Makefile.am. Incorporated a patch from Diego
 Alvarez to allow substitution variables to be used in LDAP base configurations.
+Altered the apop-only option to affect unsecured connections only, following a
+suggestion by Dave Baker.
 
 1.5.2
 
