@@ -373,6 +373,9 @@ Password of search user.
 .TP
 \fBauth-ldap-filter\fP: \fIsubstitution string\fP
 Filter template to use when searching for a user's account.
+.TP
+\fBauth-ldap-scope\fP: (\fBsubtree\fP|\fBbase\fP|\fBonelevel\fP)
+Scope of LDAP searches. If not specified, the default is `subtree'.
 
 .TP
 \fBauth-ldap-mailbox\fP: [\fImailbox-driver\fP:]\fIpath-spec\fP ...
