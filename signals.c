@@ -99,10 +99,10 @@ void set_signals() {
     sigaction(SIGCHLD, &sa, NULL);
 }
 
+extern sig_atomic_t foad, restart;       /* in netloop.c */
+
 /* terminate_signal_handler:
  * Signal handler to handle orderly termination of the program. */
-extern int foad;                            /* in main.c */
-
 void terminate_signal_handler(const int i) {
     foad = i;
 }
@@ -187,8 +187,6 @@ void child_signal_handler(const int i) {
 
 /* restart_signal_handler:
  * Signal handler to restart the server on receiving a SIGHUP. */
-extern int restart, post_fork;              /* in main.c */
-
 void restart_signal_handler(const int i) {
     if (!post_fork) {
         foad = i;

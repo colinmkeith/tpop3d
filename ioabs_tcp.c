@@ -72,12 +72,12 @@ static void ioabs_tcp_pre_select(connection c, int *n, fd_set *readfds, fd_set *
  * Simple post-select handling for TCP. */
 static int ioabs_tcp_post_select(connection c, fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
     int ret = 0;
+    ssize_t n;
     struct ioabs_tcp *io;
     io = (struct ioabs_tcp*)c->io;
 
     if (FD_ISSET(c->s, readfds)) {
         /* Can read data. */
-        ssize_t n;
         do {
             char *r;
             size_t rlen;
@@ -97,19 +97,21 @@ static int ioabs_tcp_post_select(connection c, fd_set *readfds, fd_set *writefds
             /* Connection has been closed. */
             log_print(LOG_INFO, _("ioabs_tcp_post_select: client %s: connection closed by peer"), c->idstr);
             ioabs_tcp_shutdown(c);
+            return 0;
         } else if (n == -1 && errno != EAGAIN) {
             log_print(LOG_ERR, _("ioabs_tcp_post_select: client %s: read: %m; closing connection"), c->idstr);
             ioabs_tcp_shutdown(c);
+            return 0;
         }
     }
 
-    if (c->cstate != closed && FD_ISSET(c->s, writefds) && buffer_available(c->wrb) > 0) {
+    if (FD_ISSET(c->s, writefds) && buffer_available(c->wrb) > 0) {
         /* Can write data. */
-        ssize_t n;
         do {
             char *w;
             size_t wlen;
-            w = buffer_get_consume_ptr(c->wrb, &wlen);
+            if (!(w = buffer_get_consume_ptr(c->wrb, &wlen)))
+                break; /* no more data to write */
             do
                 n = write(c->s, w, wlen);
             while (n == -1 && errno == EINTR);
@@ -138,7 +140,7 @@ static void ioabs_tcp_destroy(connection c) {
  * Create a struct ioabs_tcp. */
 struct ioabs_tcp *ioabs_tcp_create(void) {
     struct ioabs_tcp *io;
-    io = malloc(sizeof *io);
+    io = xmalloc(sizeof *io);
     io->und.immediate_write = ioabs_tcp_immediate_write;
     io->und.pre_select      = ioabs_tcp_pre_select;
     io->und.post_select     = ioabs_tcp_post_select;

@@ -123,15 +123,13 @@ struct ioabs_tcp *ioabs_tcp_create(void);
 struct ioabs_tls {
     struct ioabs und;
     SSL *ssl;
-    /* saved errno, saved value of ERR_get_error and of SSL_get_error */
-    int x_errno, ssl_err, ssl_io_err;
     /* state */
     int accept_blocked_on_write, accept_blocked_on_read;
     int read_blocked_on_write, write_blocked_on_read;
     int shutdown_blocked_on_write, shutdown_blocked_on_read;
 };
 
-struct ioabs_tls *ioabs_tls_create(void);
+struct ioabs_tls *ioabs_tls_create(connection c, listener l);
 
 #endif /* TPOP3D_TLS */
 

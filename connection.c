@@ -135,7 +135,7 @@ connection connection_new(int s, const struct sockaddr_in *sin, listener L) {
     /* I/O abstraction layer */
 #ifdef TPOP3D_TLS
     if (L->tls.mode == always) {
-        if (!(c->io = (struct ioabs*)ioabs_tls_create(L))) {
+        if (!(c->io = (struct ioabs*)ioabs_tls_create(c, L))) {
             log_print(LOG_ERR, _("connection_new: could not set up TLS I/O abstraction layer for `%s'"), c->idstr);
             goto fail;
         }
@@ -207,20 +207,21 @@ int connection_shutdown(connection c) {
     } else return c->io->shutdown(c);
 }
 
-/* connection_send_now:
- * Send the given data to the client immediately, if possible. Returns the
- * number of bytes written on success, IOABS_WOULDBLOCK if the write would
+/* connection_send_now CONNECTION DATA COUNT
+ * Send COUNT bytes of DATA to CONNECTION immediately, if possible. Returns
+ * the number of bytes written on success, IOABS_WOULDBLOCK if the write would
  * block, or IOABS_ERROR on error. Does not interact with the write buffer at
- * all. */
+ * all, and must be called only when it is empty. */
 static ssize_t connection_send_now(connection c, const char *data, const size_t len) {
     if (!c->io->immediate_write || connection_isfrozen(c))
         return 0;
     return c->io->immediate_write(c, data, len);
 }
 
-/* connection_send:
- * Send some data to the client, either immediately if possible or inserting it
- * into the buffer otherwise. Returns 1 on success or 0 on failure. */
+/* connection_send CONNECTION DATA COUNT
+ * Send COUNT bytes of DATA to CONNECTION, either immediately if possible or
+ * inserting it into the buffer otherwise. Returns 1 on success or 0 on
+ * failure. */
 ssize_t connection_send(connection c, const char *data, const size_t l) {
     size_t len;
     ssize_t n;
@@ -236,7 +237,7 @@ ssize_t connection_send(connection c, const char *data, const size_t l) {
     }
 
     buffer_push_data(c->wrb, data, len);
-        /* XXX should try a write from the buffer now.... */
+        /* XXX should try a write from the buffer now...? */
     return 1;
 }
 
