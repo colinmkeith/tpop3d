@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.8  2001/01/11 21:23:35  chris
+ * Added macros to select authenticators.
+ *
  * Revision 1.7  2000/10/31 23:17:29  chris
  * Added paranoia with snprintf.
  *
@@ -42,8 +45,14 @@ static const char rcsid[] = "$Id$";
 #include "auth_mysql.h"
 #endif /* AUTH_MYSQL */
 
+#ifdef AUTH_PAM
 #include "auth_pam.h"
-/*#include "auth_passwd.h" */
+#endif /* AUTH_PAM */
+
+#ifdef AUTH_PASSWD
+#include "auth_passwd.h"
+#endif /* AUTH_PASSWD */
+
 #include "authswitch.h"
 #include "stringmap.h"
 #include "util.h"
@@ -53,19 +62,19 @@ static const char rcsid[] = "$Id$";
  * below.
  */
 struct authdrv auth_drivers[] = {
+#ifdef AUTH_PAM
         /* This is the PAM driver, which should be used wherever possible. */
         {NULL, NULL, auth_pam_new_user_pass, NULL,
             "pam",
             "Uses Pluggable Authentication Modules"},
-
-        /* This is an example of how to write an authentication driver, and
-         * shouldn't be used on modern systems.
-         */
-/*      
-        {auth_passwd_init, NULL, auth_passwd_new_user_pass, auth_passwd_clode,
+#endif /* AUTH_PAM */
+            
+#ifdef AUTH_PASSWD
+        /* This is the old-style unix authentication driver. */
+        {NULL, NULL, auth_passwd_new_user_pass, NULL,
             "passwd",
-            "Uses /etc/passwd"},
-*/
+            "Uses /etc/passwd or /etc/shadow"},
+#endif /* AUTH_PASSWD */
             
 #ifdef AUTH_MYSQL
         /* This is for vmail-sql and similar schemes */
