@@ -320,17 +320,20 @@ then
     LDFLAGS="$LDFLAGS -umalloc -ufree -ucalloc -urealloc"
 fi
 
-if test x"$enable_auth_passwd" = x"yes" || test x"$enable_shadow" = x"yes"
+# Some machines have crypt(3) in libcrypt; test for this.
+if test x"$enable_auth_passwd" = x"yes" || test x"$enable_shadow" = x"yes" || test x"$enable_auth_mysql" = x"yes"
 then
-    AC_CHECK_LIB(crypt, main, [], AC_MSG_ERROR([[passwd authentication enabled, but can't find libcrypt]]) )
+    AC_CHECK_LIB(crypt, crypt, , )
 fi
 
+# Some machines have dlopen etc. in libdl, and these are needed for PAM.
 if test x"$enable_pam" = x"yes"
 then
     AC_CHECK_LIB(dl, dlopen, , )
     AC_CHECK_LIB(pam, pam_start, [], AC_MSG_ERROR([[pam authentication enabled, but can't find libpam]]) )
 fi
 
+# MySQL client libraries.
 if test x"$enable_auth_mysql" = x"yes"
 then
     AC_CHECK_LIB(mysqlclient, main, [], AC_MSG_ERROR([[vmail-sql authentication enabled, but can't find libmysqlclient]]) )

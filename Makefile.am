@@ -81,8 +81,9 @@ EXTRA_DIST = bootstrap \
              tpop3d.cat tpop3d.conf.cat \
              scripts/dotapopfile scripts/nasty scripts/oraclevmail \
              TPOP3D-AuthDriver/AuthDriver.pm TPOP3D-AuthDriver/Changes \
-             TPOP3D-AuthDriver/MANIFEST TPOP3D-AuthDriver/Makefile.PL
+             TPOP3D-AuthDriver/MANIFEST TPOP3D-AuthDriver/Makefile.PL \
              TPOP3D-AuthDriver/test.pl \
+             darwin/tpop3d.conf.example \
              darwin/TPOP3D/StartupParameters.plist darwin/TPOP3D/TPOP3D
              
 MAINTERCLEANFILES = Makefile.in aclocal.m4 configure configuration.h.in \
