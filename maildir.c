@@ -225,7 +225,7 @@ mailbox maildir_new(const char *dirname) {
         M->name = xstrdup(dirname);
 
     /* Optionally, try to lock the maildir. */
-    if (config_get_bool("maildir-exclusive-lock") && (!locked = maildir_lock(M->name))) {
+    if (config_get_bool("maildir-exclusive-lock") && !(locked = maildir_lock(M->name))) {
         log_print(LOG_INFO, _("maildir_new: %s: couldn't lock maildir"), dirname);
         goto fail;
     }

@@ -172,7 +172,7 @@ static void remove_cache_entry(unsigned long u0) {
     authcontext_delete(authcache.slots[u0].A);
     authcache.slots[u0].A = NULL;
     /* Need to close up any other entries in the table. */
-    for (uprev = u, u = (u0 + 1) % CACHESLOTS; hashval(authcache.slots[u].hash, authcache.nbits) == u0; uprev = u, u = (u + 1) % CACHESLOTS) {
+    for (uprev = u0, u = (u0 + 1) % CACHESLOTS; hashval(authcache.slots[u].hash, authcache.nbits) == u0; uprev = u, u = (u + 1) % CACHESLOTS) {
         authcache.slots[uprev] = authcache.slots[u];
         authcache.slots[u].A = NULL;
     }

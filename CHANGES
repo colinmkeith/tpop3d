@@ -238,3 +238,24 @@ you like, I have better things to do".
 
 Various fixes; added a patch for crypt(3) passwords in auth-mysql, and added
 an option to suppress c-client metadata. CHANGES file created.
+
+1.1.2
+
+(no change log)
+
+1.1
+
+(no change log)
+
+0.8
+
+(no change log)
+
+0.7
+
+(no change log)
+
+0.6
+
+(no change log)
+
