@@ -67,3 +67,6 @@ $Id$
 
 * Allow case-insensitive user names.
 
+
+* Automated test scripts
+
