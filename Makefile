@@ -8,7 +8,7 @@
 
 VERSION = 1.2.2
 
-# On machines where gcc is not the default C compiler, you may wish specify
+# On machines where gcc is not the default C compiler, you may wish to specify
 # gcc here, for instance if your vendor's compiler is broken (Solaris
 # [cough]).
 #CC = gcc

@@ -24,9 +24,8 @@ far:
 
   You will need to disable flock(2) locking, since Solaris does not support
   this except in BSD compatibility mode (I have not attempted to build tpop3d
-  in BSD mode). For the moment, this means that tpop3d does not support
-  c-client locking on Solaris, which could be an issue if you want to use
-  tpop3d with PINE.
+  in BSD mode). On Solaris, PINE etc. use fcntl locking, so you will need to
+  enable this option too.
 
   You will also need to link with libnsl and libsocket (-lnsl and -lsocket),
   and probably change MAILSPOOL_DIR to "/var/mail".

@@ -8,7 +8,7 @@ NNAAMMEE
        tpop3d - small, fast, extensible POP3 server
 
 SSYYNNOOPPSSIISS
-       ttppoopp33dd [ --dd ] [ --ff _f_i_l_e ]
+       ttppoopp33dd [ --ff _f_i_l_e ] [ --dd ] [ --vv ]
 
 DDEESSCCRRIIPPTTIIOONN
        ttppoopp33dd  is a server which implements the RFC1939 POP3 pro-
@@ -27,7 +27,7 @@ DDEESSCCRRIIPPTTIIOONN
 
        --ff _f_i_l_e
               Read  configuration  from  _f_i_l_e,  instead  of  from
-              //eettcc//ttppoopp33dd.
+              //eettcc//ttppoopp33dd..ccoonnff.
 
 
        --dd     Do  not  fork to become a daemon, but stay attached
@@ -97,10 +97,18 @@ TPOP3D(8)                                               TPOP3D(8)
               separator, which may be `@', `%' or `!'.
 
 
+       ttiimmeeoouutt--sseeccoonnddss: _n_u_m_b_e_r
+              This  is  the number of seconds a connection may be
+              idle for before it is closed.  If it is set  to  0,
+              then  timeouts  are disabled.  The default value is
+              30 seconds (see BUGS, below.)
+
+
+
 
    PPAAMM aauutthheennttiiccaattiioonn ooppttiioonnss
        aauutthh--ppaamm--eennaabbllee: (yyeess|ttrruuee)
-              Enable  authentication  using Pluggable Authentica-
+              Enable authentication using  Pluggable  Authentica-
               tion Modules.
 
 
@@ -110,20 +118,12 @@ TPOP3D(8)                                               TPOP3D(8)
 
 
        aauutthh--ppaamm--mmaaiillssppooooll--ddiirr: _p_a_t_h
-              Sets  the  path  where mailspools for PAM users are
+              Sets the path where mailspools for  PAM  users  are
               located. Defaults to //vvaarr//ssppooooll//mmaaiill.
 
 
        aauutthh--ppaamm--mmaaiill--ggrroouupp: (_g_r_o_u_p_-_n_a_m_e | _g_i_d)
-              The group name or gid under  which  access  to  the
-              mailspool  will  take  place.  The default for this
-              option is the primary group  of  the  authenticated
-              user,  which  will probably not work. You will nor-
-              mally want to set this to `mail'.
-
-
-
-
+              The  group  name  or  gid under which access to the
 
 
 
@@ -136,33 +136,40 @@ TPOP3D(8)                                               TPOP3D(8)
 TPOP3D(8)                                               TPOP3D(8)
 
 
+              mailspool will take place.  The  default  for  this
+              option  is  the  primary group of the authenticated
+              user, which will probably not work. You  will  nor-
+              mally want to set this to `mail'.
+
+
+
    PPaasssswwdd aauutthheennttiiccaattiioonn ooppttiioonnss
-       These are only  available  if  you  compiled  tpop3d  with
+       These  are  only  available  if  you  compiled tpop3d with
        aauutthh__ppaasssswwdd support.
 
 
        aauutthh--ppaasssswwdd--eennaabbllee: (yyeess|ttrruuee)
-              Enable   authentication   using   /etc/passwd  (and
+              Enable  authentication   using   /etc/passwd   (and
               /etc/shadow, if this option was selected at compile
               time).
 
 
        aauutthh--ppaasssswwdd--mmaaiillssppooooll--ddiirr: _p_a_t_h
-              Sets  the  path where mailspools for Unix users are
+              Sets the path where mailspools for Unix  users  are
               located. Defaults to //vvaarr//ssppooooll//mmaaiill.
 
 
        aauutthh--ppaasssswwdd--mmaaiill--ggrroouupp: (_g_r_o_u_p_-_n_a_m_e | _g_i_d)
-              The group name or gid under  which  access  to  the
-              mailspool  will  take  place.  The default for this
-              option is the primary group  of  the  authenticated
-              user,  which  will probably not work. You will nor-
+              The  group  name  or  gid under which access to the
+              mailspool will take place.  The  default  for  this
+              option  is  the  primary group of the authenticated
+              user, which will probably not work. You  will  nor-
               mally want to set this to `mail'.
 
 
 
    MMyySSQQLL aauutthheennttiiccaattiioonn ooppttiioonnss
-       These are only  available  if  you  compiled  tpop3d  with
+       These  are  only  available  if  you  compiled tpop3d with
        aauutthh__mmyyssqqll support.
 
 
@@ -171,23 +178,16 @@ TPOP3D(8)                                               TPOP3D(8)
 
 
        aauutthh--mmyyssqqll--mmaaiill--ggrroouupp: (_g_r_o_u_p_-_n_a_m_e | _g_i_d)
-              The  group  name  or  gid under which access to the
-              mailspool will take place.  The  default  for  this
-              option  is the primary group of the UNIX user asso-
+              The group name or gid under  which  access  to  the
+              mailspool  will  take  place.  The default for this
+              option is the primary group of the UNIX user  asso-
               ciated with the virtual domain.
 
 
        aauutthh--mmyyssqqll--hhoossttnnaammee_: _h_o_s_t_n_a_m_e
-              Host on which  to  connect  to  MySQL,  by  default
+              Host  on  which  to  connect  to  MySQL, by default
               llooccaallhhoosstt.
 
-
-       aauutthh--mmyyssqqll--ddaattaabbaassee: _d_a_t_a_b_a_s_e
-              MySQL database to use for authentication.
-
-
-       aauutthh--mmyyssqqll--uusseerrnnaammee: _u_s_e_r_n_a_m_e
-              MySQL username used to access the database.
 
 
 
@@ -202,49 +202,70 @@ TPOP3D(8)                                               TPOP3D(8)
 TPOP3D(8)                                               TPOP3D(8)
 
 
+       aauutthh--mmyyssqqll--ddaattaabbaassee: _d_a_t_a_b_a_s_e
+              MySQL database to use for authentication.
+
+
+       aauutthh--mmyyssqqll--uusseerrnnaammee: _u_s_e_r_n_a_m_e
+              MySQL username used to access the database.
+
+
        aauutthh--mmyyssqqll--ppaasssswwoorrdd: _p_a_s_s_w_o_r_d
               Password of MySQL user.
 
 
    AA nnoottee oonn MMyySSQQLL aauutthheennttiiccaattiioonn
-       The  MySQL  authentication  scheme  is intended to be used
+       The MySQL authentication scheme is  intended  to  be  used
        with the vmail-sql virtual domains configuration described
        at
 
        _h_t_t_p_:_/_/_w_w_w_._e_x_-_p_a_r_r_o_t_._c_o_m_/_~_c_h_r_i_s_/_v_m_a_i_l_-_s_q_l_/
 
-       However,  it would be extremely simple to adjust it to use
+       However, it would be extremely simple to adjust it to  use
        another database schema, should this be required. The code
        is all contained in auth_mysql.c in the distribution.
 
-       Note  that  the username and password supplied in the con-
-       figuration file are privileged information, in  the  sense
+       Note that the username and password supplied in  the  con-
+       figuration  file  are privileged information, in the sense
        that they would allow an arbitrary person to obtain infor-
-       mation from the  database  if  they  have  access  to  the
-       machine  on which it resides. _t_p_o_p_3_d clears this data from
-       memory when the MySQL authentication code  is  initialised
-       (though  note  that if you leave the aauutthh--mmyyssqqll--...... direc-
+       mation  from  the  database  if  they  have  access to the
+       machine on which it resides. _t_p_o_p_3_d clears this data  from
+       memory  when  the MySQL authentication code is initialised
+       (though note that if you leave the  aauutthh--mmyyssqqll--......  direc-
        tives in place but remove the aauutthh--mmyyssqqll--eennaabbllee:: yyeess line,
-       then  this  will not occur). The corollary to this is that
-       the ttppoopp33dd..ccoonnff file should not be readable  by  arbitrary
+       then this will not occur). The corollary to this  is  that
+       the  ttppoopp33dd..ccoonnff  file should not be readable by arbitrary
        users.
 
 
 BBUUGGSS
-       Locking  of  mailspools  under Unix is problematic, mostly
-       becuase of past  brokenness  which  has  now  been  fixed.
-       ttppoopp33dd's  locking scheme should suffice in most cases (and
-       should work reliably over NFS) but it is naive:  it  locks
-       the  mailspool for exclusive access, so that an MTA cannot
-       deliver mail to the mailspool whilst it is being  accessed
+       Locking of mailspools under Unix  is  problematic,  mostly
+       because  of  past  brokenness  which  has  now been fixed.
+       ttppoopp33dd's locking scheme should suffice in most cases  (and
+       should  work  reliably over NFS) but it is naive: it locks
+       the mailspool for exclusive access, so that an MTA  cannot
+       deliver  mail to the mailspool whilst it is being accessed
        by a ttppoopp33dd user. As a result, it is configured by default
-       to time out users rather rapidly (after  30s  of  inactiv-
+       to  time  out  users rather rapidly (after 30s of inactiv-
        ity). This is one of several places where it is marginally
        noncompliant with RFC1939.
 
 
 FFIILLEESS
        //eettcc//ttppoopp33dd..ccoonnff
+
+
+
+
+
+
+                                                                4
+
+
+
+
+
+TPOP3D(8)                                               TPOP3D(8)
 
 
 SSEEEE AALLSSOO
@@ -258,44 +279,23 @@ AAUUTTHHOORR
        Chris Lightfoot <chris@ex-parrot.com>
 
 
-
-                                                                4
-
-
-
-
-
-TPOP3D(8)                                               TPOP3D(8)
-
-
 CCOOPPYYIINNGG
-       This program is free software;  you  can  redistribute  it
+       This  program  is  free  software; you can redistribute it
        and/or modify it under the terms of the GNU General Public
-       License as published  by  the  Free  Software  Foundation;
-       either  version  2 of the License, or (at your option) any
+       License  as  published  by  the  Free Software Foundation;
+       either version 2 of the License, or (at your  option)  any
        later version.
 
-       This program is distributed in the hope that  it  will  be
+       This  program  is  distributed in the hope that it will be
        useful, but WITHOUT ANY WARRANTY; without even the implied
-       warranty of MERCHANTABILITY or FITNESS  FOR  A  PARTICULAR
-       PURPOSE.  See  the  GNU  General  Public  License for more
+       warranty  of  MERCHANTABILITY  or FITNESS FOR A PARTICULAR
+       PURPOSE. See the  GNU  General  Public  License  for  more
        details.
 
-       You should have received a copy of the GNU General  Public
+       You  should have received a copy of the GNU General Public
        License along with this program; if not, write to the Free
-       Software Foundation, Inc., 675  Mass  Ave,  Cambridge,  MA
+       Software  Foundation,  Inc.,  675  Mass Ave, Cambridge, MA
        02139, USA.
-
-
-
-
-
-
-
-
-
-
-
 
 
 
