@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.5  2000/10/08 16:53:53  chris
+ * Signal handler will always remove lockfile on quit.
+ *
  * Revision 1.4  2000/10/07 17:41:16  chris
  * Minor changes.
  *
@@ -277,9 +280,12 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
 /* die_signal_handler:
  * Signal handler to log a message and quit.
  */
+char *this_lockfile;
+
 void die_signal_handler(const int i) {
     char buffer[1024];
     if (this_child_connection) connection_delete(this_child_connection);
+    if (this_lockfile) unlink(this_lockfile);
     syslog(LOG_ERR, "quit: %s", sys_siglist[i]);
     exit(i + 127);
 }
