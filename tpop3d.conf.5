@@ -306,6 +306,14 @@ Sets the PAM facility name used by \fBtpop3d\fP to \fIfacility\fP. Defaults to
 The group name or gid under which access to the mailspool will take place. The
 default for this option is the primary group of the authenticated user, which
 may not work. You will normally want to set this to `mail'.
+.TP
+\fBauth-pam-mail-user\fP: (\fIuser-name\fP | \fIuid\fP)
+In normal operation, \fBauth-pam\fP will only authenticate users who have
+local accounts (i.e., for whom there exists a passwd entry and a distinct
+user ID). It is also possible to use PAM to authenticate arbitrary user names.
+This option names a local user whose credentials are used for users without
+local accounts who are authenticated by PAM. This option will not be useful
+in a typical configuration.
 
 .SS Password authentication options
 

@@ -69,10 +69,34 @@ authcontext auth_pam_new_user_pass(const char *user, const char *local_part, con
     /* Check the this isn't a virtual-domain user. */
     if (local_part) return NULL;
 
+
+    /* It is possible to use PAM to authenticate users who do not exist as
+     * system users. We support this by defining an auth-pam-mail-user
+     * configuration option which is used to obtain the user information
+     * for a non-system user to be authenticated against PAM. */
+    if (!(pw2 = getpwnam(user))) {
+        char *s;
+        if ((s = config_get_string("auth-pam-mail-user"))) {
+            uid_t u;
+            if (parse_uid(s, &u)) {
+                if (!(pw2 = getpwuid(u)))
+                    log_print(LOG_ERR, _("auth_pam_new_user_pass: auth-pam-mail-user directive `%s' does not correspond to a real user"), s);
+            } else
+                log_print(LOG_ERR, _("auth_pam_new_user_pass: auth-pam-mail-user directive `%s' does not make sense"), s);
+        }
+
+        if (!pw2)
+            return NULL;
+    }
+
     /* Copy the password structure, since it is in static storage and may
      * get overwritten by calls in the PAM code. */
     if (!(pw2 = getpwnam(user))) return NULL;
     pw = *pw2;
+
+    /* pw now contains either the data for the real UNIX user named or the UNIX
+     * user given by the auth-pam-mail-user config option. */
+
 
     /* Obtain facility name. */
     if (!(facility = config_get_string("auth-pam-facility")))
