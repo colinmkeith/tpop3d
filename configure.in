@@ -14,6 +14,8 @@ AC_CONFIG_AUX_DIR(config)
 AM_CONFIG_HEADER(configuration.h)
 AM_INIT_AUTOMAKE(tpop3d, 1.2.4)
 
+AC_DEFINE_UNQUOTED(TPOP3D_VERSION, "$VERSION", [The tpop3d version number])
+
 dnl Check which options are enabled...
 
 AC_ARG_ENABLE(flock-locking,
@@ -181,12 +183,12 @@ then
     AC_DEFINE(WITH_DOTFILE_LOCKING,1,[Use NFS safe dotfile locking.])
 fi
 
-if test x"$enable_flock" = x"yes" -o x"$enable_cclient_locking" = x"yes" -a x"$enable_cclient_uses_fcntl" = x"no"
+if test x"$enable_flock" = x"yes"
 then
     AC_DEFINE(WITH_FLOCK_LOCKING,1,[Turns on flock(2) locking.])
 fi
 
-if test x"$enable_fcntl" = x"yes" -o test x"$enable_cclient_uses_fcntl"
+if test x"$enable_fcntl" = x"yes"
 then
     AC_DEFINE(WITH_FCNTL_LOCKING,1,[Turns on fcntl(2) locking.])
 fi
@@ -260,7 +262,7 @@ then
     fi
 fi
 
-if test x"$enable_flock" = x"yes" -o test x"$enable_cclient_locking" = x"yes" -a test x"$enable_cclient_uses_fcntl" = x"no"
+if test x"$enable_flock" = x"yes" || test x"$enable_cclient" = x"yes" && test x"$enable_cclient_uses_fcntl" = x"no"
 then
     if test x"$ac_cv_header_sys_file_h" != x"yes"
     then
@@ -268,17 +270,17 @@ then
     fi
 fi
 
-if test x"$enable_fcntl" = x"yes"
+if test x"$enable_fcntl" = x"yes" || test x"$enable_cclient" = x"yes" && test x"$enable_cclient_uses_fcntl" = x"yes"
 then
 
     if test x"$ac_cv_header_fcntl_h" != x"yes"
     then
-        AC_MSG_ERROR( [fcntl locking enabled but can't find fcntl.h] )
+        AC_MSG_ERROR( [fcntl needed but can't find fcntl.h] )
     fi
 
     if test x"$ac_cv_header_unistd_h" != x"yes"
     then
-        AC_MSG_ERROR( [fcntl locking enabled but can't find unistd.h] )
+        AC_MSG_ERROR( [fcntl needed but can't find unistd.h] )
     fi
 
 fi
