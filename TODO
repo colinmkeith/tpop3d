@@ -92,3 +92,8 @@ $Id$
   point for an implementation.
 
 
+* Allow empty MySQL passwords
+
+  Some people prefer to create read-only MySQL users with blank passwords;
+  tpop3d should support this.
+
