@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.13  2001/01/11 21:23:35  chris
+ * Various changes to support IP-based virtual domains and other features.
+ *
  * Revision 1.12  2000/10/31 23:17:29  chris
  * More paranoia.
  *
@@ -54,9 +57,8 @@ static const char rcsid[] = "$Id$";
 #include <syslog.h>
 #include <unistd.h>
 
-#include <arpa/inet.h>
-
 #include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include <sys/socket.h>
 #include <sys/time.h>
@@ -101,6 +103,98 @@ int daemon(int nochdir, int noclose) {
     return 0;
 }
 
+/* For virtual-domains support, we need to find the address and domain name
+ * associated with a socket on which we are listening.
+ */
+typedef struct _listener {
+    struct sockaddr_in sin;
+    char *domain;
+    int s;
+} *listener;
+
+listener listener_new(const struct sockaddr_in *addr, const char *domain);
+void listener_delete(listener L);
+
+/* listener_new:
+ * Create a new listener object, listening on the specified address.
+ */
+listener listener_new(const struct sockaddr_in *addr, const char *domain) {
+    listener L;
+    struct hostent *he;
+    
+    L = (listener)malloc(sizeof(struct _listener));
+    memset(L, 0, sizeof(struct _listener));
+    memcpy(&(L->sin), addr, sizeof(struct sockaddr_in));
+    L->s = socket(PF_INET, SOCK_STREAM, 0);
+    if (L->s == -1) {
+        syslog(LOG_ERR, "listener_new: socket: %m");
+        goto fail;
+    } else {
+        int t = 1;
+        if (setsockopt(L->s, SOL_SOCKET, SO_REUSEADDR, &t, sizeof(t)) == -1) {
+            syslog(LOG_ERR, "listener_new: setsockopt: %m");
+            goto fail;
+        } else if (fcntl(L->s, F_SETFL, O_NONBLOCK) == -1) {
+            syslog(LOG_ERR, "listener_new: fcntl: %m");
+            goto fail;
+        } else if (bind(L->s, (struct sockaddr*)addr, sizeof(struct sockaddr_in)) == -1) {
+            syslog(LOG_ERR, "listener_new: bind(%s:%d): %m", inet_ntoa(addr->sin_addr), ntohs(addr->sin_port));
+            goto fail;
+        } else if (listen(L->s, SOMAXCONN) == -1) {
+            syslog(LOG_ERR, "listener_new: listen: %m");
+            goto fail;
+        }
+    }
+
+    /* Now, we need to find the domain associated with this socket. */
+    if (!domain) {
+        he = gethostbyaddr((char *)&(addr->sin_addr), sizeof(addr->sin_addr), AF_INET);
+        if (!he) {
+            syslog(LOG_WARNING, "listener_new: gethostbyaddr(%s): %s", inet_ntoa(addr->sin_addr), hstrerror(h_errno));
+            syslog(LOG_WARNING, "listener_new: %s: no domain suffix can be appended for this address", inet_ntoa(addr->sin_addr));
+        } else {
+            /* We need to find out an appropriate domain suffix for the address.
+             * FIXME we just take the first address with a "." in it, and use the
+             * part after the ".".
+             */
+            char **a, *b;
+            b = strchr(he->h_name, '.');
+            if (b && *(b + 1)) {
+                L->domain = strdup(b + 1);
+            } else 
+                for (a = he->h_aliases; *a; ++a) {
+                    char *b;
+                    fprintf(stderr, "%s\n", *a);
+                    if ((b = strchr(*a, '.')) && *(b + 1)) {
+                        L->domain = strdup(b + 1);
+                        break;
+                    }
+                }
+
+            if (!L->domain)
+                syslog(LOG_WARNING, "listener_new: %s: no suitable domain suffix found for this address", inet_ntoa(addr->sin_addr));
+        }
+    } else L->domain = strdup(domain);
+
+    return L;
+
+fail:
+    listener_delete(L);
+    return NULL;
+}
+
+/* listener_delete:
+ * Delete a listener object, closing the associated socket.
+ */
+void listener_delete(listener L) {
+    if (!L) return;
+    if (L->s != -1)
+        shutdown(L->s, 2);
+    if (L->domain)
+        free(L->domain);
+    free(L);
+}
+
 /* net_loop:
  * Accept connections and put them into an appropriate state, calling
  * setuid() and fork() when appropriate. listen_addrs is a NULL-terminated
@@ -111,39 +205,11 @@ int max_running_children = 16;  /* How many children may exist at once. */
 
 connection this_child_connection; /* Stored here so that if a signal terminates the child, the mailspool will still get unlocked. */
 
-void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
-    struct sockaddr_in **sin;
-    vector listen_sockets = vector_new();
+void net_loop(vector listen_addrs) {
     list connections = list_new();
     int post_fork = 0;
 
-    /* Set up the listening connections */
-    for (sin = listen_addrs; sin < listen_addrs + num_listen; ++sin) {
-        int s = socket(PF_INET, SOCK_STREAM, 0);
-        if (s == -1)
-            syslog(LOG_ERR, "net_loop: socket: %m");
-        else {
-            int t = 1;
-            if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &t, sizeof(t)) == -1) {
-                close(s);
-                syslog(LOG_ERR, "net_loop: setsockopt: %m");
-            } else if (bind(s, *sin, sizeof(struct sockaddr_in)) == -1) {
-                close(s);
-                syslog(LOG_ERR, "net_loop: bind(%s:%d): %m", inet_ntoa((*sin)->sin_addr), ntohs((*sin)->sin_port));
-            } else if (listen(s, SOMAXCONN) == -1) {
-                close(s);
-                syslog(LOG_ERR, "net_loop: listen: %m");
-            } else {
-                vector_push_back(listen_sockets, item_long(s));
-                syslog(LOG_INFO, "net_loop: listening on %s:%d", inet_ntoa((*sin)->sin_addr), ntohs((*sin)->sin_port));
-            }
-        }
-    }
-
-    if (listen_sockets->n_used == 0) {
-        syslog(LOG_ERR, "net_loop: no listening sockets could be opened; aborting");
-        exit(1);
-    } else syslog(LOG_INFO, "net_loop: tpop3d version " TPOP3D_VERSION " successfully started");
+    syslog(LOG_INFO, "net_loop: tpop3d version " TPOP3D_VERSION " successfully started");
 
     /* Main select() loop */
     for (;;) {
@@ -155,9 +221,9 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
 
         FD_ZERO(&readfds);
 
-        if (listen_sockets) vector_iterate(listen_sockets, t) {
-            FD_SET(t->l, &readfds);
-            if (t->l > n) n = t->l;
+        if (listen_addrs) vector_iterate(listen_addrs, t) {
+            FD_SET(((listener)t->v)->s, &readfds);
+            if (((listener)t->v)->s > n) n = ((listener)t->v)->s;
         }
 
         list_iterate(connections, I) {
@@ -168,11 +234,12 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
 
         if (select(n + 1, &readfds, NULL, NULL, &tv) >= 0) {
             /* Check for new incoming connections */
-            if (listen_sockets) vector_iterate(listen_sockets, t) {
-                if (FD_ISSET(t->l, &readfds)) {
+            if (listen_addrs) vector_iterate(listen_addrs, t) {
+                listener L = (listener)t->v;
+                if (FD_ISSET(L->s, &readfds)) {
                     struct sockaddr_in sin;
                     size_t l = sizeof(sin);
-                    int s = accept(t->l, &sin, &l);
+                    int s = accept(L->s, (struct sockaddr*)&sin, &l);
                     if (s == -1) syslog(LOG_ERR, "net_loop: accept: %m");
                     else {
                         if (num_running_children >= max_running_children) {
@@ -181,7 +248,7 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
                             shutdown(s, 2);
                             syslog(LOG_INFO, "net_loop: rejected connection from %s owing to high load", inet_ntoa(sin.sin_addr));
                         } else {
-                            connection c = connection_new(s, &sin);
+                            connection c = connection_new(s, &sin, L->domain);
                             if (c) list_push_back(connections, item_ptr(c));
                             syslog(LOG_INFO, "net_loop: connection from %s", inet_ntoa(sin.sin_addr));
                         }
@@ -238,9 +305,9 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
                                     /* Child. */
                                     post_fork = 1;
 
-                                    vector_iterate(listen_sockets, t) close(t->l);
-                                    vector_delete(listen_sockets);
-                                    listen_sockets = NULL;
+                                    vector_iterate(listen_addrs, t) listener_delete((listener)t->v);
+                                    vector_delete(listen_addrs);
+                                    listen_addrs = NULL;
 
                                     list_iterate(connections, J) {
                                         if (J != I) {
@@ -358,9 +425,8 @@ void child_signal_handler(const int i) {
  * Set the relevant signals to be ignored/handled.
  */
 void set_signals() {
-    int ignore_signals[] = {SIGPIPE, SIGINT, SIGHUP, SIGALRM, 0};
-    int die_signals[] = {SIGTERM, SIGQUIT, SIGPWR, SIGABRT, SIGSEGV, SIGBUS, SIGFPE, 0};
-
+    int ignore_signals[] = {SIGPIPE, SIGHUP, SIGALRM, 0};
+    int die_signals[] = {SIGINT, SIGTERM, SIGQUIT, SIGABRT, SIGSEGV, SIGBUS, SIGFPE, 0};
     int *i;
     struct sigaction sa;
 
@@ -393,7 +459,7 @@ void usage(FILE *fp) {
                 "  -f file  read configuration from file\n"
                 "  -d       do not detach from controlling terminal\n"
                 "\n"
-                "tpop3d, copyright (c) 2000 Chris Lightfoot <chris@ex-parrot.com>\n"
+                "tpop3d, copyright (c) 2000-2001 Chris Lightfoot <chris@ex-parrot.com>\n"
                 "  http://www.ex-parrot.com/~chris/tpop3d/\n"
                 "This is tpop3d version " TPOP3D_VERSION "\n"
                 "\n"
@@ -408,6 +474,7 @@ void usage(FILE *fp) {
  * Read config file, set up authentication and proceed to main loop.
  */
 stringmap config;
+extern int append_domain; /* Do we automatically try user@domain if user alone fails to authenticate? In pop3.c. */
 
 int main(int argc, char **argv) {
     vector listeners;
@@ -449,59 +516,76 @@ int main(int argc, char **argv) {
     config = read_config_file(configfile);
     if (!config) return 1;
 
-    /* Identify addresses on which to listen. */
+    /* Start logging */
+    openlog("tpop3d", (nodaemon ? LOG_PERROR : 0) | LOG_PID | LOG_NDELAY, LOG_MAIL);
+
+    /* Identify addresses on which to listen.
+     * The syntax for these is <addr>[:port][(domain)].
+     */
     I = stringmap_find(config, "listen-address");
     listeners = vector_new();
     if (I) {
-        vector v = vector_new_from_string(I->v);
+        tokens t = tokens_new(I->v, " \t");
         item *J;
 
-        vector_iterate(v, J) {
-            struct sockaddr_in *sin;
-            char *s = J->v, *r = NULL;
+        vector_iterate(t->toks, J) {
+            struct sockaddr_in sin = {0};
+            listener L;
+            char *s = J->v, *r = NULL, *domain = NULL;
 
-            sin = (struct sockaddr_in*)malloc(sizeof(struct sockaddr_in));
+            sin.sin_family = AF_INET;
+
+            /* Specified domain. */
+            r = strchr(s, '(');
+            if (r) {
+                if (*(s + strlen(s) - 1) != ')') {
+                    fprintf(stderr, "%s: syntax for listen address `%s' is incorrect\n", configfile, s);
+                    continue;
+                }
+
+                *r++ = 0;
+                *(r + strlen(r) - 1) = 0;
+                domain = r;
+            }
             
-            /* Port */
+            /* Port. */
             r = strchr(s, ':');
             if (r) {
                 *r++ = 0;
-                sin->sin_port = atoi(r);
-                if (!sin->sin_port) {
+                sin.sin_port = atoi(r);
+                if (!sin.sin_port) {
                     struct servent *se;
                     se = getservbyname(r, "tcp");
                     if (!se) {
                         fprintf(stderr, "%s: specified listen address `%s' has invalid port `%s'\n", configfile, s, r);
-                        free(sin);
                         continue;
-                    } else sin->sin_port = se->s_port;
-                } else sin->sin_port = htons(sin->sin_port);
-            } else sin->sin_port = htons(110);
+                    } else sin.sin_port = se->s_port;
+                } else sin.sin_port = htons(sin.sin_port);
+            } else sin.sin_port = htons(110); /* pop-3 */
             
-            if (!inet_aton(s, &(sin->sin_addr))) {
+            /* Address. */
+            if (!inet_aton(s, &(sin.sin_addr))) {
                 struct hostent *he;
                 he = gethostbyname(s);
                 if (!he) {
                     fprintf(stderr, "%s: gethostbyname: specified listen address `%s' is invalid\n", configfile, s);
-                    free(sin);
                     continue;
-                } else memcpy(&(sin->sin_addr), he->h_addr, sizeof(struct in_addr));
+                } else memcpy(&(sin.sin_addr), he->h_addr, sizeof(struct in_addr));
             }
-            vector_push_back(listeners, item_ptr(sin));
+
+            L = listener_new(&sin, domain);
+            if (L) {
+                vector_push_back(listeners, item_ptr(L));
+                syslog(LOG_INFO, "listening on address %s, port %d%s%s", inet_ntoa(L->sin.sin_addr), htons(L->sin.sin_port), (L->domain ? " with domain " : ""), (L->domain ? L->domain : ""));
+            }
         }
 
-        vector_delete_free(v);
-    } else {
-        struct sockaddr_in *sin;
-        sin = (struct sockaddr_in*)malloc(sizeof(struct sockaddr_in));
-        memset(sin, 0, sizeof(struct sockaddr_in));
-        sin->sin_port = htons(1201);
-        vector_push_back(listeners, item_ptr(sin));
+        tokens_delete(t);
     }
 
     if (listeners->n_used == 0) {
         fprintf(stderr, "%s: no listen addresses obtained; exiting\n", configfile);
-        exit(1);
+        return 1;
     }
 
     /* Find out the maximum number of children we may spawn at once. */
@@ -514,12 +598,13 @@ int main(int argc, char **argv) {
         }
     }
 
+    /* Should we automatically append domain names and retry authentication? */
+    I = stringmap_find(config, "append-domain");
+    if (I && (!strcmp(I->v, "yes") || !strcmp(I->v, "true"))) append_domain = 1;
 
     /* Detach from controlling tty etc. */
     if (!nodaemon) daemon(0, 0);
     
-    /* Start logging */
-    openlog("tpop3d", (nodaemon ? LOG_PERROR : 0) | LOG_PID | LOG_NDELAY, LOG_MAIL);
     set_signals();
 
     /* Start the authentication drivers */
@@ -527,10 +612,10 @@ int main(int argc, char **argv) {
     if (!na) {
         syslog(LOG_ERR, "no authentication drivers were loaded; aborting.");
         syslog(LOG_ERR, "you may wish to check your config file %s", configfile);
+        return 1;
     } else syslog(LOG_INFO, "%d authentication drivers successfully loaded", na);
-
    
-    net_loop((struct sockaddr_in**)listeners->ary, listeners->n_used);
+    net_loop(listeners);
 
     authswitch_close();
     vector_delete_free(listeners);

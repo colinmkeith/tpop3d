@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.9  2001/01/11 21:23:35  chris
+ * Various changes to support IP-based virtual domains and other features.
+ *
  * Revision 1.8  2000/10/31 23:17:29  chris
  * More paranoia, and more fascist protocol checking.
  *
@@ -62,6 +65,8 @@ static char *hex_digest(const unsigned char *u) {
  * Makes a command do something on a connection, returning a code indicating
  * what the caller should do.
  */
+int append_domain;  /* Do we automatically try user@domain if user alone fails to authenticate? */
+
 enum connection_action connection_do(connection c, const pop3command p) {
     /* This breaks the RFC, but is sensible. */
     if (p->cmd != NOOP && p->cmd != UNKNOWN) c->lastcmd = time(NULL);
@@ -151,16 +156,30 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 }
 
                 c->a = authcontext_new_apop(name, c->timestamp, digest);
+                
+                if (!c->a && append_domain && c->domain && strcspn(name, "@%!") == strlen(name)) {
+                    /* OK, if we have a domain name, try appending that. */
+                    char *nn = (char*)malloc(strlen(name) + strlen(c->domain) + 2);
+                    strcpy(nn, name);
+                    strcat(nn, "@");
+                    strcat(nn, c->domain);
+                    c->a = authcontext_new_apop(nn, c->timestamp, digest);
+                    free(nn);
+                }
 
                 if (c->a) {
                     c->state = transaction;
                     return fork_and_setuid;
                 } else {
-                    connection_sendresponse(c, 0, "Lies! Try again!");
-                    return do_nothing;
+                    ++c->n_auth_tries;
+                    if (c->n_auth_tries == MAX_AUTH_TRIES) {
+                        connection_sendresponse(c, 0, "This is ridiculous. I give up.");
+                        return close_connection;
+                    } else {
+                        connection_sendresponse(c, 0, "Lies! Try again!");
+                        return do_nothing;
+                    }
                 }
-                
-                return do_nothing;
             }
             break;
             
@@ -180,7 +199,18 @@ enum connection_action connection_do(connection c, const pop3command p) {
         /* Do we now have enough information to authenticate using USER/PASS? */
         if (!c->a && c->user && c->pass) {
             c->a = authcontext_new_user_pass(c->user, c->pass);
+            if (!c->a && append_domain && c->domain && strcspn(c->user, "@%!") == strlen(c->user)) {
+                /* OK, if we have a domain name, try appending that. */
+                char *nn = (char*)malloc(strlen(c->user) + strlen(c->domain) + 2);
+                strcpy(nn, c->user);
+                strcat(nn, "@");
+                strcat(nn, c->domain);
+                c->a = authcontext_new_user_pass(nn, c->pass);
+                free(nn);
+            }
+
             if (c->a) {
+                memset(c->pass, 0, strlen(c->pass));
                 c->state = transaction;
                 return fork_and_setuid; /* Code in main.c sends response in case of error. */
             } else {
@@ -206,8 +236,8 @@ enum connection_action connection_do(connection c, const pop3command p) {
     } else if (c->state == transaction) { 
         /* Transaction state: do things to mailbox. */
         char *a = NULL;
-        int num_args = p->toks->toks->n_used - 1, have_msg_num = 0, msg_num, have_arg2 = 0, arg2;
-        indexpoint I;
+        int num_args = p->toks->toks->n_used - 1, have_msg_num = 0, msg_num = 0, have_arg2 = 0, arg2 = 0;
+        indexpoint I = NULL;
         
         /* No command has more than two arguments. */
         if (num_args > 2) {
