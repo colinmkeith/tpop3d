@@ -13,6 +13,7 @@ static const char rcsid[] = "$Id$";
 
 #include <sys/types.h>
 
+#include <assert.h>
 #include <syslog.h>
 #include <unistd.h>
 
@@ -53,6 +54,8 @@ static int ioabs_tls_shutdown(connection c) {
     int n, e;
     struct ioabs_tls *io;
     io = (struct ioabs_tls*)c->io;
+
+    if (c->cstate == closed) return 1;
     
     n = SSL_shutdown(io->ssl);
     
@@ -117,7 +120,7 @@ static ssize_t ioabs_tls_read(connection c, void *buf, size_t count) {
         case SSL_ERROR_WANT_WRITE:
             io->read_blocked_on_write = 1;
             /* fall through */
-        case SSL_ERROR_WANT_READ:   /* can this really occur here? */
+        case SSL_ERROR_WANT_READ:
             return IOABS_WOULDBLOCK;
 
         case SSL_ERROR_ZERO_RETURN:
@@ -154,6 +157,11 @@ static ssize_t ioabs_tls_immediate_write(connection c, const void *buf, size_t c
     int n, e;
     struct ioabs_tls *io;
     io = (struct ioabs_tls*)c->io;
+
+    if (count == 0) return 0;   /* otherwise can't distinguish this case... */
+
+    if (io->read_blocked_on_write) return IOABS_WOULDBLOCK;
+    if (c->cstate == closed) return IOABS_ERROR;
     
     n = SSL_write(io->ssl, buf, count);
 
@@ -169,22 +177,22 @@ static ssize_t ioabs_tls_immediate_write(connection c, const void *buf, size_t c
 
         case SSL_ERROR_ZERO_RETURN:
             /* TLS connection closed. */
-            log_print(LOG_ERR, _("ioabs_tls_read: client %s: connection closed by peer"), c->idstr);
+            log_print(LOG_ERR, _("ioabs_tls_immediate_write: client %s: connection closed by peer"), c->idstr);
             underlying_shutdown(c);
             return IOABS_ERROR;
 
         case SSL_ERROR_SYSCALL:
             if (!e) {
                 if (n == 0)
-                    log_print(LOG_ERR, _("ioabs_tls_read: client %s: connection unexpectedly closed by peer"), c->idstr);
+                    log_print(LOG_ERR, _("ioabs_tls_immediate_write: client %s: connection unexpectedly closed by peer"), c->idstr);
                 else
-                    log_print(LOG_ERR, _("ioabs_tls_read: client %s: %m; closing connection"), c->idstr);
+                    log_print(LOG_ERR, _("ioabs_tls_immediate_write: client %s: %m; closing connection"), c->idstr);
                 break;
             }
             /* fall through */
         case SSL_ERROR_SSL:
         default:
-            log_print(LOG_ERR, _("ioabs_tls_read: client %s: %s; closing connection"), c->idstr, ERR_reason_error_string(e));
+            log_print(LOG_ERR, _("ioabs_tls_immediate_write: client %s: %s; closing connection"), c->idstr, ERR_reason_error_string(e));
             break;
     }
     
@@ -199,8 +207,9 @@ static void ioabs_tls_pre_select(connection c, int *n, fd_set *readfds, fd_set *
     io = (struct ioabs_tls*)c->io;
 
     FD_SET(c->s, readfds);  /* always want to read */
-    if ((!io->write_blocked_on_read && buffer_available(c->wrb) > 0)
-        || io->accept_blocked_on_write || io->read_blocked_on_write || io->shutdown_blocked_on_write)
+    if (!io->write_blocked_on_read &&
+        (buffer_available(c->wrb) > 0 || io->accept_blocked_on_write
+         || io->read_blocked_on_write || io->shutdown_blocked_on_write))
         FD_SET(c->s, writefds);
 
     if (c->s > *n)
@@ -266,32 +275,9 @@ static int ioabs_tls_post_select(connection c, fd_set *readfds, fd_set *writefds
         /* If we're in the process of shutting down, do nothing else. */
         return 0;
     }
-fprintf(stderr, "  rbow %d wbor %d canread %d canwrite %d buf %d\n", io->read_blocked_on_write, io->write_blocked_on_read, canread, canwrite, buffer_available(c->wrb));
-
-    /* Write from the buffer to the connection, if necessary. */
-    if (((!io->write_blocked_on_read && canwrite) || (io->write_blocked_on_read && canread)) && buffer_available(c->wrb) > 0) {
-fprintf(stderr, "write!\n");
-        io->write_blocked_on_read = 0;
-        n = 1;
-        do {
-            char *w;
-            size_t wlen;
-            if (!(w = buffer_get_consume_ptr(c->wrb, &wlen)))
-                break;  /* no more data to write */
-            n = ioabs_tls_immediate_write(c, w, wlen);
-            if (n > 0) {
-                buffer_consume_bytes(c->wrb, n);
-                c->nwr += n;
-            }
-        } while (n > 0);
-        /* Connection may have been closed. */
-        if (n <= 0)
-            return 0;
-    }
-fprintf(stderr, "+ rbow %d wbor %d canread %d canwrite %d buf %d\n", io->read_blocked_on_write, io->write_blocked_on_read, canread, canwrite, buffer_available(c->wrb));
 
     /* Read from the connection into the buffer, if necessary. */
-    if ((!io->read_blocked_on_write && canread) || (io->read_blocked_on_write && canwrite)) {
+    if ((!io->read_blocked_on_write && !io->write_blocked_on_read && canread) || (io->read_blocked_on_write && canwrite)) {
         io->read_blocked_on_write = 0;
         do {
             char *r;
@@ -307,6 +293,26 @@ fprintf(stderr, "+ rbow %d wbor %d canread %d canwrite %d buf %d\n", io->read_bl
         } while (n > 0);
         /* Connection may have been closed. */
         if (n == IOABS_ERROR)
+            return 0;
+    }
+
+    /* Write from the buffer to the connection, if necessary. */
+    if (((!io->write_blocked_on_read && !io->read_blocked_on_write && canwrite) || (io->write_blocked_on_read && canread)) && buffer_available(c->wrb) > 0) {
+        io->write_blocked_on_read = 0;
+        n = 1;
+        do {
+            char *w;
+            size_t wlen;
+            if (!(w = buffer_get_consume_ptr(c->wrb, &wlen)))
+                break;  /* no more data to write */
+            n = ioabs_tls_immediate_write(c, w, wlen);
+            if (n > 0) {
+                buffer_consume_bytes(c->wrb, n);
+                c->nwr += n;
+            }
+        } while (n > 0);
+        /* Connection may have been closed. */
+        if (n <= 0)
             return 0;
     }
 
@@ -346,6 +352,8 @@ struct ioabs_tls *ioabs_tls_create(connection c, listener l) {
         xfree(io);
         return NULL;
     }
+
+    SSL_set_mode(io->ssl, SSL_MODE_ENABLE_PARTIAL_WRITE | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
 
     SSL_set_fd(io->ssl, c->s);
     

@@ -443,7 +443,7 @@ int connection_sendmessage(connection c, int fd, size_t msgoffset, size_t skip, 
 
     errno = 0;
     if (!connection_send(c, "\r\n", 2)) {
-        log_print(LOG_ERR, "connection_sendmessage: send: %m");
+        log_print(LOG_ERR, _("connection_sendmessage: send failure"));
         munmap(filemem, length);
         return -1;
     }
@@ -473,12 +473,12 @@ int connection_sendmessage(connection c, int fd, size_t msgoffset, size_t skip, 
     
     errno = 0;
     if (!connection_send(c, ".\r\n", 3)) {
-        log_print(LOG_ERR, "connection_sendmessage: send: %m");
+        log_print(LOG_ERR, _("connection_sendmessage: send failure"));
         return -1;
     } else return nwritten + 3;
 
 write_failure:
-    log_print(LOG_ERR, "connection_sendmessage: send: %m");
+    log_print(LOG_ERR, _("connection_sendmessage: send failure"));
     munmap(filemem, length);
     return -1;
 }
