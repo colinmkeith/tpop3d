@@ -8,7 +8,9 @@ POP-before-SMTP relaying, thanks to Arkadiusz Miski. Added support for `mass
 virtual hosting', where the domain name used for a connection is based upon
 the name associated with the address to which a client connects. Made a small
 change to the documentation to make it clearer. tpop3d now obeys configure's
---sysconfdir option. Improved the performance of the mailspool parser.
+--sysconfdir option. Improved the performance of the mailspool parser. Fixed a
+problem in the command parsing code which could cause problems with Eudora's
+command pipelining; thanks to Shin Zukeran for this fix.
 
 1.4.2
 

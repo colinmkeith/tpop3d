@@ -486,13 +486,13 @@ then
     fi
 fi
 
-if test x"$enable_auth_passwd" = x"yes" || test x"$enable_shadow" = x"yes"
-then
-    if test x"$ac_cv_header_crypt_h" != x"yes"
-    then
-        AC_MSG_ERROR( [[passwd authentication enabled, but can't find crypt.h]] )
-    fi
-fi
+#if test x"$enable_auth_passwd" = x"yes" || test x"$enable_shadow" = x"yes"
+#then
+#    if test x"$ac_cv_header_crypt_h" != x"yes"
+#    then
+#        AC_MSG_ERROR( [[passwd authentication enabled, but can't find crypt.h]] )
+#    fi
+#fi
 
 if test x"$enable_pam" = x"yes"
 then

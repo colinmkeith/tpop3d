@@ -253,10 +253,10 @@ pop3command connection_parsecommand(connection c) {
         log_print(LOG_DEBUG, "%s", s);
         xfree(s);
     }
-                
+
     /* now update the buffer */
     memmove(c->buffer, q, c->buffer + c->bufferlen - q);
-    c->p = c->buffer;
+    c->p -= q - c->buffer;
 
     return pc;
 }
