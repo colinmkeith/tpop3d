@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.11  2000/10/31 20:37:22  chris
+ * Various changes.
+ *
  * Revision 1.10  2000/10/28 14:57:04  chris
  * Minor changes.
  *
@@ -47,8 +50,11 @@ static const char rcsid[] = "$Id$";
 #include <string.h>
 #include <syslog.h>
 #include <unistd.h>
-#include <netinet/in.h>
+
 #include <arpa/inet.h>
+
+#include <netinet/in.h>
+
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -197,7 +203,7 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
                         /* Some sort of error occurred, and we should close
                          * the connection.
                          */
-                        syslog(LOG_ERR, "net_loop: connection_read: %m");
+                        syslog(LOG_ERR, "net_loop: connection_read: closed connection to %s: %m", inet_ntoa(c->sin.sin_addr));
                         connection_delete(c);
                         I = list_remove(connections, I);
                         if (post_fork) exit(0);
