@@ -11,11 +11,26 @@ Also, there are some deficiencies in the way that locking happens on Solaris
 at the moment. In particular, the c-client locking needs to use fcntl locks
 on that platform. This should be easy to implement.
 
+In addition, some systems (in particular more recent Linux distributions,
+including RedHat 6.2 and 7) are avoiding lockfiles for mailspools entirely.
+Presumably a whole set of locking options is needed: lockfile, flock, fcntl,
+c-client with flock or fcntl. This is a bit of a nuisance.
+
+
+* Better interaction with PINE/c-client
+
+In particular, it would be nice if tpop3d could suppress the c-client metadata
+which is put into a special message in the mailspool. I think that this
+message always (or at least typically) appears only as the first one in the
+spool, which makes things easier in this regard.
+
+
 * More authentication schemes
 
 Virtual-domain schemes which use /etc/passwd-style flat text files seem to be
 popular, but I do not make use of anything like this. However, it would be
 relatively easy to implement such a thing.
+
 
 * A proper code audit
 
@@ -23,7 +38,5 @@ tpop3d is, as far as I know, free of obvious security deficiencies. I do not
 believe that it contains any buffer overruns, and it does not make use of
 temporary files, so is unlikely to suffer from /tmp race conditions. I have
 thought about denial-of-service attacks, and I think that it is safe from the
-most obvious ones.
-
-Nevertheless, a full security audit would be nice....
+most obvious ones. Nevertheless, a full security audit would be desirable.
 
