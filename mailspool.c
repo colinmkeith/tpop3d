@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.9  2000/10/31 20:37:22  chris
+ * Added cclient locking, flock locking.
+ *
  * Revision 1.8  2000/10/28 14:57:04  chris
  * Minor changes.
  *
@@ -36,11 +39,13 @@ static const char rcsid[] = "$Id$";
 
 #include <errno.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
 #include <string.h>
 #include <syslog.h>
 #include <unistd.h>
 
+#include <sys/file.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -59,7 +64,11 @@ static const char rcsid[] = "$Id$";
  * (and is a contender for the prize in "most complicated code for something
  * which ought to be simple").
  * 
- * Both fcntl and .lock locking is done.
+ * fcntl, flock and .lock locking are done, along with a rather comedy attempt
+ * at cclient locking, which is only there so that PINE figures out when the
+ * user is attempting to pick up her mail using POP3 in the middle of a PINE
+ * session. cclient locks aren't made, just stolen from PINE using the wacky
+ * "Kiss Of Death" described in the cclient documentation.
  *
  * Note also that we lock the whole mailspool for reading and writing. This is
  * pretty crap, but it makes it easier to make the program fast. In principle,
@@ -80,6 +89,10 @@ int file_lock(const int fd, const char *name) {
     struct flock fl = {0};
     char *lockfile = (char*)malloc(strlen(name) + 6);
     int fd2;
+    char pidstr[8];
+    struct stat st2;
+    char cclient_lockfile[64];
+    int fd_cclient_lock = -1;
 
     fl.l_type   = F_WRLCK;
     fl.l_whence = SEEK_SET;
@@ -95,19 +108,79 @@ int file_lock(const int fd, const char *name) {
     }
 
     fl.l_type = F_UNLCK;
+   
+    if (flock(fd, LOCK_EX | LOCK_NB) == -1) {
+        fcntl(fd, F_SETLK, &fl);
+        free(lockfile);
+        return 0;
+    }
+
+#ifdef CCLIENT_LOCKING
+    /* Comedy attempt at cclient-compatible locking. This is just here so that
+     * PINE will report "Another PINE is accessing mailbox" rather than
+     * hanging on exit if a session is concurrent with a tpop3d session.
+     */
+    fstat(fd, &st2);
+    sprintf(cclient_lockfile, "/tmp/.%lx.%lx", (unsigned long)st2.st_dev, (unsigned long)st2.st_ino);
+    /* Open this with O_RDWR, even though we never write to it, since we need
+     * to flock it.
+     */
+    if ((fd_cclient_lock = open(cclient_lockfile, O_RDWR)) != -1) {
+        syslog(LOG_DEBUG, "file_lock(%s): found cclient lock file %s", name, cclient_lockfile);
+       
+        if (flock(fd_cclient_lock, LOCK_EX | LOCK_NB) == -1) {
+            char other_pid[128];
+            int p;
+            
+            /* OK, now we have identified another PINE instance. This means
+             * that we have to send it the Kiss-Of-Death (really -- this is
+             * what the documentation calls it), and try locking again. If
+             * that fails, we give up.
+             */
+            read(fd_cclient_lock, other_pid, sizeof(other_pid));
+            p = atoi(other_pid);
+            if (p) {
+                syslog(LOG_DEBUG, "file_lock(%s): trying to grab cclient lock from process %d", name, p);
+                kill(p, SIGUSR2);
+            }
+
+            sleep(1); /* Give PINE a moment to sort itself out. */
+
+            /* Now have another go. */
+            if (flock(fd_cclient_lock, LOCK_EX | LOCK_NB) == -1) {
+                /* OK, well that didn't work then. */
+                close(fd_cclient_lock);
+                fcntl(fd, F_SETLK, &fl);
+                flock(fd, LOCK_UN | LOCK_NB);
+                free(lockfile);
+                return 0;
+            }
+        }
+        close(fd_cclient_lock);
+    }
+#endif /* CCLIENT_LOCKING */
 
     /* Make lockfile; this is pretty naive, but that doesn't particularly
      * matter as we will not be running as root at this stage.
+     *
+     * XXX This should create a hitching-post, then use a linking strategy to
+     * make the lockfile proper.
      */
-    fd2 = open(lockfile, O_EXCL|O_CREAT|O_WRONLY); /* XXX NFS unsafe */
+    fd2 = open(lockfile, O_EXCL|O_CREAT|O_WRONLY, 0644); /* XXX NFS unsafe */
     this_lockfile = lockfile; /* Store this so that we ensure that mailspool is unlocked if a signal is received. */
     if (fd2 == -1) {
         syslog(LOG_ERR, "file_lock(%s): unable to create lockfile: %m", name);
         fcntl(fd, F_SETLK, &fl);
+        flock(fd, LOCK_UN);
+        if (fd_cclient_lock != -1) flock(fd_cclient_lock, LOCK_UN);
         this_lockfile = NULL;
         errno = EAGAIN;
         return 0;
     }
+
+    sprintf(pidstr, "%05d\n", getpid()); /* XXX is this right? */
+    write(fd2, pidstr, 6);
+    
     close(fd2);
 
     return 1;
@@ -138,6 +211,11 @@ int file_unlock(const int fd, const char *name) {
 
     if (fcntl(fd, F_SETLK, &fl) == -1) {
         syslog(LOG_ERR, "file_unlock(%s): fcntl: %m", name);
+        ret = 0;
+    }
+
+    if (flock(fd, LOCK_UN) == -1) {
+        syslog(LOG_ERR, "file_unlock(%s): flock: %m", name);
         ret = 0;
     }
 
