@@ -62,7 +62,13 @@ char *apop_query_template =
        "AND popbox.domain_name = '$(domain)' "
        "AND popbox.domain_name = domain.domain_name";
 
-static char *substitute_query_params(const char *temp, const char *local_part, const char *domain);
+char *onlogin_query_template = NULL;
+
+/* GID used to access mail spool (if any). */
+int use_gid;
+gid_t mail_gid;
+
+static char *substitute_query_params(const char *temp, const char *local_part, const char *domain, const char *clienthost);
 
 /* MD5 crypt(3) routines. This is here so that you can migrate passwords from
  * the modern /etc/shadow crypt_md5 format used (optionally) by recent
@@ -267,33 +273,59 @@ extern stringmap config; /* in main.c */
 MYSQL *mysql;
 
 int auth_mysql_init() {
-    char *username = NULL, *password = NULL, *hostname = NULL, *database = NULL, *localhost = "localhost";
-    item *I;
+    char *username = NULL, *password = NULL, *hostname = NULL, *database = NULL, *localhost = "localhost", *s;
     int ret = 0;
 
-    if ((I = stringmap_find(config, "auth-mysql-username"))) username = (char*)I->v;
+    if ((s = config_get_string("auth-mysql-username")))
+        username = s;
     else {
         log_print(LOG_ERR, _("auth_mysql_init: no auth-mysql-username directive in config"));
         goto fail;
     }
 
-    if ((I = stringmap_find(config, "auth-mysql-password"))) password = (char*)I->v;
+    if ((s = config_get_string("auth-mysql-password")))
+        password = s;
     else {
         log_print(LOG_WARNING, _("auth_mysql_init: no auth-mysql-password directive in config; using blank password"));
         password = "";
     }
 
-    if ((I = stringmap_find(config, "auth-mysql-database"))) database = (char*)I->v;
+    if ((s = config_get_string("auth-mysql-database")))
+        database = s;
     else {
         log_print(LOG_ERR, _("auth_mysql_init: no auth-mysql-database directive in config"));
         goto fail;
     }
 
-    if ((I = stringmap_find(config, "auth-mysql-hostname"))) hostname = (char*)I->v;
+    if ((s = config_get_string("auth-mysql-hostname")))
+        hostname = s;
     else hostname = localhost;
 
-    if ((I = stringmap_find(config, "auth-mysql-pass-query"))) user_pass_query_template = (char*)I->v;
-    if ((I = stringmap_find(config, "auth-mysql-apop-query"))) apop_query_template = (char*)I->v;
+    /* Obtain query templates. The special string `none' means `don't use
+     * any query for this action'. */
+    if ((s = config_get_string("auth-mysql-pass-query")))
+        user_pass_query_template = s;
+    if (strcmp(user_pass_query_template, "none") == 0)
+        user_pass_query_template = NULL;
+    
+    if ((s = config_get_string("auth-mysql-apop-query")))
+        apop_query_template = s;
+    if (strcmp(apop_query_template, "none") == 0)
+        apop_query_template = NULL;
+
+    /* This is an optional action to put a row into the database after a
+     * successful login, for POP-before-SMTP relaying. */
+    if ((s = config_get_string("auth-mysql-onlogin-query")))
+        onlogin_query_template = s;
+
+    /* Obtain gid to use */
+    if ((s = config_get_string("auth-mysql-mail-group"))) {
+        if (!parse_gid(s, &mail_gid)) {
+            log_print(LOG_ERR, _("auth_mysql_init: auth-mysql-mail-group directive `%s' does not make sense"), s);
+            goto fail;
+        }
+        use_gid = 1;
+    }
 
     mysql = mysql_init(NULL);
     if (!mysql) {
@@ -330,19 +362,8 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
     char *local_part = NULL;
     const char *domain;
     item *I;
-    int use_gid = 0;
-    gid_t gid;
 
-    if (!mysql) return NULL;
-
-    /* Obtain gid to use */
-    if ((I = stringmap_find(config, "auth-mysql-mail-group"))) {
-        if (!parse_gid((char*)I->v, &gid)) {
-            log_print(LOG_ERR, _("auth_mysql_new_apop: auth-mysql-mail-group directive `%s' does not make sense"), (char*)I->v);
-            return NULL;
-        }
-        use_gid = 1;
-    }
+    if (!mysql || !apop_query_template) return NULL;
 
     domain = name + strcspn(name, "@%!");
     if (domain == name || !*domain) return NULL;
@@ -359,16 +380,17 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
     }
 
     /* Obtain the actual query to use. */
-    query = substitute_query_params(apop_query_template, local_part, domain);
+    query = substitute_query_params(apop_query_template, local_part, domain, NULL);
     if (!query) goto fail;
 
     if (verbose)
         log_print(LOG_DEBUG, "auth_mysql_new_apop: SQL query: %s", query);
 
     if (mysql_query(mysql, query) == 0) {
-        MYSQL_RES *result = mysql_store_result(mysql);
+        MYSQL_RES *result;
         int i;
 
+        result = mysql_store_result(mysql);
         if (!result) {
             log_print(LOG_ERR, "auth_mysql_new_apop: mysql_store_result: %s", mysql_error(mysql));
             goto fail;
@@ -383,13 +405,14 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
         case 0:
             break;
         case 1: {
-                MYSQL_ROW row = mysql_fetch_row(result);
+                MYSQL_ROW row;
                 unsigned long *lengths;
                 struct passwd *pw;
                 unsigned char this_digest[16];
                 MD5_CTX ctx;
                 uid_t uid;
-
+                
+                row = mysql_fetch_row(result);
                 /* These are "can't happen" errors */
                 if (!row || !(lengths = mysql_fetch_lengths(result))) break;
 
@@ -424,7 +447,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
                     break;
                 }
 
-                a = authcontext_new(pw->pw_uid, use_gid ? gid : pw->pw_gid,
+                a = authcontext_new(pw->pw_uid, use_gid ? mail_gid : pw->pw_gid,
                                     row[3], row[0], pw->pw_dir, domain);
 
                 break;
@@ -457,19 +480,8 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const c
     char *local_part = NULL;
     const char *domain;
     item *I;
-    int use_gid = 0;
-    gid_t gid;
 
-    if (!mysql) return NULL;
-
-    /* Obtain gid to use */
-    if ((I = stringmap_find(config, "auth-mysql-mail-group"))) {
-        if (!parse_gid((char*)I->v, &gid)) {
-            log_print(LOG_ERR, _("auth_mysql_new_apop: auth-mysql-mail-group directive `%s' does not make sense"), (char*)I->v);
-            return NULL;
-        }
-        use_gid = 1;
-    }
+    if (!mysql || !user_pass_query_template) return NULL;
 
     domain = user + strcspn(user, "@%!");
     if (domain == user || !*domain) return NULL;
@@ -486,16 +498,17 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const c
     }
 
     /* Obtain the actual query to use. */
-    query = substitute_query_params(user_pass_query_template, local_part, domain);
+    query = substitute_query_params(user_pass_query_template, local_part, domain, NULL);
     if (!query) goto fail;
 
     if (verbose)
         log_print(LOG_DEBUG, "auth_mysql_new_user_pass: SQL query: %s", query);
 
     if (mysql_query(mysql, query) == 0) {
-        MYSQL_RES *result = mysql_store_result(mysql);
+        MYSQL_RES *result;
         int i;
 
+        result = mysql_store_result(mysql);
         if (!result) {
             log_print(LOG_ERR, "auth_mysql_new_user_pass: mysql_store_result: %s", mysql_error(mysql));
             goto fail;
@@ -510,12 +523,14 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const c
         case 0:
             break;
         case 1: {
-                MYSQL_ROW row = mysql_fetch_row(result);
+                MYSQL_ROW row;
                 unsigned long *lengths;
                 char *pwhash;
                 struct passwd *pw;
                 int authok = 0;
                 uid_t uid;
+                
+                row = mysql_fetch_row(result);
 
                 /* These are "can't happen" errors */
                 if (!row || !(lengths = mysql_fetch_lengths(result))) break;
@@ -592,7 +607,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const c
                     break;
                 }
 
-                a = authcontext_new(pw->pw_uid, use_gid ? gid : pw->pw_gid,
+                a = authcontext_new(pw->pw_uid, use_gid ? mail_gid : pw->pw_gid,
                                     row[3], row[0], pw->pw_dir, domain);
                 break;
             }
@@ -603,15 +618,49 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const c
         }
 
         mysql_free_result(result);
-    } else {
+    } else
         log_print(LOG_ERR, "auth_mysql_new_user_pass: mysql_query: %s", mysql_error(mysql));
-    }
 
 fail:
-    if (local_part) xfree(local_part);
-    if (query) xfree(query);
+    xfree(local_part);
+    xfree(query);
 
     return a;
+}
+
+/* auth_mysql_onlogin:
+ * If specified, perform a query (action) after a successful login. The
+ * variables substituted in the template are $(local_part), $(domain) and
+ * $(clienthost), the username, domain, and connecting client host. */
+void auth_mysql_onlogin(const authcontext A, const char *host) {
+    char *query;
+
+    if (!mysql || !onlogin_query_template) return;
+
+    if (mysql_ping(mysql) == -1) {
+        log_print(LOG_ERR, "auth_mysql_onlogin: mysql_ping: %s", mysql_error(mysql));
+        return NULL;
+    }
+
+    query = substitute_query_params(onlogin_query_template, A->user, A->domain, host);
+    if (!query) goto fail;
+
+    if (verbose)
+        log_print(LOG_DEBUG, "auth_mysql_onlogin: SQL query: %s", query);
+
+    if (mysql_query(mysql, query) == 0) {
+        MYSQL_RES *result;
+        /* It's possible that the user put a query in which returned some rows.
+         * This is bogus but there's not a lot we can do; to avoid leaking
+         * memory or confusing the database, we obtain and free a result. */
+        result = mysql_store_result(mysql);
+        if (result) mysql_free_result(result);
+    } else
+        log_print(LOG_ERR, "auth_mysql_new_user_pass: mysql_query: %s", mysql_error(mysql));
+
+
+fail:
+    xfree(query);
 }
 
 /* auth_mysql_postfork:
@@ -629,23 +678,26 @@ void auth_mysql_close() {
 /* substitute_query_params
  * Given a query template, a localpart and a domain, return a copy of the
  * template with the fields filled in. */
-static char *substitute_query_params(const char *template, const char *local_part, const char *domain) {
+static char *substitute_query_params(const char *template, const char *local_part, const char *domain, const char *clienthost) {
     char *query, *l, *d;
     struct sverr err;
 
     /* Form escaped copies of the user and domain. */
-    if (!(l = xmalloc(strlen(local_part) * 2 + 1)))
-	return NULL;
+    l = xmalloc(strlen(local_part) * 2 + 1);
     mysql_escape_string(l, local_part, strlen(local_part));
 
-    if (!(d = xmalloc(strlen(domain) * 2 + 1))) {
-	xfree(l);
-	return NULL;
-    }
+    d = xmalloc(strlen(domain) * 2 + 1);
     mysql_escape_string(d, domain, strlen(domain));
 
     /* Do the substitution. */
-    query = substitute_variables(template, &err, 2, "local_part", l, "domain", d);
+    if (clienthost) {
+        char *c;
+        c = xmalloc(strlen(clienthost) * 2 + 1);
+        mysql_escape_string(c, clienthost, strlen(clienthost));
+        query = substitute_variables(template, &err, 3, "local_part", l, "domain", d, "clienthost", c);
+        xfree(c);
+    } else
+        query = substitute_variables(template, &err, 2, "local_part", l, "domain", d);
     if (!query)
         log_print(LOG_ERR, _("substitute_query_params: %s near `%.16s'"), err.msg, template + err.offset);
     

@@ -79,5 +79,8 @@ $Id$
   point for an implementation.
 
 
+* Make the -lrt auth-other/Solaris thing work.
+
+
 * Obey --sysconfdir.
 
