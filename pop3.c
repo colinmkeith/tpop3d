@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.8  2000/10/31 23:17:29  chris
+ * More paranoia, and more fascist protocol checking.
+ *
  * Revision 1.7  2000/10/28 14:57:04  chris
  * Minor changes.
  *
@@ -42,24 +45,6 @@ static const char rcsid[] = "$Id$";
 #include "connection.h"
 #include "util.h"
 
-/* trimcpy:
- * Make a copy of a string, removing leading or trailing whitespace.
- */
-static char *trimcpy(const char *s) {
-    const char *p, *q, *r;
-    char *t;
-    if (!s) return NULL;
-    r = s + strlen(s);
-    for (p = s; p < r && strchr(" \t", *p); ++p);
-    for (q = r - 1; q > p && strchr(" \t", *q); --q); ++q;
-    if (p == q) return NULL;
-    t = (char*)malloc(q - p + 2);
-    if (!t) return NULL;
-    memset(t, 0, q - p + 2);
-    strncpy(t, p, q - p + 1);
-    return t;
-}
-
 /* hex_digest:
  * Print a dump of a message hash.
  */
@@ -68,7 +53,7 @@ static char *hex_digest(const unsigned char *u) {
     const unsigned char *p;
     char *q;
     for (p = u, q = hex; p < u + 16; ++p, q += 2)
-        sprintf(q, "%02x", (unsigned int)*p);
+        snprintf(q, 3, "%02x", (unsigned int)*p);
 
     return hex;
 }
@@ -85,11 +70,14 @@ enum connection_action connection_do(connection c, const pop3command p) {
         /* Authorisation state: gather username and password. */
         switch (p->cmd) {
         case USER:
-            if (c->user) {
+            if (p->toks->toks->n_used != 2) {
+                connection_sendresponse(c, 0, "No, that's not right.");
+                return do_nothing;
+            } else if (c->user) {
                 connection_sendresponse(c, 0, "But you already said \"USER\".");
                 return do_nothing;
             } else {
-                c->user = trimcpy(p->tail);
+                c->user = strdup((char*)p->toks->toks->ary[1].v);
                 if (!c->user) {
                     connection_sendresponse(c, 0, "Tell me your name, knave!");
                     return do_nothing;
@@ -98,11 +86,14 @@ enum connection_action connection_do(connection c, const pop3command p) {
             break;
 
         case PASS:
-            if (c->pass) {
+            if (p->toks->toks->n_used != 2) {
+                connection_sendresponse(c, 0, "No, that's not right.");
+                return do_nothing;
+            } else if (c->pass) {
                 connection_sendresponse(c, 0, "But you already said \"PASS\".");
                 return do_nothing;
             } else {
-                c->pass = trimcpy(p->tail);
+                c->pass = strdup(p->toks->toks->ary[1].v);
                 if (!c->pass) {
                     connection_sendresponse(c, 0, "You must give a password.");
                     return do_nothing;
@@ -115,22 +106,25 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 char *name, *hexdigest;
                 unsigned char digest[16], *q;
 
+                if (p->toks->toks->n_used != 3) {
+                    connection_sendresponse(c, 0, "No, that's not right.");
+                    return do_nothing;
+                }
+
+                name =      (char*)p->toks->toks->ary[1].v;
+                hexdigest = (char*)p->toks->toks->ary[2].v;
+
                 ++c->n_auth_tries;
                 if (c->n_auth_tries == MAX_AUTH_TRIES) {
                     connection_sendresponse(c, 0, "This is ridiculous. I give up.");
                     return close_connection;
                 }
 
-                name = trimcpy(p->tail);
                 if (!name || *name == 0) {
                     connection_sendresponse(c, 0, "That's not right.");
-                    if (name) free(name);
                 }
-                hexdigest = name + strcspn(name, " \t");
-                *hexdigest++ = 0;
-                hexdigest += strspn(digest, " \t");
+                
                 if (strlen(hexdigest) != 32) {
-                    free(name);
                     connection_sendresponse(c, 0, "Try again, but get it right next time.");
                     return do_nothing;
                 }
@@ -142,7 +136,6 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     else if (strchr("abcdef", *hexdigest)) *q |= ((unsigned int)*hexdigest - 'a' + 10) << 4;
                     else if (strchr("ABCDEF", *hexdigest)) *q |= ((unsigned int)*hexdigest - 'A' + 10) << 4;
                     else {
-                        free(name);
                         connection_sendresponse(c, 0, "Clueless bunny!");
                         return do_nothing;
                     }
@@ -151,7 +144,6 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     else if (strchr("abcdef", *hexdigest)) *q |= ((unsigned int)*hexdigest - 'a' + 10);
                     else if (strchr("ABCDEF", *hexdigest)) *q |= ((unsigned int)*hexdigest - 'A' + 10);
                     else {
-                        free(name);
                         connection_sendresponse(c, 0, "Clueless bunny!");
                         return do_nothing;
                     }
@@ -160,8 +152,6 @@ enum connection_action connection_do(connection c, const pop3command p) {
 
                 c->a = authcontext_new_apop(name, c->timestamp, digest);
 
-                free(name);
-                
                 if (c->a) {
                     c->state = transaction;
                     return fork_and_setuid;
@@ -187,6 +177,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
             return do_nothing;
         }
 
+        /* Do we now have enough information to authenticate using USER/PASS? */
         if (!c->a && c->user && c->pass) {
             c->a = authcontext_new_user_pass(c->user, c->pass);
             if (c->a) {
@@ -212,43 +203,71 @@ enum connection_action connection_do(connection c, const pop3command p) {
             connection_sendresponse(c, 1, c->pass ? "What's your name?" : "Tell me your password.");
             return do_nothing;
         }
-
     } else if (c->state == transaction) { 
         /* Transaction state: do things to mailbox. */
         char *a = NULL;
-        int msg_num, have_arg = 0, have_msg_num = 0;
+        int num_args = p->toks->toks->n_used - 1, have_msg_num = 0, msg_num, have_arg2 = 0, arg2;
         indexpoint I;
         
-        if (p->tail) {
-            have_arg = 1;
-            a = trimcpy(p->tail);
+        /* No command has more than two arguments. */
+        if (num_args > 2) {
+            connection_sendresponse(c, 0, "Already you have told me too much.");
+            return do_nothing;
+        }
+        
+        /* The first argument, if any, is always interpreted as a message
+         * number.
+         */
+        if (num_args >= 1) {
+            a = p->toks->toks->ary[1].v;
             if (a && strlen(a) > 0) {
                 char *b;
                 msg_num = strtol(a, &b, 10);
                 --msg_num; /* RFC1939 demands that mailspools be indexed from 1 */
-                if (!b || b == a) msg_num = -1;
-                else if (msg_num >= 0 && msg_num < c->m->index->n_used) {
+                if (b && !*b && b != a && msg_num >= 0 && msg_num < c->m->index->n_used) {
                     have_msg_num = 1;
                     I = (indexpoint)c->m->index->ary[msg_num].v;
+                } else {
+                    connection_sendresponse(c, 0, "That does not compute.");
+                    return do_nothing;
                 }
-                free(a);
+            }
+        }
+
+        /* The second argument is always a positive semi-definite numeric
+         * parameter.
+         */
+        if (num_args == 2) {
+            if (p->cmd == TOP) {
+                have_arg2 = 0;
+                a = p->toks->toks->ary[2].v;
+                if (a && strlen(a) > 0) {
+                    char *b;
+                    arg2 = strtol(a, &b, 10);
+                    if (b && !*b && b != a && arg2 >= 0) have_arg2 = 1;
+                    else {
+                        connection_sendresponse(c, 0, "You are thick and numberless.");
+                        return do_nothing;
+                    }
+                }
+            } else {
+                connection_sendresponse(c, 0, "Nope, that doesn't sound right at all.");
+                return do_nothing;
             }
         }
         
         switch (p->cmd) {
         case LIST:
             /* Gives exact sizes taking account of the "From " lines. */
-            if (have_arg)
-                if (have_msg_num)
-                    if (I->deleted)
-                        connection_sendresponse(c, 0, "That message is no more");
-                    else {
-                        char response[32];
-                        snprintf(response, 31, "%d %d", 1 + msg_num, I->msglength - I->length - 1);
-                        connection_sendresponse(c, 1, response);
-                    }
-                else connection_sendresponse(c, 0, "Not a valid message number");
-            else {
+            if (have_msg_num) {
+                if (I->deleted)
+                    connection_sendresponse(c, 0, "That message is no more.");
+                else {
+                    char response[32];
+                    snprintf(response, 31, "%d %d", 1 + msg_num, I->msglength - I->length - 1);
+                    connection_sendresponse(c, 1, response);
+                }
+            } else {
                 item *J;
                 connection_sendresponse(c, 1, "Scan list follows");
                 vector_iterate(c->m->index, J) {
@@ -266,17 +285,15 @@ enum connection_action connection_do(connection c, const pop3command p) {
             /* It isn't guaranteed that these IDs are unique; it is likely,
              * though. See RFC1939.
              */
-            if (have_arg)
-                if (have_msg_num)
-                    if (I->deleted)
-                        connection_sendresponse(c, 0, "That message is no more");
-                    else {
-                        char response[64];
-                        snprintf(response, 63, "%d %s", 1 + msg_num, hex_digest(I->hash));
-                        connection_sendresponse(c, 1, response);
-                    }
-                else connection_sendresponse(c, 0, "Not a valid message number");
-            else {
+            if (have_msg_num) {
+                if (I->deleted)
+                    connection_sendresponse(c, 0, "That message is no more.");
+                else {
+                    char response[64];
+                    snprintf(response, 63, "%d %s", 1 + msg_num, hex_digest(I->hash));
+                    connection_sendresponse(c, 1, response);
+                }
+            } else {
                 item *J;
                 connection_sendresponse(c, 1, "ID list follows");
                 vector_iterate(c->m->index, J) {
@@ -291,54 +308,45 @@ enum connection_action connection_do(connection c, const pop3command p) {
             break;
 
         case DELE:
-                if (have_msg_num) {
-                    I->deleted = 1;
-                    connection_sendresponse(c, 1, "Done");
-                    ++c->m->numdeleted;
-                } else
-                    connection_sendresponse(c, 0, "Which message do you want to delete?");
-                break;
+            if (have_msg_num) {
+                I->deleted = 1;
+                connection_sendresponse(c, 1, "Done");
+                ++c->m->numdeleted;
+            } else
+                connection_sendresponse(c, 0, "Which message do you want to delete?");
+            break;
 
         case RETR:
-                if (have_msg_num) {
+            if (have_msg_num) {
+                if (I->deleted)
+                    connection_sendresponse(c, 0, "That message is no more.");
+                else {
                     connection_sendresponse(c, 1, "Message follows");
                     if (!mailspool_send_message(c->m, c->s, msg_num, -1)) {
                         connection_sendresponse(c, 0, "Oops");
                         return close_connection;
                     }
-                    break;
-                } else {
-                    connection_sendresponse(c, 0, "Which message do you want to see?");
-                    break;
                 }
+                break;
+            } else {
+                connection_sendresponse(c, 0, "Which message do you want to see?");
+                break;
+            }
 
         case TOP: {
-                int len;
-                char *x, *y;
-
-                if (!p->tail) {
+                if (!have_msg_num) {
                     connection_sendresponse(c, 0, "What do you want to see?");
                     break;
-                }
-
-                msg_num = strtol(p->tail, &x, 10) - 1; /* RFC1939 demands that mailspools be indexed from 1 */
-                if (x == a) {
-                    connection_sendresponse(c, 0, "Which message do you want to see?");
+                } else if (I->deleted) {
+                    connection_sendresponse(c, 0, "That message is no more.");
                     break;
-                }
-                len = strtol(x, &y, 10);
-                if (y == x) {
-                    connection_sendresponse(c, 0, "How much do you want to see?");
-                    break;
-                }
-
-                if (msg_num < 0 || msg_num >= c->m->index->n_used || len < 0) {
-                    connection_sendresponse(c, 0, "Try again");
+                } else if (!have_arg2) {
+                    connection_sendresponse(c, 0, "But how much do you want to see?");
                     break;
                 }
 
                 connection_sendresponse(c, 1, "Here it comes...");
-                if (!mailspool_send_message(c->m, c->s, msg_num, len)) {
+                if (!mailspool_send_message(c->m, c->s, msg_num, arg2)) {
                     connection_sendresponse(c, 0, "Oops");
                     return close_connection;
                 }
@@ -382,8 +390,8 @@ enum connection_action connection_do(connection c, const pop3command p) {
         return do_nothing;
     } else {
         /* can't happen, but keep the compiler quiet... */
-		connection_sendresponse(c, 0, "Unknown state, closing connection.");
-		return close_connection;
+        connection_sendresponse(c, 0, "Unknown state, closing connection.");
+        return close_connection;
     }
 }
 

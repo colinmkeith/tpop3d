@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.9  2000/10/31 23:17:29  chris
+ * More paranoia, and more fascist protocol checking.
+ *
  * Revision 1.8  2000/10/31 20:37:22  chris
  * More diagnostics.
  *
@@ -178,10 +181,6 @@ static void dump(const char *s, size_t l) {
 
 /* connection_parsecommand:
  * Parse a command from the connection, returning NULL if none is available.
- *
- * POP3 is simple enough that this can be done without a machine-generated
- * lexer and a grammar, though the code in pop3.c is a little bit hairy for
- * commands which take multiple parameters. This might get changed....
  */
 struct {
     char *s;
@@ -205,35 +204,59 @@ pop3command connection_parsecommand(connection c) {
     char *p, *q;
     pop3command pc = NULL;
 
-    /* skip initial whitespace */
+    /* Skip initial whitespace. */
     for (p = c->buffer; p < c->p && strchr(" \t", *p); ++p);
     if (p == c->p) return NULL;
     
-    /* find end of command */
+    /* Find end of command. */
     for (q = p; q < c->p && !strchr("\r\n", *q); ++q);
     if (q == c->p) return NULL;
 
-    if (q >= p) {
-        int i;
-        size_t n;
-        /* identify the command */
-        for (i = 0; pop3_commands[i].s; ++i)
-            if (!strncasecmp(p, pop3_commands[i].s, n = strlen(pop3_commands[i].s)) && (!*(p + n) || strchr(" \t\r\n", *(p + n)))) {
-                char *s = p + n;
-                for (; s < q && strchr(" \t", *s); ++s);
-                pc = pop3command_new(pop3_commands[i].cmd, s, q);
-            }
+    /* Replace trailing newlines with NULs. */
+    for (; q < c->p && strchr("\r\n", *q); ++q) *q = 0;
 
-        if (!pc) pc = pop3command_new(UNKNOWN, NULL, NULL);
-    }
+    pc = pop3command_new(p);
 
     /* now update the buffer */
-    for (; q < c->p && strchr("\r\n", *q); ++q);
-
     memmove(c->buffer, q, c->buffer + c->bufferlen - q);
     c->p = c->buffer;
 
     return pc;
+}
+
+/* pop3command_new:
+ * Create a new pop3command object.
+ */
+pop3command pop3command_new(const char *s) {
+    pop3command p;
+    int i;
+    
+    p = (pop3command)malloc(sizeof(struct _pop3command));
+
+    p->cmd = UNKNOWN;
+    p->toks = tokens_new(s, " \t");
+
+    /* Does this command have a sane structure? */
+    if (p->toks->toks->n_used < 1 || p->toks->toks->n_used > 3)
+        return p;
+
+    /* Try to identify the command. */
+    for (i = 0; pop3_commands[i].s; ++i)
+        if (!strcasecmp((char*)(p->toks->toks->ary[0].v), pop3_commands[i].s)) {
+            p->cmd = pop3_commands[i].cmd;
+            break;
+        }
+
+    return p;
+}
+
+/* pop3command_delete:
+ * Free a command returned by pop3command_new.
+ */
+void pop3command_delete(pop3command p) {
+    if (!p) return;
+    if (p->toks) tokens_delete(p->toks);
+    free(p);
 }
 
 /* connection_sendresponse:
@@ -243,9 +266,9 @@ pop3command connection_parsecommand(connection c) {
 int connection_sendresponse(connection c, const int success, const char *s) {
     char *x;
     size_t l, m;
-    x = (char*)malloc(4 + strlen(s) + 3 + 1);
+    x = (char*)malloc(l = (4 + strlen(s) + 3 + 1));
     if (!x) return 0;
-    sprintf(x, "%s %s\r\n", success ? "+OK" : "-ERR", s);
+    snprintf(x, l, "%s %s\r\n", success ? "+OK" : "-ERR", s);
     m = write(c->s, x, l = strlen(x));
     free(x);
     return (m == l);
@@ -258,36 +281,12 @@ int connection_sendresponse(connection c, const int success, const char *s) {
 int connection_sendline(connection c, const char *s) {
     char *x;
     size_t l, m;
-    x = (char*)malloc(3 + strlen(s));
+    x = (char*)malloc(l = (3 + strlen(s)));
     if (!x) return 0;
-    sprintf(x, "%s\r\n", s);
+    snprintf(x, l, "%s\r\n", s);
     m = write(c->s, x, l = strlen(x));
     free(x);
     return (m == l);
 }
 
-/* pop3command_new:
- * Create a new pop3command object.
- */
-pop3command pop3command_new(const enum pop3_command_code cmd, const char *s1, const char *s2) {
-    pop3command p;
-    p = (pop3command)malloc(sizeof(struct _pop3command));
 
-    p->cmd = cmd;
-    if (s1 && s2 && s2 > s1) {
-        p->tail = (char*)malloc(s2 - s1 + 1);
-        strncpy(p->tail, s1, s2 - s1);
-        *(p->tail + (s2 - s1)) = 0;
-    } else p->tail = NULL;
-
-    return p;
-}
-
-/* pop3command_delete:
- * Free a command returned by pop3command_new.
- */
-void pop3command_delete(pop3command p) {
-    if (!p) return;
-    if (p->tail) free(p->tail);
-    free(p);
-}
