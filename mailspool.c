@@ -674,8 +674,9 @@ int mailspool_load_index(mailbox m) {
     char hexdigest[33] = {0};
     char sigbuf[sizeof(index_signature)];
     char *filemem = NULL;
-    size_t len, len2;
+    size_t mappedlen;
     int num, r;
+    int index_missing = 0;
 
     if (!m || m->fd == -1) goto fail;
 
@@ -684,7 +685,10 @@ int mailspool_load_index(mailbox m) {
 
     fp = fopen(indexfile, "rt");
     if (!fp) {
-        log_print(LOG_WARNING, "mailspool_load_index(%s): %m", indexfile);
+        if (errno == ENOENT)
+            index_missing = 1; /* create it at the end */
+        else
+            log_print(LOG_WARNING, "mailspool_load_index(%s): %m", indexfile);
         goto fail;
     }
 
@@ -708,12 +712,12 @@ int mailspool_load_index(mailbox m) {
 
     /* Should now get a bunch of offset/hash lines. Stuff these into the
      * mailbox object. Also mmap the real mailspool so we can check these. */
-    len = len2 = m->st.st_size;
+    mappedlen = m->st.st_size;
 
-    if (len < 16) goto fail;
+    if (mappedlen < 16) goto fail;
 
-    len += PAGESIZE - (len % PAGESIZE);
-    filemem = mmap(0, len, PROT_READ, MAP_PRIVATE, m->fd, 0);
+    mappedlen += PAGESIZE - (mappedlen % PAGESIZE);
+    filemem = mmap(0, mappedlen, PROT_READ, MAP_PRIVATE, m->fd, 0);
     if (filemem == MAP_FAILED) {
         log_print(LOG_ERR, "mailspool_load_index(%s): mmap: %m", m->name);
         goto fail;
@@ -766,7 +770,7 @@ fail:
     /* Whatever happens, have a go at indexing the rest of the file. */
     num = m->num;
     r = mailspool_build_index(m, filemem);
-    if (m->num > num) mailspool_save_index(m);
+    if (m->num > num || index_missing) mailspool_save_index(m);
     return r;
 }
 
