@@ -61,7 +61,11 @@ enum connection_action connection_do(connection c, const pop3command p) {
             } else {
                 c->user = strdup((char*)p->toks->toks->ary[1].v);
                 if (!c->user) {
+#ifndef NO_SNIDE_COMMENTS
                     connection_sendresponse(c, 0, "Tell me your name, knave!");
+#else
+                    connection_sendresponse(c, 0, "USER command must be followed by a username.");
+#endif
                     return do_nothing;
                 }
             }
@@ -98,7 +102,11 @@ enum connection_action connection_do(connection c, const pop3command p) {
 
                 ++c->n_auth_tries;
                 if (c->n_auth_tries == MAX_AUTH_TRIES) {
+#ifndef NO_SNIDE_COMMENTS
                     connection_sendresponse(c, 0, "This is ridiculous. I give up.");
+#else
+                    connection_sendresponse(c, 0, "Too many authentication attempts.");
+#endif
                     return close_connection;
                 }
 
@@ -107,7 +115,11 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 }
                 
                 if (strlen(hexdigest) != 32) {
+#ifndef NO_SNIDE_COMMENTS
                     connection_sendresponse(c, 0, "Try again, but get it right next time.");
+#else
+                    connection_sendresponse(c, 0, "Authentication string is invalid.");
+#endif
                     return do_nothing;
                 }
 
@@ -118,7 +130,11 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     else if (strchr("abcdef", *hexdigest)) *q |= ((unsigned int)*hexdigest - 'a' + 10) << 4;
                     else if (strchr("ABCDEF", *hexdigest)) *q |= ((unsigned int)*hexdigest - 'A' + 10) << 4;
                     else {
+#ifndef NO_SNIDE_COMMENTS
                         connection_sendresponse(c, 0, "Clueless bunny!");
+#else
+                        connection_sendresponse(c, 0, "Authentication failed.");
+#endif
                         return do_nothing;
                     }
                     ++hexdigest;
@@ -126,7 +142,11 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     else if (strchr("abcdef", *hexdigest)) *q |= ((unsigned int)*hexdigest - 'a' + 10);
                     else if (strchr("ABCDEF", *hexdigest)) *q |= ((unsigned int)*hexdigest - 'A' + 10);
                     else {
+#ifndef NO_SNIDE_COMMENTS
                         connection_sendresponse(c, 0, "Clueless bunny!");
+#else
+                        connection_sendresponse(c, 0, "Authentication failed.");
+#endif
                         return do_nothing;
                     }
                     ++hexdigest;
@@ -156,10 +176,18 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 } else {
                     ++c->n_auth_tries;
                     if (c->n_auth_tries == MAX_AUTH_TRIES) {
+#ifndef NO_SNIDE_COMMENTS
                         connection_sendresponse(c, 0, "This is ridiculous. I give up.");
+#else
+                        connection_sendresponse(c, 0, "Too many authentication attempts.");
+#endif
                         return close_connection;
                     } else {
+#ifndef NO_SNIDE_COMMENTS
                         connection_sendresponse(c, 0, "Lies! Try again!");
+#else
+                        connection_sendresponse(c, 0, "Authentication failed.");
+#endif
                         return do_nothing;
                     }
                 }
@@ -171,7 +199,11 @@ enum connection_action connection_do(connection c, const pop3command p) {
             return close_connection;
 
         case UNKNOWN:
+#ifndef NO_SNIDE_COMMENTS
             connection_sendresponse(c, 0, "Do you actually know how to use this thing?");
+#else
+            connection_sendresponse(c, 0, "The command sent is invalid or unimplemented.");
+#endif
             return do_nothing;
             
         default:
@@ -210,10 +242,18 @@ enum connection_action connection_do(connection c, const pop3command p) {
 
                 ++c->n_auth_tries;
                 if (c->n_auth_tries == MAX_AUTH_TRIES) {
+#ifndef NO_SNIDE_COMMENTS
                     connection_sendresponse(c, 0, "This is ridiculous. I give up.");
+#else
+                    connection_sendresponse(c, 0, "Too many authentication attempts.");
+#endif
                     return close_connection;
                 } else {
+#ifndef NO_SNIDE_COMMENTS
                     connection_sendresponse(c, 0, "Lies! Try again!");
+#else
+                    connection_sendresponse(c, 0, "Authentication failed.");
+#endif
                     return do_nothing;
                 }
             }
@@ -229,7 +269,11 @@ enum connection_action connection_do(connection c, const pop3command p) {
         
         /* No command has more than two arguments. */
         if (num_args > 2) {
+#ifndef NO_SNIDE_COMMENTS
             connection_sendresponse(c, 0, "Already, you have told me too much.");
+#else
+            connection_sendresponse(c, 0, "Too many arguments for command.");
+#endif
             return do_nothing;
         }
         
@@ -246,7 +290,11 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     have_msg_num = 1;
                     I = (indexpoint)c->m->index->ary[msg_num].v;
                 } else {
+#ifndef NO_SNIDE_COMMENTS
                     connection_sendresponse(c, 0, "That does not compute.");
+#else
+                    connection_sendresponse(c, 0, "Command argument should be numeric.");
+#endif
                     return do_nothing;
                 }
             }
@@ -264,7 +312,11 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     arg2 = strtol(a, &b, 10);
                     if (b && !*b && b != a && arg2 >= 0) have_arg2 = 1;
                     else {
+#ifndef NO_SNIDE_COMMENTS
                         connection_sendresponse(c, 0, "Can you actually count?");
+#else
+                        connection_sendresponse(c, 0, "Command argument should be numeric.");
+#endif
                         return do_nothing;
                     }
                 }
@@ -426,7 +478,11 @@ enum connection_action connection_do(connection c, const pop3command p) {
             break;
 
         default:
-            connection_sendresponse(c, 0, "Huh?");
+#ifndef NO_SNIDE_COMMENTS
+            connection_sendresponse(c, 0, "Do you actually know how to use this thing?");
+#else
+            connection_sendresponse(c, 0, "The command sent was invalid or unimplemented.");
+#endif
             break;
         }
 

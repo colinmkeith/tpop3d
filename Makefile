@@ -6,7 +6,7 @@
 # $Id$
 #
 
-VERSION = 1.2.1
+VERSION = 1.2.2
 
 # On machines where gcc is not the default C compiler, you may wish specify
 # gcc here, for instance if your vendor's compiler is broken (Solaris

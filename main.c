@@ -380,12 +380,12 @@ void net_loop(vector listen_addrs) {
                                     /* Set our gid and uid to that appropriate for the mailspool, as decided by the auth switch. */
                                     if (setgid(c->a->gid) == -1) {
                                         print_log(LOG_ERR, "net_loop: setgid(%d): %m", c->a->gid);
-                                        connection_sendresponse(c, 0, "Everything was fine until now, but suddenly I realise I just can't go on. Sorry.");
+                                        connection_sendresponse(c, 0, "Something bad happened, and I just can't go on. Sorry.");
                                         connection_delete(c);
                                         exit(0);
                                     } else if (setuid(c->a->uid) == -1) {
                                         print_log(LOG_ERR, "net_loop: setuid(%d): %m", c->a->uid);
-                                        connection_sendresponse(c, 0, "Everything was fine until now, but suddenly I realise I just can't go on. Sorry.");
+                                        connection_sendresponse(c, 0, "Something bad happened, and I realise I just can't go on. Sorry.");
                                         connection_delete(c);
                                         exit(0);
                                     }
@@ -438,7 +438,11 @@ void net_loop(vector listen_addrs) {
                     }
                 } else if ( timeout_seconds && (time(NULL) > (((connection)(I->d.v))->idlesince + timeout_seconds)) ) {
                     /* Connection has timed out. */
+#ifndef NO_SNIDE_COMMENTS
                     connection_sendresponse((connection)(I->d.v), 0, "You can hang around all day if you like. I have better things to do.");
+#else
+                    connection_sendresponse((connection)(I->d.v), 0, "Client has been idle for too long.");
+#endif
                     print_log(LOG_INFO, "net_loop: timed out client %s", ((connection)I->d.v)->idstr);
                     connection_delete((connection)(I->d.v));
                     if (post_fork) exit(0);
