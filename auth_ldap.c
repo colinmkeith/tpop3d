@@ -238,10 +238,12 @@ static char *ldap_strerror(void) {
  * search/bind process. */
 authcontext auth_ldap_new_user_pass(const char *username, const char *local_part, const char *domain, const char *pass, const char *host /* unused */) {
     authcontext a = NULL;
-    char *filter = NULL;
+    char *filter = NULL, *who;
     LDAPMessage *ldapres = NULL, *user_attr = NULL;
     char *user_dn = NULL;
     int nentries, ret, i;
+
+    who = username_string(username, local_part, domain);
 
     /* Connect to the server. */
     for (i = 0; i < 3; ++i)
@@ -301,7 +303,7 @@ authcontext auth_ldap_new_user_pass(const char *username, const char *local_part
     if ((ret = ldap_simple_bind_s(ldapinfo.ldap, user_dn, pass)) != LDAP_SUCCESS) {
         /* Bind failed; user has failed to log in. */
         if (ret == LDAP_INVALID_CREDENTIALS)
-            log_print(LOG_ERR, _("auth_ldap_new_user_pass: failed login for %s%s%s"), local_part, domain ? "@" : "", domain ? domain : "");
+            log_print(LOG_ERR, _("auth_ldap_new_user_pass: failed login for %s"), who);
         else
             log_print(LOG_ERR, "auth_ldap_new_user_pass: ldap_simple_bind_s: %s", ldap_err2string(ret));
         goto fail;
@@ -340,8 +342,8 @@ authcontext auth_ldap_new_user_pass(const char *username, const char *local_part
 
         /* Check that we've retrieved all the attributes we need. */
 #define GOT_ATTR(a)     if (ldapinfo.attr.##a && !a) { \
-                            log_print(LOG_ERR, _("auth_ldap_new_user_pass: did not find required attribute `%s' for %s%s%s"), \
-                                      ldapinfo.attr.##a, local_part, domain ? "@" : "", domain ? domain : ""); \
+                            log_print(LOG_ERR, _("auth_ldap_new_user_pass: did not find required attribute `%s' for %s"), \
+                                      ldapinfo.attr.##a, who); \
                             goto fail; \
                         }
         GOT_ATTR(mailbox);
@@ -354,9 +356,9 @@ authcontext auth_ldap_new_user_pass(const char *username, const char *local_part
         uid = ldapinfo.uid;
         gid = ldapinfo.gid;
         if (user && !parse_uid(user, &uid))
-            log_print(LOG_ERR, _("auth_ldap_new_user_pass: unix user `%s' for %s%s%s does not make sense"), user, local_part, domain ? "@" : "", domain ? domain : "");
+            log_print(LOG_ERR, _("auth_ldap_new_user_pass: unix user `%s' for %s does not make sense"), user, who);
         else if (group && !parse_gid(group, &gid))
-            log_print(LOG_ERR, _("auth_ldap_new_user_pass: unix group `%s' for %s%s%s does not make sense"), group, local_part, domain ? "@" : "", domain ? domain : "");
+            log_print(LOG_ERR, _("auth_ldap_new_user_pass: unix group `%s' for %s does not make sense"), group, who);
         else {
             struct passwd *pw;
             char *home = NULL;

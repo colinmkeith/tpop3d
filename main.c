@@ -202,8 +202,7 @@ void fork_child(connection c) {
     switch((ch = fork())) {
         case 0:
             /* Child. Dispose of listeners and connections other than this
-             * one.
-             */
+             * one. */
             vector_iterate(listeners, t) listener_delete((listener)t->v);
             vector_delete(listeners);
             listeners = NULL;

@@ -356,6 +356,9 @@ extern int verbose; /* in main.c */
 authcontext auth_mysql_new_apop(const char *name, const char *local_part, const char *domain, const char *timestamp, const unsigned char *digest, const char *host /* unused */) {
     char *query = NULL;
     authcontext a = NULL;
+    char *who;
+
+    who = username_string(name, local_part, domain);
 
     if (!mysql || !apop_query_template) return NULL;
 
@@ -403,7 +406,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *local_part, const 
 
                 /* Verify that this user has a plaintext password. */
                 if (strncmp(row[1], "{plaintext}", 11) != 0) {
-                    log_print(LOG_WARNING, _("auth_mysql_new_apop: attempted APOP login by %s@%s, who does not have a plaintext password"), local_part, domain);
+                    log_print(LOG_WARNING, _("auth_mysql_new_apop: attempted APOP login by %s, who does not have a plaintext password"), who);
                     break;
                 }
                 
@@ -415,13 +418,13 @@ authcontext auth_mysql_new_apop(const char *name, const char *local_part, const 
 
                 /* User was lying */
                 if (memcmp(this_digest, digest, 16)) {
-                    log_print(LOG_WARNING, _("auth_mysql_new_apop: failed login for %s@%s"), local_part, domain);
+                    log_print(LOG_WARNING, _("auth_mysql_new_apop: failed login for %s"), who);
                     break;
                 }
 
                 /* User was not lying (about her password) */
                 if (!parse_uid((const char*)row[2], &uid)) {
-                    log_print(LOG_ERR, _("auth_mysql_new_apop: unix user `%s' for %s@%s does not make sense"), row[3], local_part, domain);
+                    log_print(LOG_ERR, _("auth_mysql_new_apop: unix user `%s' for %s does not make sense"), row[3], who);
                     break;
                 }
 
@@ -458,9 +461,11 @@ fail:
  * Attempt to authenticate a user via USER/PASS, using the template SELECT
  * query in the config file or the default defined above otherwise. */
 authcontext auth_mysql_new_user_pass(const char *user, const char *local_part, const char *domain, const char *pass, const char *host /* unused */) {
-    char *query = NULL;
+    char *query = NULL, *who;
     authcontext a = NULL;
 
+    who = username_string(user, local_part, domain);
+    
     if (!mysql || !user_pass_query_template) return NULL;
 
     if (mysql_ping(mysql) == -1) {
@@ -535,7 +540,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *local_part, c
                             break;
 
                         default:
-                            log_print(LOG_ERR, _("auth_mysql_new_user_pass: %s@%s has password type mysql, but hash is of incorrect length %d"), local_part, domain, n);
+                            log_print(LOG_ERR, _("auth_mysql_new_user_pass: %s has password type mysql, but hash is of incorrect length %d"), who, n);
                             break;
                     }
                 } else if (strncmp(pwhash, "{md5}", 5) == 0 || *pwhash != '{') {
@@ -554,20 +559,20 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *local_part, c
                             authok = 1;
                     } else
                         /* Doesn't make sense. */
-                        log_print(LOG_ERR, _("auth_mysql_new_user_pass: %s@%s has password type md5, but hash is of incorrect length"), local_part, domain);
+                        log_print(LOG_ERR, _("auth_mysql_new_user_pass: %s has password type md5, but hash is of incorrect length"), who);
                 } else {
                     /* Unknown format. */
-                    log_print(LOG_ERR, _("auth_mysql_new_user_pass: %s@%s has unknown password format `%.*s'"), local_part, domain, 2 + strcspn(pwhash + 1, "}"), pwhash);
+                    log_print(LOG_ERR, _("auth_mysql_new_user_pass: %s has unknown password format `%.*s'"), who, 2 + strcspn(pwhash + 1, "}"), pwhash);
                     break;
                 }
 
                 if (!authok) {
-                    log_print(LOG_ERR, _("auth_mysql_new_user_pass: %s@%s failed login with wrong password"), local_part, domain);
+                    log_print(LOG_ERR, _("auth_mysql_new_user_pass: %s failed login with wrong password"), who);
                     break;
                 }
 
                 if (!parse_uid((const char*)row[2], &uid)) {
-                    log_print(LOG_ERR, _("auth_mysql_new_user_pass: unix user `%s' for %s@%s does not make sense"), row[3], local_part, domain);
+                    log_print(LOG_ERR, _("auth_mysql_new_user_pass: unix user `%s' for %s does not make sense"), row[3], who);
                     break;
                 }
 
@@ -583,7 +588,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *local_part, c
             }
 
         default:
-            log_print(LOG_ERR, _("auth_mysql_new_user_pass: database inconsistency: query for %s@%s returned %d rows"), local_part, domain, i);
+            log_print(LOG_ERR, _("auth_mysql_new_user_pass: database inconsistency: query for %s returned %d rows"), who, i);
             break;
         }
 
