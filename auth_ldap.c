@@ -227,10 +227,44 @@ fail:
 
 extern int verbose; /* in main.c */
 
+/* ldap_strerror:
+ * Return the current error string from the LDAP library. */
 static char *ldap_strerror(void) {
     int ld_errno;
     ldap_get_option(ldapinfo.ldap, LDAP_OPT_ERROR_NUMBER, &ld_errno);
     return ldap_err2string(ld_errno);
+}
+
+/* try_ldap_connect_bind:
+ * Try to connect to the LDAP server and bind. */
+static int try_ldap_connect_bind(LDAP *ld, char *who, char *passwd) {
+    int ret, i;
+    for (i = 0; i < 3; ++i) {
+        if (auth_ldap_connect()) {
+            ret = ldap_simple_bind_s(ld, who, passwd);
+            if (ret == LDAP_SUCCESS)
+                return LDAP_SUCCESS;
+            else {
+                log_print(LOG_ERR, "try_ldap_connect_bind: ldap_simple_bind_s: %s", ldap_err2string(ret));
+                ldap_unbind(ldapinfo.ldap);
+                ldapinfo.ldap = NULL;
+            }
+        }
+    }
+
+    /* OK, didn't succeed. */
+    return ret;
+}
+
+/* try_ldap_bind:
+ * Try a bind against the LDAP server. */
+static int try_ldap_bind(LDAP *ld, char *who, char *passwd) {
+    int ret, i;
+    for (i = 0; i < 3; ++i) {
+        ret = ldap_simple_bind_s(ld, who, passwd);
+        if (ret == LDAP_SUCCESS)
+            return LDAP_SUCCESS;
+    }
 }
 
 /* auth_ldap_new_user_pass:
@@ -246,18 +280,8 @@ authcontext auth_ldap_new_user_pass(const char *username, const char *local_part
     who = username_string(username, local_part, domain);
 
     /* Connect to the server. */
-    for (i = 0; i < 3; ++i)
-        if (auth_ldap_connect()) {
-            if ((ret = ldap_simple_bind_s(ldapinfo.ldap, ldapinfo.searchdn, ldapinfo.password)) != LDAP_SUCCESS) {
-                log_print(LOG_ERR, "auth_ldap_new_user_pass: ldap_simple_bind_s: %s", ldap_err2string(ret));
-                ldap_unbind(ldapinfo.ldap);  /* not much we can do if this fails.... */
-                ldapinfo.ldap = NULL;
-            } else break;
-        }
-    
-    /* Give up if there is no connection available. */
-    if (!ldapinfo.ldap) {
-        log_print(LOG_ERR, _("auth_ldap_new_user_pass: no connection to LDAP server"));
+    if (try_ldap_connect_bind(ldapinfo.ldap, ldapinfo.searchdn, ldapinfo.password) != LDAP_SUCCESS) {
+        log_print(LOG_ERR, _("auth_ldap_new_user_pass: unable to connect and bind to LDAP server"));
         goto fail;
     }
 
@@ -300,12 +324,12 @@ authcontext auth_ldap_new_user_pass(const char *username, const char *local_part
     }
 
     /* Now attempt authentication by binding with the user's credentials. */
-    if ((ret = ldap_simple_bind_s(ldapinfo.ldap, user_dn, pass)) != LDAP_SUCCESS) {
+    if ((ret = try_ldap_bind(ldapinfo.ldap, user_dn, pass)) != LDAP_SUCCESS) {
         /* Bind failed; user has failed to log in. */
         if (ret == LDAP_INVALID_CREDENTIALS)
             log_print(LOG_ERR, _("auth_ldap_new_user_pass: failed login for %s"), who);
         else
-            log_print(LOG_ERR, "auth_ldap_new_user_pass: ldap_simple_bind_s: %s", ldap_err2string(ret));
+            log_print(LOG_ERR, "auth_ldap_new_user_pass: try_ldap_bind: %s", ldap_err2string(ret));
         goto fail;
     } else {
         /* Bind OK; accumulate information about this user and generate an
@@ -452,7 +476,7 @@ static char *substitute_filter_params(const char *template, const char *user, co
     if (domain)
         d = xstrdup(ldap_escape(domain));
 
-    filter = substitute_variables(template, &err, 3, "user", user, "local_part", l, "domain", d);
+    filter = substitute_variables(template, &err, 3, "user", u, "local_part", l, "domain", d);
 
     if (!filter && err.code != sv_nullvalue)
         log_print(LOG_ERR, _("substitute_filter_params: %s near `%.16s'"), err.msg, template + err.offset);
