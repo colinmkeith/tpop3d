@@ -10,7 +10,9 @@ amount of data transferred to/from the client is recorded. Fixed some bugs
 which caused crashes on old versions of Solaris.
 
 Added support for authentication against /etc/passwd-style flat text files,
-contributed by Angel Marin.
+contributed by Angel Marin. Added configuration-file options equivalent to
+the -d command-line switch. Added support for notification of a DRAC server for
+POP-before-SMTP relaying.
 
 1.4.1
 

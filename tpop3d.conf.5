@@ -179,7 +179,7 @@ that the mailspool index files be stored in a directory to which users would
 not customarily have access, for instance /var/spool/tpop3d.
 .TP
 .nf
-\fBtcp-wrappers-name:\fP \fIname\fP
+\fBtcp-wrappers-name\fP: \fIname\fP
 .fi
 .Sp
 This selects the `daemon name' used by \fBtpop3d\fP when it tests connections
@@ -187,6 +187,10 @@ against the TCP Wrappers access-control-mechanism. This corresponds to the
 part of an entry before the first colon in hosts.allow or hosts.deny. If not
 specified, this will default to `tpop3d'. This feature is only available if
 \fBtpop3d\fP has been compiled with support for TCP Wrappers.
+.TP
+\fBdrac-server\fP: \fIhostname\fP
+If specified, gives the name of a server to which \fBtpop3d\fP should send
+DRAC notifications about successful logins.
 
 .SS Options relating to authentication
 

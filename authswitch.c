@@ -152,6 +152,9 @@ void authswitch_describe(FILE *fp) {
  * Attempt to initialise all the authentication drivers listed in
  * auth_drivers. Returns the number of drivers successfully started. */
 extern stringmap config;
+#ifdef USE_DRAC
+static char *drac_server;
+#endif
     
 int authswitch_init(void) {
     const struct authdrv *aa;
@@ -167,7 +170,7 @@ int authswitch_init(void) {
         snprintf(s, l, "auth-%s-enable", aa->name);
         if (config_get_bool(s)) {
             if (aa->auth_init && !aa->auth_init())
-                log_print(LOG_ERR, "failed to initialise %s authentication driver", aa->name);
+                log_print(LOG_ERR, _("failed to initialise %s authentication driver"), aa->name);
             else {
                 *aar = 1;
                 ++ret;
@@ -175,6 +178,11 @@ int authswitch_init(void) {
         }
         xfree(s);
     }
+
+#ifdef USE_DRAC
+    if ((drac_server = config_get_string("drac-server")))
+        log_print(LOG_INFO, _("will notify DRAC server `%s' of logins"), drac_server);
+#endif
 
     return ret;
 }
@@ -275,10 +283,23 @@ authcontext authcontext_new_user_pass(const char *user, const char *local_part, 
 
 /* authswitch_onlogin:
  * Pass news of a successful login to any authentication drivers which are
- * interested in hearing about it. */
+ * interested in hearing about it. host is the IP address in dotted-quad
+ * form. */
 void authswitch_onlogin(const authcontext A, const char *host) {
     const struct authdrv *aa;
     int *aar;
+    
+#ifdef USE_DRAC
+    /* Optionally, notify a DRAC -- dynamic relay authentication control -- 
+     * server of the login. This uses some wacky RPC thing contained in
+     * -ldrac. */
+    int dracauth(char *server, unsigned long userip, char **errmsg);
+    if (drac_server) {
+        char *errmsg;
+        if (dracauth(drac_server, inet_addr(host), &errmsg))
+            log_print(LOG_ERR, "authswitch_onlogin: dracauth: %s", errmsg);
+    }
+#endif /* USE_DRAC */
 
     for (aa = auth_drivers, aar = auth_drivers_running; aa < auth_drivers_end; ++aa, ++aar)
         if (*aar && aa->auth_onlogin)

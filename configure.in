@@ -190,6 +190,14 @@ AC_ARG_ENABLE(tcp-wrappers,
     [enable_tcp_wrappers=$enableval],
     [enable_tcp_wrappers="no"])
 
+dnl Enable support for DRAC (dynamic relay access control).
+AC_ARG_ENABLE(drac,
+        [ --enable-drac                        Enable support for using the DRAC RPC
+                                      protocol for POP-before-SMTP relaying
+                                      [default=no]],
+    [enable_drac=$enableval],
+    [enable_drac=no])
+
 dnl Some options mainly useful for development/debugging.
 
 dnl Note the ugliness I've used to put a note in the output of
@@ -318,6 +326,11 @@ then
     AC_DEFINE(USE_TCP_WRAPPERS,1,[Enables TCP Wrappers for host-based access control.])
 fi
 
+if test x"$enable_drac" = x"yes"
+then
+    AC_DEFINE(USE_DRAC,1,[Enables notification of a DRAC daemon.])
+fi
+
 if test x"$enable_backtrace" = x"yes"
 then
     AC_DEFINE(APPALLING_BACKTRACE_HACK,1,[Produce a backtrace if the program crashes.])
@@ -416,6 +429,12 @@ then
         ], [
             AC_MSG_ERROR([TCP Wrappers support enabled, but can't link against libwrap])
         ])
+fi
+
+if test x"$enable_drac" = x"yes"
+then
+dnl    AC_SEARCH_LIBS(dracauth, drac)
+    AC_CHECK_LIB(drac, dracauth, [], AC_MSG_ERROR([[DRAC support enabled, but no dracauth(3)]]))
 fi
 
 dnl Checks for header files.

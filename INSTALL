@@ -226,6 +226,13 @@ also review the contents of README.darwin.
   is for a similar reason to allowing the PAM service name to be configured.
 
 
+* DRAC support
+
+  tpop3d can be configured to notify a DRAC server of successful logins,
+  by using the `--enable-drac' configure option. This requires the -ldrac
+  library.
+
+
 * Development and debugging
 
   If you are modifying or extending tpop3d, or if you have trouble with the

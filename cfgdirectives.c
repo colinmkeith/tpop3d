@@ -107,6 +107,10 @@ char *cfgdirectives[] = {
 #ifdef USE_TCP_WRAPPERS
     "tcp-wrappers-name",
 #endif
+
+#ifdef USE_DRAC
+    "drac-server",
+#endif
     
     /* final entry must be NULL */
     NULL};
