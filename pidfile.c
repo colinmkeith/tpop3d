@@ -40,12 +40,10 @@ write_pid_file(const char * filename)
               S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
 
     if(fd == -1) {
-
         if(errno == EEXIST)
             return pid_file_existence;
         else
             return pid_file_error;
-
     }
 
     pid = getpid();

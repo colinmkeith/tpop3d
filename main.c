@@ -589,6 +589,7 @@ int main(int argc, char **argv, char **envp) {
     
     /* Try to write PID file. */
     if (pidfile) {
+retry_pid_file:
         switch (write_pid_file(pidfile)) {
             case pid_file_success:
                 break;
@@ -598,10 +599,14 @@ int main(int argc, char **argv, char **envp) {
                 switch (read_pid_file(pidfile, &pid)) {
                     case pid_file_success:
                         if (kill(pid, 0)) {
-                            print_log(LOG_ERR, _("%s: stale PID file `%s'; exiting. Remove it and restart."), pidfile);
-                            return 1;
+                            print_log(LOG_ERR, _("%s: stale PID file; removing it"), pidfile);
+                            if (unlink(pidfile) == -1) {
+                                print_log(LOG_ERR, _("%s: stale PID file: unlink: %m"), pidfile);
+                                return 1;
+                            } else goto retry_pid_file; /* harmful? */
+                            
                         } else {
-                            print_log(LOG_ERR, _("%s: tpop3d already running, with process ID %d; exiting."), (int)pid);
+                            print_log(LOG_ERR, _("%s: tpop3d already running, with process ID %d; exiting"), (int)pid);
                             return 1;
                         }
                         break;
