@@ -1,5 +1,6 @@
 /*
- * auth_mysql.c: authenticate users against a MySQL database
+ * auth_mysql.c:
+ * Authenticate users against a MySQL database.
  *
  * The only subtlety here is that the config directives for the database
  * (password etc.) are privileged information, which must be cleared prior to
@@ -211,8 +212,8 @@ int auth_mysql_init() {
 
     if ((I = stringmap_find(config, "auth-mysql-password"))) password = (char*)I->v;
     else {
-        print_log(LOG_ERR, _("auth_mysql_init: no auth-mysql-password directive in config"));
-        goto fail;
+        print_log(LOG_WARN, _("auth_mysql_init: no auth-mysql-password directive in config; using blank password"));
+        password = "";
     }
 
     if ((I = stringmap_find(config, "auth-mysql-database"))) database = (char*)I->v;
