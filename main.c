@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.7  2000/10/09 23:24:34  chris
+ * Minor changess.
+ *
  * Revision 1.6  2000/10/09 17:38:21  chris
  * Now handles a proper range of signals.
  *
@@ -26,6 +29,11 @@
  */
 
 static char rcsid[] = "$Id$";
+
+/* Should be -D... from Makefile. */
+#ifndef TPOP3D_VERSION
+#define TPOP3D_VERSION  "(unknown version)"
+#endif
 
 #include <errno.h>
 #include <fcntl.h>
@@ -99,24 +107,29 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
     for (sin = listen_addrs; sin < listen_addrs + num_listen; ++sin) {
         int s = socket(PF_INET, SOCK_STREAM, 0);
         if (s == -1)
-            syslog(LOG_ERR, "socket: %m");
+            syslog(LOG_ERR, "net_loop: socket: %m");
         else {
             int t = 1;
             if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &t, sizeof(t)) == -1) {
                 close(s);
-                syslog(LOG_ERR, "setsockopt: %m");
+                syslog(LOG_ERR, "net_loop: setsockopt: %m");
             } else if (bind(s, *sin, sizeof(struct sockaddr_in)) == -1) {
                 close(s);
-                syslog(LOG_ERR, "bind(%s:%d): %m", inet_ntoa((*sin)->sin_addr), ntohs((*sin)->sin_port));
+                syslog(LOG_ERR, "net_loop: bind(%s:%d): %m", inet_ntoa((*sin)->sin_addr), ntohs((*sin)->sin_port));
             } else if (listen(s, SOMAXCONN) == -1) {
                 close(s);
-                syslog(LOG_ERR, "listen: %m");
+                syslog(LOG_ERR, "net_loop: listen: %m");
             } else {
                 vector_push_back(listen_sockets, item_long(s));
-                syslog(LOG_INFO, "listening on %s:%d", inet_ntoa((*sin)->sin_addr), ntohs((*sin)->sin_port));
+                syslog(LOG_INFO, "net_loop: listening on %s:%d", inet_ntoa((*sin)->sin_addr), ntohs((*sin)->sin_port));
             }
         }
     }
+
+    if (listen_sockets->n_used == 0) {
+        syslog(LOG_ERR, "net_loop: no listening sockets could be opened; aborting");
+        exit(1);
+    } else syslog(LOG_INFO, "net_loop: tpop3d version " TPOP3D_VERSION " successfully started");
 
     /* Main select() loop */
     for (;;) {
@@ -146,7 +159,7 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
                     struct sockaddr_in sin;
                     size_t l = sizeof(sin);
                     int s = accept(t->l, &sin, &l);
-                    if (s == -1) syslog(LOG_ERR, "accept: %m");
+                    if (s == -1) syslog(LOG_ERR, "net_loop: accept: %m");
                     else {
                         if (num_running_children >= max_running_children) {
                             char m[] = "-ERR Sorry, I'm too busy right now\r\n";
@@ -343,6 +356,7 @@ void usage(FILE *fp) {
                 "\n"
                 "tpop3d, copyright (c) 2000 Chris Lightfoot <chris@ex-parrot.com>\n"
                 "  http://www.ex-parrot.com/~chris/tpop3d/\n"
+                "This is tpop3d version " TPOP3D_VERSION "\n"
                 "\n"
                 "This program is free software; you can redistribute it and/or modify\n"
                 "it under the terms of the GNU General Public License as published by\n"
@@ -474,7 +488,8 @@ int main(int argc, char **argv) {
         syslog(LOG_ERR, "no authentication drivers were loaded; aborting.");
         syslog(LOG_ERR, "you may wish to check your config file %s", configfile);
     } else syslog(LOG_INFO, "%d authentication drivers successfully loaded", na);
-    
+
+   
     net_loop((struct sockaddr_in**)listeners->ary, listeners->n_used);
 
     authswitch_close();
