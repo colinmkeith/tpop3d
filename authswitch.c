@@ -330,7 +330,7 @@ void authswitch_onlogin(const authcontext A, const char *clienthost, const char 
 #ifdef USE_WHOSON
     char buf[128] = {0};
     /* Notify whoson server the user has logged in correctly */
-    if (wso_login(clienthost, A->user, buf, sizeof(buf)) == -1)
+    if (whoson_enable && wso_login(clienthost, A->user, buf, sizeof(buf)) == -1)
         log_print(LOG_ERR, "authswitch_onlogin: wso_login: %s", buf);
 #endif /* USE_WHOSON */
     

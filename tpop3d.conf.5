@@ -142,6 +142,16 @@ have \fBtpop3d\fP comply explicitly with the RFC (which demands a ten-minute
 timeout), then specify 600 seconds. This may be necessary with some clients
 which pause randomly whilst downloading messages.
 .TP
+\fBtcp-send-buffer\fp: \fInumber\fP
+This is the largest number of bytes which may be `in flight' between the server
+and a client at any time. Setting this to larger values may improve the
+performance of \fBtpop3d\fP, but at the risk of timing out clients connected by
+slow networks. You should not set this parameter to anything larger than the
+timeout multiplied by the data rate (in bytes per second) of the slowest
+network through which clients will connect to the POP3 server. This is set using
+the SO_SNDBUF socket option; see \fBsocket\fP(7) for more information. The
+default is 16,384 bytes; set this to 0 to use the system default.
+.TP
 \fBlog-facility\fP: \fIfacility\fP
 This selects the `facility' as which \fBtpop3d\fP emits system log messages.
 Possible values for \fIfacility\fP are: \fBmail\fP, \fBauthpriv\fP,

@@ -41,7 +41,7 @@ static const char rcsid[] = "$Id$";
 /* The socket send buffer is set to this, so that we don't end up in a
  * position that we send so much data that the client will not have received
  * all of it before we time them out. */
-#define MAX_DATA_IN_FLIGHT      8192
+#define DEFAULT_TCP_SEND_BUFFER     16384
 
 int max_running_children = 16;          /* How many children may exist at once. */
 volatile int num_running_children = 0;  /* How many children are active. */
@@ -124,8 +124,19 @@ static void listeners_post_select(fd_set *readfds, fd_set *writefds, fd_set *exc
         if (FD_ISSET(L->s, readfds)) {
             struct sockaddr_in sin, sinlocal;
             size_t l = sizeof(sin);
-            int s, a = MAX_DATA_IN_FLIGHT;
+            static int tcp_send_buf = -1;
+            int s;
             time_t start;
+
+            if (tcp_send_buf == -1) {
+                int q;
+                q = config_get_int("tcp-send-buffer", &tcp_send_buf);
+                if (q <= 0 || tcp_send_buf < 0) {
+                    tcp_send_buf = DEFAULT_TCP_SEND_BUFFER;
+                    if (q == -1 || tcp_send_buf < 0)
+                        log_print(LOG_WARNING, "listeners_post_select: bad value for tcp-send-buffer; using default");
+                }
+            }
 
             time(&start);
             errno = 0;
@@ -144,7 +155,8 @@ static void listeners_post_select(fd_set *readfds, fd_set *writefds, fd_set *exc
                     close(s);
                 }
 #endif
-                else if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, &a, sizeof(a)) == -1) {
+                else if (tcp_send_buf != 0
+                         && setsockopt(s, SOL_SOCKET, SO_SNDBUF, &tcp_send_buf, sizeof(tcp_send_buf)) == -1) {
                     /* Set a small send buffer so that we get EAGAIN if the client
                      * isn't acking our data. */
                     log_print(LOG_ERR, "listeners_post_select: setsockopt: %m");
@@ -382,12 +394,22 @@ static void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *e
         if (!(c = connections[i]))
             continue;
 
+        if (i > 0 && post_fork) {
+            connections[0] = c;
+            connections[i] = NULL;
+        }
+        
+
         /* Handle all post-select I/O. */
         r = c->io->post_select(c, readfds, writefds, exceptfds);
 
         /* At this stage, the connection may be closed or closing. But we
          * should try to interpret commands anyway, in case the client sends
-         * QUIT and immediately closes the connection. */
+         * QUIT and immediately closes the connection.
+         * XXX That's not actually what we do. This creates a race condition
+         * with badly-behaved clients like Microsoft Outlook (cf. email of
+         * 20040203). We might want to consider an option to process remaining
+         * commands even if the connection is actually closed. */
         if (r && !connection_isfrozen(c)) {
             /*
              * Handling of POP3 commands, and forking children to handle
@@ -424,6 +446,15 @@ static void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *e
 
                 if (!c || c->do_shutdown)
                     break;
+            }
+
+            if (post_fork) {
+                if (i != 0) {
+                    connections[0] = connections[i];
+                    connections[i] = NULL;
+                }
+                i = 0;
+                break;
             }
 
             if (!c)
@@ -473,6 +504,11 @@ static void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *e
             if (post_fork)
                 _exit(0);
         }
+
+        if (post_fork) {
+            i = 0;
+            break;
+        }
     }
 }
 
@@ -503,11 +539,13 @@ void net_loop(void) {
     /* Main select() loop */
     while (!foad) {
         fd_set readfds, writefds;
-        struct timeval tv = {1, 0}; /* Must be less than IDLE_TIMEOUT and small enough that termination on receipt of SIGTERM is timely. */
+        struct timeval tv = {0};
         int n = 0, e;
 
         FD_ZERO(&readfds);
         FD_ZERO(&writefds);
+
+        tv.tv_sec = 1;  /* must be smaller than timeout */
 
         if (!post_fork) listeners_pre_select(&n, &readfds, &writefds, NULL);
 

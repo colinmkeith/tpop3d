@@ -9,7 +9,15 @@
 
 my $rcsid = ''; $rcsid .= '$Id$';
 
+use Digest::MD5;
 use IO::Socket;
+
+my $have_ssl = 0;
+eval '
+    use IO::Socket::SSL;
+    $have_ssl = 1;
+';
+
 use Time::HiRes;
 use Error qw(:try);
 
@@ -22,21 +30,100 @@ sub howlong () {
     return $T2;
 }
 
+# error MESSAGE
+# Print the MESSAGE to stderr.
+sub error ($) {
+    print STDERR "pop3bench: $_[0]\n";
+}
+
+# quit MESSAGE
+# Print the MESSAGE to stderr and abort.
+sub quit ($) {
+    error($_[0]);
+    exit(1);
+}
+
+# verbose OPTIONS MESSAGE
+# If enabled, print a verbose MESSAGE to stderr.
+sub verbose ($$) {
+    error($_[1]) if ($_[0]->{verbose});
+}
+
+# usage
+# Print a usage message to stdout.
+sub usage () {
+    print <<EOF;
+pop3bench: POP3 server benchmarking tool
+
+Synopsis: pop3bench --help | [options] HOST [PORT]
+
+Options:
+    --help
+        Display this message.
+
+    --verbose
+        Log debugging information.
+
+    --conversation
+        Log the conversation between client and server. Implies --verbose.
+
+    --username USER
+    --password PASSWORD
+        Specify USER and PASSWORD for authentication. Default: ask
+        interactively.
+
+    --apop
+        Use the APOP shared-secret authentication method. Default: use
+        USER/PASS.
+
+    --pipelining
+        Use command pipelining, if supported. Default: don't.
+
+    --tls
+    --stls
+        Make a TLS connection to the server; or, connect to the server
+        normally, but attempt to negotiate TLS operation using the STLS
+        command. Default: use unsecured TCP.
+
+    --commands LIST
+        Benchmark the given comma-separated LIST of commands on the server.
+        LIST may include: LIST UIDL DELE RETR TOP NOOP. Benchmarking DELE is
+        destructive, obviously. Default: LIST, UIDL, RETR.
+
+In unsecured TCP and STLS modes, the default PORT is 110; in TLS mode the
+default PORT is 995.
+
+Copyright (c) 2004 Chris Lightfoot <chris\@ex-parrot.com>
+All Rights Reserved.
+EOF
+}
+
 # parse_options ARGUMENTS
 # Return a reference to a hash with the options to be used by the program.
 sub parse_options (@) {
     my @args = @_;
     my $res = {
-        port => 110,
+        port => undef,
         mode => 'tcp',
         apop => 0,
         pipelining => 0,
         user => undef,
         pass => undef,
-        commands => [ list, uidl, retr ]
+        commands => [qw(list uidl retr)],
+        verbose => 0,
+        conversation => 0
     };
-    while (shift(@args) =~ /^--(.+)/) {
-        if ($1 eq 'username') {
+    
+    while (@args && $args[0] =~ /^--(.+)/) {
+        shift(@args);
+        if ($1 eq 'help') {
+            usage();
+            exit(0);
+        } elsif ($1 eq 'verbose') {
+            $res->{verbose} = 1;
+        } elsif ($1 eq 'conversation') {
+            $res->{conversation} = $res->{verbose} = 1;
+        } elsif ($1 eq 'username') {
             $res->{user} = shift(@args);
         } elsif ($1 eq 'password') {
             $res->{pass} = shift(@args);
@@ -52,8 +139,8 @@ sub parse_options (@) {
                 return "`$_' is not a known command" unless (exists($allowed{$_}));
                 push(@{$res->{commands}}, $_);
             }
-        } elsif ($1 =~ /^s?tls/) {
-            return "specify at most one of --tls, --stls" if ($res->{mode} ne 'tcp')
+        } elsif ($1 =~ /^(s?tls)$/) {
+            return "specify at most one of --tls, --stls" if ($res->{mode} ne 'tcp');
             $res->{mode} = $1;
         } else {
             return "`--$1': unknown option";
@@ -64,5 +151,220 @@ sub parse_options (@) {
 
     $res->{host} = shift(@args);
     $res->{port} = shift(@args) if (@args);
+
+    # Default port differs between TCP and TLS modes.
+    if (!defined($res->{port})) {
+        if ($res->{mode} eq 'tls') {
+            $res->{port} = 995;
+        } else {
+            $res->{port} = 110;
+        }
+    }
+
+    return $res;
 }
 
+# get_pop3_line OPTIONS SOCKET
+# Return a POP3 response line read from SOCKET, or undef on failure.
+sub get_pop3_line ($$) {
+    my ($opts, $s) = @_;
+    local $/ = "\r\n";
+    my $x = $s->getline() or throw Error::Simple("read: $!");
+    chomp($x);
+    return $x;
+}
+
+# get_pop3_resp OPTIONS SOCKET
+# Get a POP3 response line, and return 1 if it starts +OK, 0 if -ERR, or throw
+# an exception on error.
+sub get_pop3_resp ($$) {
+    my ($opts, $s) = @_;
+    my $r = get_pop3_line($opts, $s);
+    verbose($opts, "<-- $r") if ($opts->{conversation});
+    if ($r =~ /^\+OK/) {
+        return 1;
+    } elsif ($r =~ /^-ERR/) {
+        return 0;
+    } else {
+        throw Error::Simple("bad response line `$r'");
+    }
+}
+
+# send_pop3_cmd OPTIONS SOCKET COMMAND
+# Send COMMAND to SOCKET.
+sub send_pop3_cmd ($$$) {
+    my ($opts, $s, $cmd) = @_;
+    $s->print("$cmd\r\n") or throw Error::Simple("write: $!");
+    if ($opts->{conversation}) {
+        if ($cmd =~ /^PASS /i) {
+            verbose($opts, "--> PASS [...]");
+        } else {
+            verbose($opts, "--> $cmd");
+        }
+    }
+}
+
+# get_pop3_multiline_resp OPTIONS SOCKET [DISCARD]
+# Get a multiline response from the server. If DISCARD is true, just count the
+# lines and return the total. Otherwise return the response as a list of lines.
+# DISCARD is assumed to be true when called in scalar context;
+sub get_pop3_multiline_resp ($$;$) {
+    my ($opts, $s, $discard) = @_;
+    $discard ||= wantarray;
+    throw Error::Simple("bad response") if (!get_pop3_resp($opts, $s));
+    my @list;
+    my $N = 0;
+    while (($_ = get_pop3_line($opts, $s)) ne '.') {
+        if ($discard) {
+            ++$N;
+        } else {
+            push(@list, $_);
+        }
+    }
+    if ($opts->{conversation}) {
+        verbose($opts, "<-- ... " . scalar(@list) . " lines ...");
+        verbose($opts, "<-- .");
+    }
+    if ($discard) {
+        return $N;
+    } else {
+        return @list;
+    }
+}
+
+# connect_to_server OPTIONS
+# Return a socket connected to the server, per OPTIONS.
+sub connect_to_server ($) {
+    my $opts = shift;
+    my $s;
+    verbose($opts, "connecting to $opts->{host}:$opts->{port}");
+    if ($opts->{mode} ne 'tls') {
+        $s = new IO::Socket::INET("$opts->{host}:$opts->{port}");
+    } else {
+        $s = new IO::Socket::SSL("$opts->{host}:$opts->{port}");
+    }
+    
+    throw Error::Simple("connect: $!") unless (defined($s));
+
+    try {
+        my $banner = get_pop3_line($opts, $s);
+        if (!$banner) {
+            throw Error::Simple("no banner response from server");
+        } elsif ($banner !~ /^\+OK/) {
+            throw Error::Simple("bad banner response `$banner'");
+        }
+
+        if ($banner =~ m#<([^>]+)>#) {
+            $opts->{timestamp} = $1;
+        }
+
+        if ($opts->{mode} eq 'stls') {
+            verbose($opts, "enabling STLS mode");
+            send_pop3_cmd($opts, $s, "STLS");
+            if (!get_pop3_resp($opts, $s)) {
+                throw Error::Simple("negative STLS response");
+            } else {
+                verbose($opts, "beginning TLS negotiation");
+                IO::Socket::SSL->start_SSL($s);
+                if (ref($s) ne 'IO::Socket::SSL') {
+                    throw Error::Simple("TLS negotiation failed");
+                }
+                verbose($opts, "TLS negotiation successful");
+            }
+        }
+    } otherwise {
+        my $E = shift;
+        $s->close();
+        throw $E;
+    };
+
+    return $s;
+}
+
+# do_login OPTIONS SOCKET
+# Log in to the server by USER/PASS or APOP as appropriate. Return the number
+# of messages available, by doing a LIST.
+sub do_login ($$) {
+    my ($opts, $s) = @_;
+    if ($opts->{apop}) {
+        throw Error::Simple("can't do APOP login since server did not send a timestamp") if (!exists($opts->{timestamp}));
+        verbose($opts, "sending APOP login command");
+        my $digest = Digest::MD5::md5_hex($opts->{timestamp} . $opts->{user});
+        send_pop3_cmd($opts, $s, "APOP $opts->{user} $digest");
+        throw Error::Simple("negative APOP response (login failed)") if (!get_pop3_resp($opts, $s));
+    } else {
+        verbose($opts, "sending USER/PASS login commands");
+        send_pop3_cmd($opts, $s, "USER $opts->{user}");
+        send_pop3_cmd($opts, $s, "PASS $opts->{pass}") if ($opts->{pipelining});
+        throw Error::Simple("negative USER response") if (!get_pop3_resp($opts, $s));
+        send_pop3_cmd($opts, $s, "PASS $opts->{pass}") unless ($opts->{pipelining});
+        throw Error::Simple("negative PASS response (login failed)") if (!get_pop3_resp($opts, $s));
+    }
+    verbose($opts, "login successful; retrieving list of messages");
+    send_pop3_cmd($opts, $s, "LIST");
+    my $n = get_pop3_multiline_resp($opts, $s);
+    verbose($opts, "$n messages available");
+    return $n;
+}
+
+# do_quit OPTIONS SOCKET
+# Log out and shut down the connection on SOCKET.
+sub do_quit ($$) {
+    my ($opts, $s) = @_;
+    verbose($opts, "logging out");
+    send_pop3_cmd($opts, $s, "QUIT");
+    error("negative QUIT response (bad, not fatal)") if (!get_pop3_resp($opts, $s));
+    verbose($opts, "closing connection");
+    $s->shutdown(2);
+    $s->close();
+    verbose($opts, "done");
+}
+
+my $opts = parse_options(@ARGV);
+
+if (!ref($opts)) {
+    quit($opts);
+    exit(1);
+}
+
+if ($opts->{mode} ne 'tcp' && !$have_ssl) {
+    quit("$opts->{mode} requested, but no IO::Socket::SSL");
+}
+
+# If not specified on command line, get username and password.
+if (!defined($opts->{user})) {
+    $| = 1;
+    print "Username: ";
+    my $u = STDIN->getline();
+    quit("you must give a username") if (!defined($u));
+    chomp($u);
+    $u =~ s/^\s+//;
+    $u =~ s/\s+$//;
+    quit("you must give a username") if (length($u) == 0);
+    $| = 0;
+    $opts->{user} = $u;
+}
+
+if (!defined($opts->{pass})) {
+    $| = 1;
+    print "Password: ";
+    system("stty", "-echo");
+    my $p = STDIN->getline();
+    quit("you must give a password") if (!defined($p));
+    chomp($p);
+    $p =~ s/^\s+//;
+    $p =~ s/\s+$//;
+    system("stty", "echo");
+    print "\n";
+    $| = 0;
+    $opts->{pass} = $p;
+}
+
+try {
+    my $s = connect_to_server($opts);
+    do_login($opts, $s);
+    do_quit($opts, $s);
+} catch Error::Simple with {
+    my $E = shift;
+    quit($E->text());
+}

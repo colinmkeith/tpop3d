@@ -23,6 +23,7 @@ mechanisms:
     auth-mysql          a vmail-sql style MySQL database; see
                             http://www.ex-parrot.com/~chris/vmail-sql/
                         or another database with user-specified SQL queries
+    auth-pgsql          a PostgreSQL database
     auth-ldap           an LDAP directory
     auth-flatfile       /etc/passwd-style flat files
     auth-other          an external program

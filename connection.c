@@ -127,7 +127,7 @@ connection connection_new(int s, const struct sockaddr_in *sin, listener L) {
 
     /* Read and write buffers */
     c->rdb = buffer_new(1024);
-    c->wrb = buffer_new(1024);
+    c->wrb = buffer_new(32768);
 
     c->timestamp = make_timestamp(c->domain);
     if (!c->timestamp) goto fail;
@@ -238,7 +238,8 @@ ssize_t connection_send(connection c, const char *data, const size_t l) {
         } /* else IOABS_WOULDBLOCK */
     }
 
-    buffer_push_data(c->wrb, data, len);
+    if (len > 0)
+        buffer_push_data(c->wrb, data, len);
         /* XXX should try a write from the buffer now...? */
     return 1;
 }
@@ -450,7 +451,42 @@ int connection_sendmessage(connection c, int fd, size_t msgoffset, size_t skip, 
     char *p, *q, *r;
     size_t length, offset;
     ssize_t nwritten = 0;
-    
+    /* Doing lots of small writes is bad for performance, so buffer here and
+     * only write data when we've accumulated a large chunk of data. Use our
+     * own buffer here, rather than the connection IO buffer, since we don't
+     * want to use as much memory as a single message. */
+    static char *buffer;
+    static size_t buflen;
+    char *bufptr, *msg = NULL;
+
+    if (!buffer) buffer = xmalloc(buflen = 32768);
+    bufptr = buffer;
+
+#define buffer_push(sa, na) \
+        do { \
+            char *s; \
+            size_t n; \
+            s = sa; \
+            n = na; \
+            /* Unlikely but must deal with this case. */ \
+            if (n > buflen) { \
+                if (bufptr > buffer && !connection_send(c, buffer, bufptr - buffer)) \
+                    goto write_failure; \
+                bufptr = buffer; \
+                if (!connection_send(c, s, n)) \
+                    goto write_failure; \
+            } else { \
+                if ((bufptr + n) > (buffer + buflen)) { \
+                    if (!connection_send(c, buffer, bufptr - buffer)) \
+                        goto write_failure; \
+                    bufptr = buffer; \
+                } \
+                memcpy(bufptr, s, n); \
+                bufptr += n; \
+            } \
+            nwritten += n; \
+        } while (0)
+
     offset = msgoffset - (msgoffset % PAGESIZE);
     length = (msgoffset + msglength + PAGESIZE) ;
     length -= length % PAGESIZE;
@@ -462,8 +498,9 @@ int connection_sendmessage(connection c, int fd, size_t msgoffset, size_t skip, 
         return -1; /* Failure before +OK sent. */
     }
 
-    connection_sendresponse(c, 1, _("Message follows"));
-    
+    msg = _("+OK Message follows\r\n");
+    buffer_push(msg, strlen(msg));
+
     /* Find the beginning of the message headers */
     p = filemem + (msgoffset % PAGESIZE);
     r = p + msglength;
@@ -476,14 +513,12 @@ int connection_sendmessage(connection c, int fd, size_t msgoffset, size_t skip, 
         errno = 0;
         
         /* Escape a leading ., if present. */
-        if (*p == '.' && !connection_send(c, ".", 1))
-            goto write_failure;
-        ++nwritten;
+        if (*p == '.')
+            buffer_push(".", 1);
         
         /* Send line itself. */
-        if (!connection_send(c, p, q - p) || !connection_send(c, "\r\n", 2))
-            goto write_failure;
-        nwritten += q - p + 2;
+        buffer_push(p, q - p);
+        buffer_push("\r\n", 2);
 
         p = q + 1;
     }
@@ -491,11 +526,7 @@ int connection_sendmessage(connection c, int fd, size_t msgoffset, size_t skip, 
     ++p;
 
     errno = 0;
-    if (!connection_send(c, "\r\n", 2)) {
-        log_print(LOG_ERR, _("connection_sendmessage: send failure"));
-        munmap(filemem, length);
-        return -2;
-    }
+    buffer_push("\r\n", 2);
     
     /* Now send the message itself */
     while (p < r && n) {
@@ -506,27 +537,31 @@ int connection_sendmessage(connection c, int fd, size_t msgoffset, size_t skip, 
         errno = 0;
 
         /* Escape a leading ., if present. */
-        if (*p == '.' && !connection_send(c, ".", 1))
-            goto write_failure;
-        ++nwritten;
+        if (*p == '.')
+            buffer_push(".", 1);
         
         /* Send line itself. */
-        if (!connection_send(c, p, q - p) || !connection_send(c, "\r\n", 2))
-            goto write_failure;
-        nwritten += q - p + 2;
+        buffer_push(p, q - p);
+        buffer_push("\r\n", 2);
 
         p = q + 1;
     }
+
+    /* Finish up. */
+    buffer_push(".\r\n", 3);
+
+    if (bufptr > buffer && !connection_send(c, buffer, bufptr - buffer))
+        goto write_failure;
+    
     if (munmap(filemem, length) == -1)
         log_print(LOG_ERR, "connection_sendmessage: munmap: %m");
     
     errno = 0;
 
-    if (!connection_send(c, ".\r\n", 3)) {
-        log_print(LOG_ERR, _("connection_sendmessage: send failure"));
-        return -2;
-    } else return nwritten + 3;
+    return nwritten + 3;
 
+#undef buffer_push
+    
 write_failure:
     log_print(LOG_ERR, _("connection_sendmessage: send failure"));
     munmap(filemem, length);

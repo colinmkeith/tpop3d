@@ -96,3 +96,11 @@ $Id$
 
 * Latency vs. throughput tradeoff under high load?
 
+* Deferred writes in connection_sendmessage -- that should bring the cost of
+  sending messages down to the cost of substituting \r\n for \n, etc.
+
+* Configurable (or adaptive?) SO_SNDBUF
+  We probably don't have enough information to measure the necessary
+  parameters (though in principle we could measure the delay between sending
+  +OK... and receiving a new command), so just make this a config file option.
+

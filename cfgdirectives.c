@@ -25,6 +25,7 @@ char *cfgdirectives[] = {
     "append-domain",
     "strip-domain",
     "timeout-seconds",
+    "tcp-send-buffer",
     "log-facility",
     "log-stderr",
     "apop-only",

@@ -175,7 +175,7 @@ int maildir_build_index(mailbox M, const char *subdir, time_t T) {
              * that's what qmail-pop3d does. But it's not clear why this is
              * useful, so turn the check into a warning. */
             if (st.st_mtime > T)
-                log_print(LOG_WARNING, _("maildir_build_index: %s: mtime is %d seconds in the future; this condition may indicate that you have a time synchronisation error, especially if you are using NFS-mounted mail directories"), filename, (int)(st.st_mtime - T));
+                log_print(LOG_WARNING, _("maildir_build_index: %s: mtime is %d seconds in the future; this condition may indicate that you have a clock synchronisation error, especially if you are using NFS-mounted mail directories"), filename, (int)(st.st_mtime - T));
             
             /* These get sorted by mtime later. */
             maildir_make_indexpoint(&pt, filename, st.st_size, st.st_mtime);

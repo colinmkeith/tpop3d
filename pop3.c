@@ -295,10 +295,10 @@ static enum connection_action do_retr(connection c, const int msg_num) {
             if (verbose)
                 log_print(LOG_DEBUG, _("do_retr: client %s: sending message %d (%d bytes)"),
                         c->idstr, msg_num + 1, (int)curmsg->msglength);
-        
+            
             if ((n = c->m->sendmessage(c->m, c, msg_num, -1)) == -2)
                 return close_connection;
-            
+
             /* That might have taken a long time. */
             c->idlesince = time(NULL);
             if (verbose) {
@@ -583,6 +583,9 @@ enum connection_action connection_do(connection c, const pop3command p) {
         }
         
         switch (p->cmd) {
+            case CAPA:
+                return do_capa(c);
+
             case LIST:
                 do_list(c, msg_num);
                 break;
