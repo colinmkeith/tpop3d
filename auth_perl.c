@@ -227,7 +227,7 @@ stringmap auth_perl_callfn(const char *perlfn, const int nvars, ...) {
  * Attempt to authenticate a user using APOP, via a perl subroutine. Much like
  * auth_other_new_apop.
  */
-authcontext auth_perl_new_apop(const char *name, const char *timestamp, const unsigned char *digest) {
+authcontext auth_perl_new_apop(const char *name, const char *timestamp, const unsigned char *digest, const char *host) {
 #define MISSING(k)     do { print_log(LOG_ERR, _("auth_perl_new_apop: missing key `%s' in response"), (k)); goto fail; } while(0)
 #define INVALID(k, v)  do { print_log(LOG_ERR, _("auth_perl_new_apop: invalid value `%s' for key `%s' in response"), (v), (k)); goto fail; } while(0)
     char digeststr[33];
@@ -240,7 +240,7 @@ authcontext auth_perl_new_apop(const char *name, const char *timestamp, const un
     for (p = digeststr, q = digest; q < digest + 16; p += 2, ++q)
         sprintf(p, "%02x", (unsigned int)*q);
     if (!auth_perl_apop ||
-        !(S = auth_perl_callfn(auth_perl_apop, 4, "method", "APOP", "user", name, "timestamp", timestamp, "digest", digeststr)))
+        !(S = auth_perl_callfn(auth_perl_apop, 5, "method", "APOP", "user", name, "timestamp", timestamp, "digest", digeststr, "clienthost", host)))
         return NULL;
 
     I = stringmap_find(S, "logmsg");
@@ -288,14 +288,14 @@ fail:
 /* auth_perl_new_user_pass:
  * Attempt to authenticate a user using USER/PASS, via a perl subroutine.
  */
-authcontext auth_perl_new_user_pass(const char *user, const char *pass) {
+authcontext auth_perl_new_user_pass(const char *user, const char *pass, const char *host) {
 #define MISSING(k)     do { print_log(LOG_ERR, _("auth_perl_new_user_pass: missing key `%s' in response"), (k)); goto fail; } while(0)
 #define INVALID(k, v)  do { print_log(LOG_ERR, _("auth_perl_new_user_pass: invalid value `%s' for key `%s' in response"), (v), (k)); goto fail; } while(0)
     stringmap S;
     item *I;
     authcontext a = NULL;
 
-    if (!auth_perl_pass || !(S = auth_perl_callfn(auth_perl_pass, 3, "method", "PASS", "user", user, "pass", pass)))
+    if (!auth_perl_pass || !(S = auth_perl_callfn(auth_perl_pass, 4, "method", "PASS", "user", user, "pass", pass, "clienthost", host)))
         return NULL;
     
     if ((I = stringmap_find(S, "logmsg")))

@@ -14,6 +14,7 @@
  *  user        client's username sent with USER or APOP command
  *  pass        client's password from PASS command
  *  digest      client's digest sent with APOP command, in hex
+ *  clienthost  client's IP address/hostname
  *
  * The program should respond with a similarly formatted string containing the
  * following variables:
@@ -471,7 +472,7 @@ fail:
 /* auth_other_new_apop:
  * Attempt to authenticate a user using APOP, via the child program.
  */
-authcontext auth_other_new_apop(const char *name, const char *timestamp, const unsigned char *digest) {
+authcontext auth_other_new_apop(const char *name, const char *timestamp, const unsigned char *digest, const char *host) {
 #define MISSING(k)     do { print_log(LOG_ERR, _("auth_other_new_apop: missing key `%s' in response"), (k)); goto fail; } while(0)
 #define INVALID(k, v)  do { print_log(LOG_ERR, _("auth_other_new_apop: invalid value `%s' for key `%s' in response"), (v), (k)); goto fail; } while(0)
     char digeststr[33];
@@ -485,7 +486,7 @@ authcontext auth_other_new_apop(const char *name, const char *timestamp, const u
     
     for (p = digeststr, q = digest; q < digest + 16; p += 2, ++q)
         sprintf(p, "%02x", (unsigned int)*q);
-    if (!auth_other_send_request(4, "method", "APOP", "user", name, "timestamp", timestamp, "digest", digeststr)
+    if (!auth_other_send_request(5, "method", "APOP", "user", name, "timestamp", timestamp, "digest", digeststr, "clienthost", host)
         || !(S = auth_other_recv_response()))
         return NULL;
 
@@ -534,7 +535,7 @@ fail:
 /* auth_other_new_user_pass:
  * Attempt to authenticate a user using USER/PASS, via the child program.
  */
-authcontext auth_other_new_user_pass(const char *user, const char *pass) {
+authcontext auth_other_new_user_pass(const char *user, const char *pass, const char *host) {
 #define MISSING(k)     do { print_log(LOG_ERR, _("auth_other_new_user_pass: missing key `%s' in response"), (k)); goto fail; } while(0)
 #define INVALID(k, v)  do { print_log(LOG_ERR, _("auth_other_new_user_pass: invalid value `%s' for key `%s' in response"), (v), (k)); goto fail; } while(0)
     stringmap S;
@@ -543,7 +544,7 @@ authcontext auth_other_new_user_pass(const char *user, const char *pass) {
 
     if (!authchild_pid) auth_other_start_child();
 
-    if (!auth_other_send_request(3, "method", "PASS", "user", user, "pass", pass)
+    if (!auth_other_send_request(4, "method", "PASS", "user", user, "pass", pass, "clienthost", host)
         || !(S = auth_other_recv_response()))
         return NULL;
     

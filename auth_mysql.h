@@ -33,8 +33,8 @@
 int  auth_mysql_init();
 
 /* These use SELECT statements defined in auth_mysql.c */
-authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const unsigned char *digest);
-authcontext auth_mysql_new_user_pass(const char *user, const char *pass);
+authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const unsigned char *digest, const char *host);
+authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const char *host);
 void auth_mysql_close();
 
 #endif /* AUTH_MYSQL */

@@ -264,7 +264,7 @@ const char apop_query_template[] =
      "WHERE popbox.local_part = '%s' "
        "AND popbox.domain_name = '%s' "
        "AND popbox.domain_name = domain.domain_name";
-authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const unsigned char *digest) {
+authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const unsigned char *digest, const char *host /* unused */) {
     char *query = NULL, *x = NULL, *y = NULL;
     authcontext a = NULL;
     char *local_part = NULL;
@@ -411,7 +411,7 @@ char user_pass_query_template[] =
      "WHERE popbox.local_part = '%s' "
        "AND popbox.domain_name = '%s' "
        "AND popbox.domain_name = domain.domain_name";
-authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
+authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const char *host /* unused */) {
     char *query = NULL, *x = NULL, *y = NULL;
     authcontext a = NULL;
     char *local_part = NULL;

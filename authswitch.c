@@ -141,13 +141,13 @@ int authswitch_init() {
 /* authcontext_new_apop:
  * Attempts to authenticate the apop data with each driver in turn.
  */
-authcontext authcontext_new_apop(const char *name, const char *timestamp, const unsigned char *digest, const char *domain) {
+authcontext authcontext_new_apop(const char *name, const char *timestamp, const unsigned char *digest, const char *domain, const char *host) {
     authcontext a = NULL;
     const struct authdrv *aa;
     int *aar;
     
     for (aa = auth_drivers, aar = auth_drivers_running; aa < auth_drivers_end; ++aa, ++aar)
-        if (*aar && aa->auth_new_apop && (a = aa->auth_new_apop(name, timestamp, digest))) {
+        if (*aar && aa->auth_new_apop && (a = aa->auth_new_apop(name, timestamp, digest, host))) {
             a->auth = strdup(aa->name);
             a->user = strdup(name);
             if (!a->domain && domain) a->domain = strdup(domain);
@@ -161,13 +161,13 @@ authcontext authcontext_new_apop(const char *name, const char *timestamp, const 
 /* authcontext_new_user_pass:
  * Attempts to authenticate user and pass with each driver in turn.
  */
-authcontext authcontext_new_user_pass(const char *user, const char *pass, const char *domain) {
+authcontext authcontext_new_user_pass(const char *user, const char *pass, const char *domain, const char *host) {
     authcontext a = NULL;
     const struct authdrv *aa;
     int *aar;
 
     for (aa = auth_drivers, aar = auth_drivers_running; aa < auth_drivers_end; ++aa, ++aar)
-        if (*aar && aa->auth_new_user_pass && (a = aa->auth_new_user_pass(user, pass))) {
+        if (*aar && aa->auth_new_user_pass && (a = aa->auth_new_user_pass(user, pass, host))) {
             a->auth = strdup(aa->name);
             a->user = strdup(user);
             if (!a->domain && domain) a->domain = strdup(domain);

@@ -60,7 +60,7 @@ int auth_pam_conversation(int num_msg, const struct pam_message **msg, struct pa
  */
 extern stringmap config;
 
-authcontext auth_pam_new_user_pass(const char *user, const char *pass) {
+authcontext auth_pam_new_user_pass(const char *user, const char *pass, const char *host /* unused */) {
     pam_handle_t *pamh = NULL;
     struct passwd pw, *pw2;
     int r, n = PAM_SUCCESS;

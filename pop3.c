@@ -38,7 +38,7 @@ int append_domain;  /* Do we automatically try user@domain if user alone fails t
 enum connection_action connection_do(connection c, const pop3command p) {
     /* This breaks the RFC, but is sensible. */
     if (p->cmd != NOOP && p->cmd != UNKNOWN) c->idlesince = time(NULL);
-    
+
     if (c->state == authorisation) {
         /* Authorisation state: gather username and password. */
         switch (p->cmd) {
@@ -83,6 +83,8 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 char *name, *hexdigest;
                 unsigned char digest[16];
 
+                ++c->n_auth_tries;
+
                 if (p->toks->num != 3) {
                     connection_sendresponse(c, 0, _("No, that's not right."));
                     return do_nothing;
@@ -99,8 +101,6 @@ enum connection_action connection_do(connection c, const pop3command p) {
 #endif
                     return close_connection;
                 }
-
-                ++c->n_auth_tries;
 
                 if (!name || *name == 0) {
                     connection_sendresponse(c, 0, _("That's not right."));
@@ -125,7 +125,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     return do_nothing;
                 }
 
-                c->a = authcontext_new_apop(name, c->timestamp, digest, c->domain);
+                c->a = authcontext_new_apop(name, c->timestamp, digest, c->domain, inet_ntoa(c->sin.sin_addr));
                 
                 if (!c->a && append_domain && c->domain && strcspn(name, "@%!") == strlen(name)) {
                     /* OK, if we have a domain name, try appending that. */
@@ -133,7 +133,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     strcpy(nn, name);
                     strcat(nn, "@");
                     strcat(nn, c->domain);
-                    c->a = authcontext_new_apop(nn, c->timestamp, digest, c->domain);
+                    c->a = authcontext_new_apop(nn, c->timestamp, digest, c->domain, inet_ntoa(c->sin.sin_addr));
                     free(nn);
                 }
 
@@ -156,7 +156,6 @@ enum connection_action connection_do(connection c, const pop3command p) {
                         print_log(LOG_ERR, _("connection_do: client `%s' failed to log in after %d attempts"), c->idstr, MAX_AUTH_TRIES);
                         return close_connection;
                     } else {
-                        ++c->n_auth_tries;
 #ifndef NO_SNIDE_COMMENTS
                         connection_sendresponse(c, 0, _("Lies! Try again!"));
 #else
@@ -192,14 +191,14 @@ enum connection_action connection_do(connection c, const pop3command p) {
 
         /* Do we now have enough information to authenticate using USER/PASS? */
         if (!c->a && c->user && c->pass) {
-            c->a = authcontext_new_user_pass(c->user, c->pass, c->domain);
+            c->a = authcontext_new_user_pass(c->user, c->pass, c->domain, inet_ntoa(c->sin.sin_addr));
             if (!c->a && append_domain && c->domain && strcspn(c->user, "@%!") == strlen(c->user)) {
                 /* OK, if we have a domain name, try appending that. */
                 char *nn = (char*)malloc(strlen(c->user) + strlen(c->domain) + 2);
                 strcpy(nn, c->user);
                 strcat(nn, "@");
                 strcat(nn, c->domain);
-                c->a = authcontext_new_user_pass(nn, c->pass, c->domain);
+                c->a = authcontext_new_user_pass(nn, c->pass, c->domain, inet_ntoa(c->sin.sin_addr));
                 free(nn);
             }
 

@@ -45,7 +45,7 @@ static const char rcsid[] = "$Id$";
  */
 extern stringmap config;
 
-authcontext auth_passwd_new_user_pass(const char *user, const char *pass) {
+authcontext auth_passwd_new_user_pass(const char *user, const char *pass, const char *host /* unused */) {
     struct passwd *pw;
 #ifdef AUTH_PASSWD_SHADOW
     struct spwd *spw;

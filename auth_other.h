@@ -31,8 +31,8 @@ int auth_other_init(void);
 void auth_other_close(void);
 int auth_other_send_request(const int nvars, ...);
 stringmap auth_other_recv_response(void);
-authcontext auth_other_new_apop(const char *name, const char *timestamp, const unsigned char *digest);
-authcontext auth_other_new_user_pass(const char *user, const char *pass);
+authcontext auth_other_new_apop(const char *name, const char *timestamp, const unsigned char *digest, const char *host);
+authcontext auth_other_new_user_pass(const char *user, const char *pass, const char *host);
 
 #endif /* AUTH_OTHER */
 

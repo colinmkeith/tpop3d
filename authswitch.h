@@ -33,14 +33,14 @@ struct authdrv {
     int         (*auth_init)(void);
     
     /* Attempt to build authcontext from APOP; parameters are name, original
-     * timestamp, and supplied digest.
+     * timestamp, supplied digest and the client host.
      */
-    authcontext (*auth_new_apop)(const char *name, const char *timestamp, const unsigned char *digest);
+    authcontext (*auth_new_apop)(const char *name, const char *timestamp, const unsigned char *digest, const char *host);
     
-    /* Attempt to build authcontext from USER and PASS; parameters are name
-     * and password.
+    /* Attempt to build authcontext from USER and PASS; parameters are name,
+     * password and the client host.
      */
-    authcontext (*auth_new_user_pass)(const char *user, const char *password);
+    authcontext (*auth_new_user_pass)(const char *user, const char *password, const char *host);
 
     /* Shut down this authentication driver, and free associated resources. */
     void        (*auth_close)(void);
@@ -55,8 +55,8 @@ struct authdrv {
 void authswitch_describe(FILE *fp);
 
 int authswitch_init();
-authcontext authcontext_new_apop(const char *name, const char *timestamp, const unsigned char *digest, const char *domain);
-authcontext authcontext_new_user_pass(const char *user, const char *pass, const char *domain);
+authcontext authcontext_new_apop(const char *name, const char *timestamp, const unsigned char *digest, const char *domain, const char *host);
+authcontext authcontext_new_user_pass(const char *user, const char *pass, const char *domain, const char *host);
 void authswitch_close();
 
 authcontext authcontext_new(const uid_t uid, const gid_t gid, const char *mboxdrv, const char *mailbox, const char *home, const char *domain);
