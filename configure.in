@@ -372,7 +372,7 @@ fi
 # LDAP client libraries.
 if test x"$enable_auth_ldap" = x"yes"
 then
-    AC_SEARCH_LIBS(res_query, resolv)
+    AC_SEARCH_LIBS(res_query, resolv, [], AC_MSG_ERROR([[auth-ldap enabled, but no res_query(3)]]) )
     AC_CHECK_LIB(lber, main, [], AC_MSG_ERROR([[auth-ldap enabled, but can't find liblber]]) )
     AC_CHECK_LIB(ldap, main, [], AC_MSG_ERROR([[auth-ldap enabled, but can't find libldap]]) )
 fi

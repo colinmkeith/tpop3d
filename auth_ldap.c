@@ -341,11 +341,10 @@ authcontext auth_ldap_new_user_pass(const char *username, const char *local_part
                 group = xstrdup(*vals);
 
             ldap_value_free(vals);
+            ldap_memfree(attr);
         }
 
-        /* Do NOT need to free the ber, apparently-- ldap_next_attribute frees
-         * it when it returns NULL. */
-        if (attr) ldap_memfree(attr);
+        ber_free(ber, 0);
 
         /* Check that we've retrieved all the attributes we need. */
 #define GOT_ATTR(a)     if (ldapinfo.attr.##a && !a) { \
@@ -393,9 +392,11 @@ authcontext auth_ldap_new_user_pass(const char *username, const char *local_part
     }
 
 fail:
+    /* Ugly: force the LDAP library to free user_addr. */
+    if (user_attr) while (ldap_next_entry(ldapinfo.ldap, ldapres));
+    
     if (ldapres) ldap_msgfree(ldapres);
-/*    if (user_attr) ldap_msgfree(user_attr);*/
-    if (user_dn) free(user_dn);
+    if (user_dn) ldap_memfree(user_dn);
 
     xfree(filter);
 
@@ -405,7 +406,7 @@ fail:
 /* auth_ldap_close:
  * Close the ldap connection. */
 void auth_ldap_close() {
-  if (ldapinfo.ldap) ldap_unbind(ldapinfo.ldap);
+    if (ldapinfo.ldap) ldap_unbind(ldapinfo.ldap);
 }
 
 /* auth_ldap_postfork:
