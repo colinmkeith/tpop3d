@@ -36,7 +36,7 @@ $Id$
    
    $ logger -t 'tpop3d[1234]' -p mail.info \
        'fork_child: [42]billg(12.34.56.78) successfully authenticated with pam' 
-   
+ 
    Of course, this may not be an issue if there are no shell users on your
    POP3 server system.
    
@@ -44,10 +44,11 @@ $Id$
    The alternative is to have tpop3d trigger addition of a client to the
    allowed-to-relay table. If you are happy to alter the C code, then the best
    thing to do is to insert some code at the same place that the above log
-   line is generated to do whatever book-keeping you need. Alternatively, you
-   could write an auth-perl or auth-other authenticator which did the dirty
-   work for cases of successful authentication. Of course, this means that you
-   have to implement authentication yourself, too, which is slightly wasteful.
+   line is generated to do whatever book-keeping you need. This is in the
+   function fork_child in main.c. . Alternatively, you could write an auth-perl
+   or auth-other authenticator which did the dirty work for cases of successful
+   authentication. Of course, this means that you have to implement the
+   authentication yourself, too, which is slightly wasteful.
 
    If there's enough demand, I may add configurable hooks for this sort of
    thing.
@@ -78,6 +79,7 @@ $Id$
    The alternative would obviously be to produce a source package. It appears
    that this is not now necessary, since newer versions of the package tools
    can obtain this information from files in a standard .tar.gz file.
+
 
 4. I see that tpop3d supports MySQL, but I want to use another/a proper
    database....

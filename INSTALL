@@ -46,6 +46,7 @@ standard configure options such as --prefix.)
           {crypt}...        system crypt(3)
           {crypt_md5}...    crypt_md5 as used in Linux-PAM
           {plaintext}...    plain text password used for APOP
+          {mysql}...        password hashed using MySQL's PASSWORD()
           {md5}...          straight MD5 hash
 
       Note that to use APOP, the plaintext password type must be specified for
@@ -209,8 +210,8 @@ standard configure options such as --prefix.)
   inetd.conf/tcpd style of operation. You can use `--enable-tcp-wrappers' to
   incorporate native support for TCP Wrappers in tpop3d. If you do this, the
   `daemon name' (the thing which comes before the : in /etc/hosts.allow and
-  .deny) using the configuration file option tcp-wrappers-name; this is for a
-  similar reason to allowing the PAM service name to be configured.
+  .deny) may be set using the configuration file option tcp-wrappers-name; this
+  is for a similar reason to allowing the PAM service name to be configured.
 
 
 * Development and debugging

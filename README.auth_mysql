@@ -80,6 +80,7 @@ similar):
       {crypt}...          crypt(3) hash
       {crypt_md5}...      crypt_md5 hash
       {plaintext}...      plaintext password
+      {mysql}...          password hashed using MySQL's PASSWORD()
       {md5} or no prefix  old-style simple MD5 password
 
    {crypt} is the format of the system crypt(3) function-- two salt characters
@@ -88,10 +89,11 @@ similar):
    hash>$; on BSD/Linux systems, the libc will automatically detect this case
    in crypt(3), but for portability it is included as a separate case.
    {plaintext} is a password saved in plain text; this format is useful if you
-   want to support authentication by the APOP shared-secret mechanism. {md5}
-   is a simple MD5 hash of the password, without salt, saved as a 32-character
-   hex string. This is the historical format for vmail-sql, and so is the
-   default if no prefix is used. This may go away at some point.
+   want to support authentication by the APOP shared-secret mechanism. {mysql}
+   is the format produced by the PASSWORD() function in MySQL.  {md5} is a
+   simple MD5 hash of the password, without salt, saved as a 32-character hex
+   string. This is the historical format for vmail-sql, and so is the default
+   if no prefix is used. This may go away at some point.
 
    Now, we compare the user's password against the stored hash or password,
    and decide whether to authenticate the user or not. If this does not

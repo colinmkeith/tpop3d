@@ -149,7 +149,7 @@ sub process_packet ($$) {
     my %hash = split("\0", $packet);
     
     $res = $self->apop(\%hash) if ($hash{method} eq 'APOP');
-    $res = $self->pass(\%hash) if ($hash{method} eq 'USER');
+    $res = $self->pass(\%hash) if ($hash{method} eq 'PASS');
 
     if (!defined($res)) {
         # OK, we didn't handle it; perhaps we are chained to another handler?
