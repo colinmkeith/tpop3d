@@ -443,7 +443,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
         return NULL;
     }
 
-    query = (char*)malloc(l = (sizeof(user_pass_query_template) + strlen(user) * 2 + 1 + 34));
+    query = (char*)malloc(l = (sizeof(user_pass_query_template) + strlen(user) * 2));
     x = (char*)malloc(strlen(local_part) * 2 + 1);
     y = (char*)malloc(strlen(domain) * 2 + 1);
     if (!query || !x || !y) goto fail;

@@ -70,8 +70,6 @@ static void xs_init(void) {
  */
 extern stringmap config;    /* in main.c */
 
-static char *auth_perl_env = "TPOP3D_CONTEXT=auth_perl";
-
 int auth_perl_init() {
     dSP;
     int argc = 2;
@@ -97,9 +95,10 @@ int auth_perl_init() {
         return 0;
     }
 
+    /* Put a useful string into the environment. */
     putenv(strdup("TPOP3D_CONTEXT=auth_perl"));
 
-    /* Put a useful string into the environment. */
+    /* Create and start up perl interpreter. */
     auth_perl_interp = perl_alloc();
     perl_construct(auth_perl_interp);
     perl_parse(auth_perl_interp, xs_init, argc, argv, 0);
