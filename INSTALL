@@ -37,14 +37,20 @@ standard configure options such as --prefix.)
       Uses a MySQL database, allowing authentication of users in virtual
       domains.
 
-      By default, auth_mysql uses MD5 hashes of passwords for authentication
-      (or clear-text passwords for APOP authentication). By applying the
-      patches in mysql_crypt.patch, you can alter this to use passwords which
-      are hashed using crypt(3) (as in /etc/passwd on most Unix systems); if
-      you apply this patch, you will have to modify the SQL schema for the
-      database, creating a crypt_pw column to store the password hashes
-      (rather than password_hash). This patch was contributed by Dom
-      Gallagher.
+      auth_mysql now supports password hashes in a variety of formats in
+      addition to the straight MD5 hashes used in `classic' vmail-sql. These
+      are still the default, but other formats are detected by the presence of
+      a prefixed token enclosed in { } at the beginning of the password hash
+      field in the database. Presently, the code recognises:
+    
+          {crypt}...        system crypt(3)
+          {crypt_md5}...    crypt_md5 as used in Linux-PAM
+          {plaintext}...    plain text password used for APOP
+          {md5}...          straight MD5 hash
+
+      Note that to use APOP, the plaintext password type must be specified for
+      a user, but this does not stop them logging in via any other method with
+      the same password.
 
     auth_other
     --enable-auth-other
