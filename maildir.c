@@ -168,7 +168,7 @@ int maildir_build_index(mailbox M, const char *subdir, time_t T) {
         filename = xmalloc(strlen(subdir) + strlen(d->d_name) + 2);
         sprintf(filename, "%s/%s", subdir, d->d_name);
         if (!filename) return -1;
-        if (stat(filename, &st)) {
+        if (0 == stat(filename, &st)) {
             struct indexpoint pt;
 
             /* XXX Previously, we ignored messages from the future, since
