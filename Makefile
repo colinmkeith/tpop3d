@@ -23,18 +23,18 @@ CFLAGS += -DMAILSPOOL_DIR='"$(MAILSPOOL_DIR)"'
 # Modules) to authenticate Unix (i.e. non-virtual) users. Alternatively, you
 # can use auth_passwd, which authenticates users against /etc/passwd or
 # /etc/shadow.
-#CFLAGS += -DAUTH_PAM
-CFLAGS += -DAUTH_PASSWD                            # /etc/passwd
+CFLAGS += -DAUTH_PAM
+#CFLAGS += -DAUTH_PASSWD                            # /etc/passwd
 #CFLAGS += -DAUTH_PASSWD -DAUTH_PASSWD_SHADOW       # /etc/shadow
 
 # If you use auth_passwd, you will probably need to link against libcrypt.
-LDLIBS += -lcrypt
+#LDLIBS += -lcrypt
 
 # These are the libraries which are needed to get PAM support working. On
 # Linux, you need -ldl for dynamic linking support; on other systems (e.g.
 # FreeBSD) this is not the case. If you are not using PAM at all, comment
 # this out.
-#LDLIBS  += -lpam -ldl
+LDLIBS  += -lpam -ldl
 
 # If you do not want tpop3d to obtain mailspool locks from PINE and other
 # programs which used the Washington University C-Client library, comment out
