@@ -22,20 +22,17 @@ static const char rcsid[] = "$Id$";
 #include "util.h"
 
 /* stringmap_new:
- * Allocate memory for a new stringmap.
- */
+ * Allocate memory for a new stringmap. */
 stringmap stringmap_new() {
     stringmap S;
     
-    S = xcalloc(1, sizeof *S);
-    if (!S) return NULL;
+    S = xcalloc(sizeof *S, 1);
 
     return S;
 }
 
 /* stringmap_delete:
- * Free memory for a stringmap.
- */
+ * Free memory for a stringmap. */
 void stringmap_delete(stringmap S) {
     if (!S) return;
     if (S->l) stringmap_delete(S->l);
@@ -47,8 +44,7 @@ void stringmap_delete(stringmap S) {
 
 /* stringmap_delete_free:
  * Free memory for a stringmap, and the objects contained in it, assuming that
- * they are pointers to memory allocated by xmalloc(3).
- */
+ * they are pointers to memory allocated by xmalloc(3). */
 void stringmap_delete_free(stringmap S) {
     if (!S) return;
     if (S->l) stringmap_delete(S->l);
@@ -61,12 +57,11 @@ void stringmap_delete_free(stringmap S) {
 
 /* stringmap_insert:
  * Insert into S an item having key k and value d. Returns an existing key
- * or NULL if it was inserted.
- */
+ * or NULL if it was inserted. */
 item *stringmap_insert(stringmap S, const char *k, const item d) {
     if (!S) return 0;
     if (S->key == NULL) {
-        if (!(S->key = strdup(k))) return NULL;
+        S->key = xstrdup(k);
         S->d   = d;
         return NULL;
     } else {
@@ -78,7 +73,7 @@ item *stringmap_insert(stringmap S, const char *k, const item d) {
                 if (S2->l) S2 = S2->l;
                 else {
                     if (!(S2->l = stringmap_new())) return NULL;
-                    if (!(S2->l->key = strdup(k))) return NULL;
+                    S2->l->key = xstrdup(k);
                     S2->l->d   = d;
                     return NULL;
                 }
@@ -86,7 +81,7 @@ item *stringmap_insert(stringmap S, const char *k, const item d) {
                 if (S2->g) S2 = S2->g;
                 else {
                     if (!(S2->g = stringmap_new())) return NULL;
-                    if (!(S2->g->key = strdup(k))) return NULL;
+                    S2->g->key = xstrdup(k);
                     S2->g->d   = d;
                     return NULL;
                 }
@@ -97,8 +92,7 @@ item *stringmap_insert(stringmap S, const char *k, const item d) {
 
 /* stringmap_find:
  * Find in d an item having key k in the stringmap S, returning the item found
- * on success NULL if no key was found.
- */
+ * on success NULL if no key was found. */
 item *stringmap_find(const stringmap S, const char *k) {
     stringmap S2;
     int i;

@@ -566,7 +566,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const c
                             log_print(LOG_ERR, _("auth_mysql_new_user_pass: %s@%s has password type mysql, but hash is of incorrect length %d"), local_part, domain, n);
                             break;
                     }
-                } else if (strncmp(pwhash, "{md5}", 4) == 0 || *pwhash != '{') {
+                } else if (strncmp(pwhash, "{md5}", 5) == 0 || *pwhash != '{') {
                     /* Straight MD5 password. But this might be either in hex
                      * or base64 encoding. */
                     if (*pwhash == '{')
