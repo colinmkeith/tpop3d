@@ -1,0 +1,162 @@
+tpop3d, copyright (c) 2000 Chris Lightfoot <chris@ex-parrot.com>
+  http://www.ex-parrot.com/~chris/tpop3d/
+
+$Id$
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+
+Introduction
+
+tpop3d is yet-another-pop3-server. The intention has been to write a
+server which is fast, extensible, and secure. `Extensible' is used
+specifically in the context of new authentication mechanisms. Presently
+the distribution contains auth_pam, which uses Linux-style Pluggable
+Authentication Modules to mediate access of registered users of a
+machine to their Unix-style mailboxes, and auth_mysql, which uses a
+MySQL database to mediate access to virtual-domain email.
+
+
+Limitations
+
+tpop3d hasn't yet had extensive use.
+
+It only works with BSD-style mailboxes, and makes (normal) assumptions
+about their format (in particular, it assumes that separator lines begin
+"\n\nFrom " and end "\n". Most MTAs enforce this.
+
+It makes extensive use of mmap(2).
+
+Its locking scheme is not NFS-safe.
+
+Its locking scheme is naive (in particular, it locks the whole mailspool
+and so prevents writing at the end during a session).
+
+It is marginally RFC-noncompliant.
+
+It is designed to run as a daemon, not from inetd.
+
+It contains some (minimal) Linux-isms.
+
+It does not yet have session timeouts.
+
+
+Usage
+
+The operation of tpop3d is controlled by a configuration file, which
+consists of lines consisting of:
+
+[whitespace] key: [whitespace] value [# comment]
+
+By default, the configuration file is called "/etc/tpop3d.conf". This
+can be altered by use of the -f option to tpop3d.
+
+Configuration options are either global, or apply to a specific
+authentication scheme.
+
+    Global configuration options
+
+    listen-address:
+        Consists of one or more space-separated strings of the form
+
+            (hostname | IP number)[:port]
+
+        If port is not given, it is assumed to be `pop-3' (110).
+
+        This directive indicates the ports and addresses on which the
+        daemon should listen for incoming connections. To listen for
+        connections on any interface and the default port, the directive
+
+            listen-address: 0.0.0.0
+
+        is sufficient. There is no default for this option.
+
+    max-children:
+        The maximum number of children which may be actively serving
+        connections. Consists of a single number.  The default for this
+        option is 16.
+
+
+    PAM configuration options:
+
+    auth-pam-enable:
+        `yes' or `true' to enable PAM authentication.
+
+    auth-pam-facility:
+        The PAM facility used to negotiate with PAM.  The default for
+        this option is `tpop3d'.
+
+    auth-pam-mailspool-dir:
+        The directory in which mailspools for PAM users are located. The
+        default for this option is `/var/spool/mail'.
+
+    auth-pam-mail-group:
+        The group name or GID under which access to the mailspool will
+        take place.  The default for this option is the primary group of
+        the authenticated user, which will probably not work.
+
+
+    MySQL configuration options
+
+    auth-mysql-enable:
+        `yes' or `true' to enable MySQL authentication.
+
+    auth-mysql-hostname:
+        Host on which to connect to MySQL, by default `loclahost'.
+
+    auth-mysql-databse:
+        MySQL database to use for authentication.
+
+    auth-mysql-username:
+        MySQL username used to access the database.
+
+    auth-mysql-password:
+        Password of MySQL user.
+        
+        
+A note on MySQL authentication
+
+The MySQL authentication scheme is intended to be used with the
+vmail-sql virtual domains configuration described at
+
+    http://www.ex-parrot.com/~chris/vmail-sql/
+
+However, it would be extremely simple to adjust it to use another
+database schema, should this be required. The code is all contained in
+auth_mysql.c in the distribution.
+
+Note that the username and password supplied in the configuration file
+are privileged information, in the sense that they would allow an
+arbitrary person to obtain information from the database if they have
+access to the machine on which it resides. tpop3d clears this data from
+memory when the MySQL authentication code is initialised (though note
+that if you leave the auth-mysql-... directives in place but remove the
+auth-mysql-enable: yes line, then this will not occur). The corollary to
+this is that the tpop3d.conf file should not be readable by arbitrary
+users.
+
+
+A note on developing new authentication schemes
+
+The authentication strategy in tpop3d is very simple; a number of
+"authentcation drivers" are defined, and referenced from authswitch.c.
+Individual requests for authentcation (by USER/PASS or APOP) are passed
+to each in turn, and the first to return a positive response is
+considered to have successfullly authenticated the user; no others are
+called.
+
+An example authentication driver, which uses getpwnam(3) and crypt(3) to
+perform `traditional' UNIX user authentication, is included in
+auth_passwd.[ch] (but is not, by default, included in the compiled
+binary).
+
+auth_mysql.[ch] gives an example of an authentication driver for virtual
+domains served from a single IP address (that is, where the user
+identifies themself to the POP3 service as `user@domain'. If you would
+like to do IP-based virtual hosting, consider doing this by appending
+an appropriate domain name to the passed username and then passing the
+result to the existing drivers; this will avoid having to implement
+similar code twice for the two scenarios.
