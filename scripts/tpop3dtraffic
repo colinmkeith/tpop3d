@@ -1,0 +1,39 @@
+#!/usr/bin/perl -w
+#
+# tpop3dtraffic:
+# A trivial script to extract traffic statistics from log files written
+# to by tpop3d.
+#
+# Usage: tpop3dtraffic [NUMBER] < /var/log/whatever
+#
+# Prints the top NUMBER users, or 10 if NUMBER is not specified.
+#
+# Copyright (c) 2002 Chris Lightfoot. All rights reserved.
+# Email: chris@ex-parrot.com; WWW: http://www.ex-parrot.com/~chris/
+#
+
+my $rcsid = '$Id$';
+
+$num = $ARGV[0];
+$num ||= 10;
+
+%sess = ( );
+%recv = ( );
+%send = ( );
+
+while (<STDIN>) {
+    if (m#tpop3d.+client \[.+\]([^(]+).+ (\d+)/(\d+) bytes read/written#) {
+        ++$sess{$1};
+        $recv{$1} += $2;
+        $send{$1} += $3;
+    }
+}
+
+my @top = sort { $send{$b} <=> $send{$a} } keys %send;
+print <<EOF;
+User                                             Times  Received  Sent
+------------------------------------------------ ------ --------- ---------
+EOF
+foreach (@top[0..$num - 1]) {
+    printf("%48s (% 4d) % 9d % 9d\n", $_, $sess{$_}, $recv{$_}, $send{$_});
+}

@@ -154,7 +154,7 @@ void listeners_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfds)
                     xwrite(s, m, strlen(m));
                     shutdown(s, 2);
                     close(s);
-                    log_print(LOG_INFO, _("listeners_post_select: rejected connection from %s owing to high load"), inet_ntoa(sin.sin_addr));
+                    log_print(LOG_WARNING, _("listeners_post_select: rejected connection from %s owing to high load"), inet_ntoa(sin.sin_addr));
                 } else {
                     /* Find a free connection slot. */
 #ifdef MASS_HOSTING
@@ -294,7 +294,7 @@ void fork_child(connection c) {
             /* Began session. We log a message in a known format, and call
              * into the authentication drivers in case they want to do
              * something with the information for POP-before-SMTP relaying. */
-            log_print(LOG_INFO, _("fork_child: %s: successfully authenticated with %s"), c->idstr, c->a->auth);
+            log_print(LOG_INFO, _("fork_child: %s: successfully authenticated with %s; child PID is %d"), c->idstr, c->a->auth, (int)ch);
             authswitch_onlogin(c->a, c->remote_ip, c->local_ip);
            
             /* Dispose of our copy of the connection. */
@@ -303,8 +303,6 @@ void fork_child(connection c) {
             remove_connection(c);
             connection_delete(c);
             c = NULL;
-            
-            log_print(LOG_INFO, "fork_child: new child is PID %d", (int)ch);
 
             ++num_running_children;
     }
@@ -357,7 +355,7 @@ void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfd
                             case fork_and_setuid:
                                 if (num_running_children >= max_running_children) {
                                     connection_sendresponse(c, 0, _("Sorry, I'm too busy right now"));
-                                    log_print(LOG_INFO, _("connections_post_select: client %s: rejected login owing to high load"), c->idstr);
+                                    log_print(LOG_WARNING, _("connections_post_select: client %s: rejected login owing to high load"), c->idstr);
                                     connection_delete(c);
                                     *I = c = NULL;
                                     break;
