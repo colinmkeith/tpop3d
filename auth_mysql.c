@@ -479,7 +479,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
                     if (strcmp(crypt(pass, pwhash + 7), pwhash + 7) == 0) authok = 1;
                 } else if (strncmp(pwhash, "{crypt_md5}", 11) == 0) {
                     /* Password hashed by crypt_md5. */
-                    if (strcmp(crypt_md5(pass, pwhash + 7), pwhash + 11) == 0) authok = 1;
+                    if (strcmp(crypt_md5(pass, pwhash + 11), pwhash + 11) == 0) authok = 1;
                 } else if (strncmp(pwhash, "{plaintext}", 11) == 0) {
                     /* Plain text password, as used for APOP. */
                     if (strcmp(pass, pwhash + 11) == 0) authok = 1;
@@ -493,11 +493,11 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
                     MD5Final(digest, &ctx);
 
                     for (p = hexhash, q = digest; q < digest + 16; ++q, p += 2) snprintf(p, 3, "%02x", (unsigned)*q);
-print_log(LOG_INFO, "amnup: hexhash = %s, pwhash = %s\n", hexhash, pwhash);
+
                     if (strcasecmp(hexhash, pwhash + 5) == 0 || strcasecmp(hexhash, pwhash) == 0) authok = 1;
                 } else {
                     /* Unknown format. */
-                    print_log(LOG_ERR, _("auth_mysql_new_user_pass: %s@%s has unknown password format"), local_part, domain);
+                    print_log(LOG_ERR, _("auth_mysql_new_user_pass: %s@%s has unknown password format `%.*s'"), local_part, domain, 2 + strcspn(pwhash + 1, "}"), pwhash);
                     break;
                 }
 
