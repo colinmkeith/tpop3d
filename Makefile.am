@@ -21,6 +21,7 @@ tpop3d_SOURCES = auth_mysql.c \
                  pop3.c	\
                  signals.c \
                  stringmap.c \
+                 strtok_r.c \
                  substvars.c \
                  tokenise.c \
                  util.c \

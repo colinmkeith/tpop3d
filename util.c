@@ -92,7 +92,7 @@ int daemon(int nochdir, int noclose) {
     return 0;
 }
 
-#ifdef __SVR4
+#ifndef HAVE_INET_ATON
 /* inet_aton:
  * Implementation of inet_aton for machines (Solaris [cough]) which do not
  * have it.
@@ -103,7 +103,7 @@ int inet_aton(const char *s, struct in_addr *ip) {
     memcpy(ip, &i, sizeof(int));                                                
     return 1;                                                                   
 }                                                                               
-#endif
+#endif /* !HAVE_INET_ATON */
 
 /* write_file:
  * Send to socket sck the header and up to n lines of the body of a message

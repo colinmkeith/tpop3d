@@ -11,6 +11,10 @@
 #ifndef __UTIL_H_ /* include guard */
 #define __UTIL_H_
 
+#ifdef HAVE_CONFIG_H
+#include "configuration.h"
+#endif /* HAVE_CONFIG_H */
+
 #include <sys/types.h>
 
 #ifndef TPOP3D_VERSION
@@ -39,8 +43,18 @@ int daemon(int nochdir, int noclose);
 
 int write_file(int fd, int sck, size_t msgoffset, size_t skip, size_t msglength, int n);
 
-#ifdef __SVR4
+/* Look up group or user ids. */
+int parse_uid(const char *user, uid_t *u);
+gid_t parse_gid(const char *group, gid_t *g);
+
+/* Some systems do not have inet_aton. */
+#ifndef HAVE_INET_ATON
 int inet_aton(const char *s, struct in_addr *ip);
+#endif /* HAVE_INET_ATON */
+
+/* We use strtok_r, but not all systems have it. */
+#ifndef HAVE_STRTOK_R
+char *strtok_r(char *s, const char *delim, char **saveptr);     /* GNU implementation in strtok_r.c */
 #endif
 
 /* Optional internationalisation support. */
@@ -50,9 +64,5 @@ int inet_aton(const char *s, struct in_addr *ip);
 #else
 #   define _(String) String
 #endif /* WITH_I18N */
-
-/* Look up group or user ids. */
-int parse_uid(const char *user, uid_t *u);
-gid_t parse_gid(const char *group, gid_t *g);
 
 #endif /* __UTIL_H_ */
