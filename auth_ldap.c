@@ -221,8 +221,6 @@ int auth_ldap_init(void) {
 
     r = 1;
 
-    auth_ldap_connect();
-
 fail:
     return r;
 }
@@ -245,10 +243,20 @@ authcontext auth_ldap_new_user_pass(const char *username, const char *local_part
     char *user_dn = NULL;
     int nentries, ret, i;
 
+    /* Connect to the server. */
+    for (i = 0; i < 3; ++i)
+        if (auth_ldap_connect()) {
+            if ((ret = ldap_simple_bind_s(ldapinfo.ldap, ldapinfo.searchdn, ldapinfo.password)) != LDAP_SUCCESS) {
+                log_print(LOG_ERR, "auth_ldap_new_user_pass: ldap_simple_bind_s: %s", ldap_err2string(ret));
+                ldap_unbind(ldapinfo.ldap);  /* not much we can do if this fails.... */
+                ldapinfo.ldap = NULL;
+            } else break;
+        }
+    
     /* Give up if there is no connection available. */
     if (!ldapinfo.ldap) {
         log_print(LOG_ERR, _("auth_ldap_new_user_pass: no connection to LDAP server"));
-        return NULL;
+        goto fail;
     }
 
     /* Obtain search filter. */
@@ -257,22 +265,6 @@ authcontext auth_ldap_new_user_pass(const char *username, const char *local_part
     
     if (verbose)
         log_print(LOG_DEBUG, _("auth_ldap_new_user_pass: LDAP search filter: %s"), filter);
-
-    /* Try to bind to the LDAP server, reconnecting if it's gone away. */
-    for (i = 0; i < 3; ++i) {
-        if (ldapinfo.ldap && (ret = ldap_simple_bind_s(ldapinfo.ldap, ldapinfo.searchdn, ldapinfo.password)) != LDAP_SUCCESS) {
-            log_print(LOG_ERR, "auth_ldap_new_user_pass: ldap_simple_bind_s: %s", ldap_err2string(ret));
-            ldap_unbind(ldapinfo.ldap);  /* not much we can do if this fails.... */
-            ldapinfo.ldap = NULL;
-        } else break;
-        if (!ldapinfo.ldap)
-            auth_ldap_connect();
-    }
-
-    if (!ldapinfo.ldap) {
-        log_print(LOG_ERR, _("auth_ldap_new_user_pass: unable to connect to LDAP server"));
-        goto fail;
-    }
 
     /* Look for DN of user in the directory. */
     if ((ret = ldap_search_s(ldapinfo.ldap, ldapinfo.dn, LDAP_SCOPE_SUBTREE, filter, NULL, 0, &ldapres)) != LDAP_SUCCESS) {
@@ -400,13 +392,18 @@ fail:
 
     xfree(filter);
 
+    auth_ldap_close();
+
     return a;
 }
 
 /* auth_ldap_close:
  * Close the ldap connection. */
 void auth_ldap_close() {
-    if (ldapinfo.ldap) ldap_unbind(ldapinfo.ldap);
+    if (ldapinfo.ldap) {
+        ldap_unbind(ldapinfo.ldap);
+        ldapinfo.ldap = NULL;
+    }
 }
 
 /* auth_ldap_postfork:

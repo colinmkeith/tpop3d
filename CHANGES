@@ -5,7 +5,7 @@ $Id$
 
 tpop3d now accepts passwords containing spaces. auth-pam now passes the client
 host information to the authentication stack. A fix to the logging code to work
-around PAM brokenness was made.
+around PAM brokenness was made. A memory leak in auth-ldap was fixed.
 
 1.4.1
 
