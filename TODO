@@ -7,17 +7,8 @@ I only use tpop3d on Linux, but would be interested in getting it running
 elsewhere. This is likely to happen only on a case-by-case basis, since I
 don't have access to that many machines to play with and my time is limited.
 
-Also, there are some deficiencies in the way that locking happens on Solaris
-at the moment. In particular, the c-client locking needs to use fcntl locks
-on that platform. This should be easy to implement.
-
-* Better interaction with PINE/c-client
-
-In particular, it would be nice if tpop3d could suppress the c-client metadata
-which is put into a special message in the mailspool. I think that this
-message always (or at least typically) appears only as the first one in the
-spool, which makes things easier in this regard.
-
+In addition, the mess of mailspool locking should be investigated and better
+documented for the various platforms on which tpop3d does run.
 
 * More authentication schemes
 
@@ -35,7 +26,7 @@ thought about denial-of-service attacks, and I think that it is safe from the
 most obvious ones. Nevertheless, a full security audit would be desirable.
 
 
-* Autoconfification
+* "Autoconfiscation"
 
 Editing Makefiles may be the way "we" did things in the good old days, but
 nowadays even people like me who don't believe in package management do

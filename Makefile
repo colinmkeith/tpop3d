@@ -174,7 +174,10 @@ HDRS =  auth_mysql.h	\
 tpop3d: depend $(OBJS) Makefile
 	$(CC) $(LDFLAGS) $(LDLIBS) -o $@ $(OBJS)
 
-tarball: nodepend
+tpop3d.cat: tpop3d.8
+	groff -Tascii -man tpop3d.8 > tpop3d.cat
+
+tarball: nodepend $(SRCS) $(HDRS) $(TXTS)
 	mkdir tpop3d-$(VERSION)
 	for i in $(SUBDIRS) ; do mkdir tpop3d-$(VERSION)/$$i ; done
 	for i in Makefile $(SRCS) $(HDRS) $(TXTS) ; do cp $$i tpop3d-$(VERSION)/$$i ; done
