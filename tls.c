@@ -1,0 +1,92 @@
+/*
+ * tls.c:
+ * TLS stuff for tpop3d.
+ *
+ * Copyright (c) 2002 Chris Lightfoot. All rights reserved.
+ * Email: chris@ex-parrot.com; WWW: http://www.ex-parrot.com/~chris/
+ *
+ */
+
+#ifdef TPOP3D_TLS
+
+static const char rcsid[] = "$Id$";
+
+#define tls_errorstr()  ERR_reason_error_string(ERR_get_error())
+
+/* Normally, tpop3d will not read a pass phrase for a certificate from the
+ * terminal. This is to prevent it from blocking during the boot phase, waiting
+ * for the user to type something in. Reading of pass phrases can be enabled
+ * using the -P switch to tpop3d. */
+int noreadpassphrase = 1;
+
+/* tls_getpassphrase:
+ * Obtain a pass phrase from the user. */
+static int tls_getpass(char *buf, int size, int rwflag, void *userdata) {
+    char *s;
+    memset(buf, 0, size);
+    if (noreadpassphrase) return 0;
+    fprintf(stderr, "%s\n", (char*)userdata);
+    /* XXX some systems have unreasonable limits on the length of strings
+     * returned by getpass(3). */
+    s = getpass("Enter pass phrase: ");
+    strncpy(buf, s, size - 1);
+    memset(s, 0, strlen(s));    /* paranoia */
+    return strlen(buf);
+}
+
+/* tls_init:
+ * Global TLS initialisation. */
+int tls_init(void) {
+    SSL_load_error_strings();
+    SSL_library_init();
+}
+
+/* tls_create_context:
+ * Create a new SSL_CTX using the passed certificate and private key files. If
+ * the private key file is NULL, then we attempt to read the private key from
+ * the certificate file. Returns a valid SSL context on success or NULL on
+ * failure. */
+SSL_CTX *tls_create_context(const char *certfile, const char *pkeyfile) {
+    int ret;
+    SSL_CTX *ctx;
+    
+    if (!(ctx = SSL_CTX_new(SSLv23_server_methods()))) {
+        log_print(LOG_ERR, "tls_create_context: SSL_CTX_new: %s", tls_errorstr());
+        return NULL;
+    }
+
+    /* Set up the password call back. */
+    SSL_CTX_set_default_passwd_cb(ctx, tls_getpass);
+
+    /* Load certificate, and, if specified, separate private key. */
+    SSL_CTX_set_default_passwd_cb_userdata(ctx, (void*)certfile);
+    if ((ret = SSL_CTX_use_certificate_file(ctx, cfg->certfile, SSL_FILETYPE_PEM)) <= 0) {
+        log_print(LOG_ERR, "%s: %s", cfg->certfile, ERR_reason_error_string(ERR_get_error()));
+        SSL_CTX_free(ctx);
+        return NULL;
+    }
+
+    SSL_CTX_set_default_passwd_cb_userdata(ctx, (void*)pkeyfile);
+    if ((ret = SSL_CTX_use_PrivateKey_file(ctx, pkeyfile, SSL_FILETYPE_PEM)) <= 0) {
+        log_print(LOG_ERR, "tls_create_context: %s: %s", pkeyfile, tls_errorstr());
+        SSL_CTX_free(ctx);
+        return NULL;
+    }
+
+    /* Verify that the private key matches the certificate. */
+    if (!SSL_CTX_check_private_key(ctx)) {
+        log_print(LOG_ERR, _("tls_create_context: private key does not match certificate public key"));
+        SSL_CTX_free(ctx);
+        return NULL;
+    }
+
+    return ctx;
+}
+
+/* tls_close:
+ * Shut down TLS stuff. */
+void tls_close(void) {
+    
+}
+
+#endif /* TPOP3D_TLS */
