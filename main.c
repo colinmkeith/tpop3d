@@ -248,7 +248,12 @@ void net_loop(vector listen_addrs) {
                     int a = MAX_DATA_IN_FLIGHT;
                     if (s == -1) print_log(LOG_ERR, "net_loop: accept: %m");
                     else if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, &a, sizeof(a)) == -1) {
+                        /* Set a small send buffer so that we get usefully blocking writes. */
                         print_log(LOG_ERR, "net_loop: setsockopt: %m");
+                        close(s);
+                    } else if (fcntl(s, F_SETFL, 0) == -1) {
+                        /* Switch off non-blocking mode, in case it is inherited. */
+                        print_log(LOG_ERR, "net_loop: fcntl: %m");
                         close(s);
                     } else {
                         if (num_running_children >= max_running_children) {
