@@ -127,6 +127,7 @@ TXTS =  README          \
         COPYING         \
         CREDITS         \
         TODO            \
+        mysql_crypt.patch   \
         tpop3d.8        \
         tpop3d.cat      \
         init.d/tpop3d
