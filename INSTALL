@@ -27,9 +27,13 @@ move it.
   A number of authentication mechanisms are available:
 
     auth-pam
-    --enable-auth-pam
+    --enable-auth-pam, --enable-pam-leak-hack
       Uses Pluggable Authentication Modules, with a configurable facility name
-      (by default, `tpop3d').
+      (by default, `tpop3d'). On many systems, the PAM implementation leaks
+      memory, which can cause the tpop3d daemon process to grow without limit
+      over time. Compiling with --enable-pam-leak-hack causes tpop3d to fork
+      a child process to do each PAM authentication, which eliminates the leak
+      at a slight performance cost.
 
     auth-passwd
     --enable-auth-passwd, --enable-shadow-passwords

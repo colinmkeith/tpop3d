@@ -24,7 +24,9 @@ contribution by Yann Grossel, who also contributed support for MySQL server
 failover for auth-mysql; a consequence of this is that MySQL usernames and
 passwords are no longer cleared from memory by tpop3d. tpop3d will now remove a
 stale lock files for mailspools. Various code tidyings-up. Incorporated a
-patch from Jonathan Oddy to fix a pipelining problem with bad clients.
+patch from Jonathan Oddy to fix a pipelining problem with bad clients. Added
+a nasty (but optional) hack to auth-pam to work around memory leaks in buggy
+PAM implementations.
 
 1.4.2
 
