@@ -38,11 +38,13 @@ static const char rcsid[] = "$Id$";
 #include "authswitch.h"
 #include "config.h"
 #include "md5.h"
+#include "password.h"
 #include "stringmap.h"
 #include "util.h"
 #include "tokenise.h"
 
-/* Default query templates. The returned fields are:
+/* 
+ * Default query templates. The returned fields are:
  *  [0] location of mailbox
  *  [1] password hash
  *  [2] unix user
@@ -72,191 +74,9 @@ gid_t mail_gid;
 
 static char *substitute_query_params(const char *temp, const char *user, const char *local_part, const char *domain, const char *clienthost, const char *serverhost);
 
-/* MD5 crypt(3) routines. This is here so that you can migrate passwords from
- * the modern /etc/shadow crypt_md5 format used (optionally) by recent
- * Linux-PAM distributions. This code was taken from Linux-PAM 0.75.
- *
- * (Note that on most Linux systems this won't be necessary, since the system
- * crypt(3) function is `smart' in the sense that it looks for a constant
- * string `$1$' at the beginning of the password hash, and if that string is
- * present, uses crypt_md5 instead of traditional crypt. However, I include
- * this function in the interests of portability and future compatibility.)
- *
- * Original author's notice:
- * 
- * "THE BEER-WARE LICENSE" (Revision 42):
- * <phk@login.dknet.dk> wrote this file.  As long as you retain this notice you
- * can do whatever you want with this stuff. If we meet some day, and you think
- * this stuff is worth it, you can buy me a beer in return.   Poul-Henning Kamp
+/*
+ * Connection to the MySQL server.
  */
-
-static unsigned char itoa64[] = /* 0 ... 63 => ascii - 64 */
-        "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-
-/* to64:
- * Convert a string into a different base. */
-static void to64(char *s, unsigned long v, int n)
-{
-    while (--n >= 0) {
-        *s++ = itoa64[v&0x3f];
-        v >>= 6;
-    }
-}
-
-/* crypt_md5:
- * Poul-Henning Kamp's crypt(3)-alike using MD5. */
-static char *crypt_md5(const char *pw, const char *salt)
-{
-    const char *magic = "$1$";
-    /* This string is magic for this algorithm.  Having
-     * it this way, we can get get better later on */
-    static char passwd[120], *p;
-    static const char *sp,*ep;
-    unsigned char   final[16];
-    int sl,pl,i,j;
-    md5_ctx ctx,ctx1;
-    unsigned long l;
-
-    /* Refine the Salt first */
-    sp = salt;
-
-    /* If it starts with the magic string, then skip that */
-    if(!strncmp(sp,magic,strlen(magic)))
-        sp += strlen(magic);
-
-    /* It stops at the first '$', max 8 chars */
-    for(ep=sp;*ep && *ep != '$' && ep < (sp+8);ep++)
-        continue;
-
-    /* get the length of the true salt */
-    sl = ep - sp;
-
-    MD5Init(&ctx);
-
-    /* The password first, since that is what is most unknown */
-    MD5Update(&ctx,(unsigned char *)pw,strlen(pw));
-
-    /* Then our magic string */
-    MD5Update(&ctx,(unsigned char *)magic,strlen(magic));
-
-    /* Then the raw salt */
-    MD5Update(&ctx,(unsigned char *)sp,sl);
-
-    /* Then just as many characters of the MD5(pw,salt,pw) */
-    MD5Init(&ctx1);
-    MD5Update(&ctx1,(unsigned char *)pw,strlen(pw));
-    MD5Update(&ctx1,(unsigned char *)sp,sl);
-    MD5Update(&ctx1,(unsigned char *)pw,strlen(pw));
-    MD5Final(final,&ctx1);
-    for(pl = strlen(pw); pl > 0; pl -= 16)
-        MD5Update(&ctx,(unsigned char *)final,pl>16 ? 16 : pl);
-
-    /* Don't leave anything around in vm they could use. */
-    memset(final,0,sizeof final);
-
-    /* Then something really weird... */
-    for (j=0,i = strlen(pw); i ; i >>= 1)
-        if(i&1)
-            MD5Update(&ctx, (unsigned char *)final+j, 1);
-        else
-            MD5Update(&ctx, (unsigned char *)pw+j, 1);
-
-    /* Now make the output string */
-    strcpy(passwd,magic);
-    strncat(passwd,sp,sl);
-    strcat(passwd,"$");
-
-    MD5Final(final,&ctx);
-
-    /*
-     * and now, just to make sure things don't run too fast
-     * On a 60 Mhz Pentium this takes 34 msec, so you would
-     * need 30 seconds to build a 1000 entry dictionary...
-     */
-    for(i=0;i<1000;i++) {
-        MD5Init(&ctx1);
-        if(i & 1)
-            MD5Update(&ctx1,(unsigned char *)pw,strlen(pw));
-        else
-            MD5Update(&ctx1,(unsigned char *)final,16);
-
-        if(i % 3)
-            MD5Update(&ctx1,(unsigned char *)sp,sl);
-
-        if(i % 7)
-            MD5Update(&ctx1,(unsigned char *)pw,strlen(pw));
-
-        if(i & 1)
-            MD5Update(&ctx1,(unsigned char *)final,16);
-        else
-            MD5Update(&ctx1,(unsigned char *)pw,strlen(pw));
-        MD5Final(final,&ctx1);
-    }
-
-    p = passwd + strlen(passwd);
-
-    l = (final[ 0]<<16) | (final[ 6]<<8) | final[12]; to64(p,l,4); p += 4;
-    l = (final[ 1]<<16) | (final[ 7]<<8) | final[13]; to64(p,l,4); p += 4;
-    l = (final[ 2]<<16) | (final[ 8]<<8) | final[14]; to64(p,l,4); p += 4;
-    l = (final[ 3]<<16) | (final[ 9]<<8) | final[15]; to64(p,l,4); p += 4;
-    l = (final[ 4]<<16) | (final[10]<<8) | final[ 5]; to64(p,l,4); p += 4;
-    l =                    final[11]                ; to64(p,l,2); p += 2;
-    *p = '\0';
-
-    /* Don't leave anything around in vm they could use. */
-    memset(final,0,sizeof final);
-
-    return passwd;
-}
-
-/* MD5 crypt(3) routines end. */
-
-
-/* MySQL PASSWORD() routines. This is here so that you can use the MySQL
- * proprietary password-hashing routine with tpop3d. The code is inserted here
- * to avoid having to do an explicit query to get the MySQL password hash.
- * Observe that this is not completely safe, since the machine on which the
- * MySQL server is running may use a different character set to this machine.
- * However, it is probably not worth worrying about this in reality.
- *
- * In fact, these functions will probably be available in libmysqlclient, but
- * that doesn't appear to be documented, so better safe than sorry.
- *
- * This code is taken from the MySQL distribution. The original license for
- * the code in sql/password.c states:
- *
- * Copyright Abandoned 1996 TCX DataKonsult AB & Monty Program KB & Detron HB
- * This file is public domain and comes with NO WARRANTY of any kind
- */
-
-/* mysql_hash_password:
- * MySQL password-hashing routine. */
-static void mysql_hash_password(unsigned long *result, const char *password) {
-    register unsigned long nr=1345345333L, add=7, nr2=0x12345671L;
-    unsigned long tmp;
-    for (; *password; password++) {
-        if (*password == ' ' || *password == '\t')
-            continue;			/* skip space in password */
-        tmp  = (unsigned long) (unsigned char) *password;
-        nr  ^= (((nr & 63) + add) * tmp) + (nr << 8);
-        nr2 += (nr2 << 8) ^ nr;
-        add += tmp;
-    }
-    result[0] =  nr & (((unsigned long) 1L << 31) -1L); /* Don't use sign bit (str2int) */;
-    result[1] = nr2 & (((unsigned long) 1L << 31) -1L);
-    return;
-}
-
-/* mysql_make_scrambled_password:
- * MySQL function to form a password hash and turn it into a string. */
-static void mysql_make_scrambled_password(char *to, const char *password) {
-    unsigned long hash_res[2];
-    mysql_hash_password(hash_res, password);
-    sprintf(to, "%08lx%08lx", hash_res[0], hash_res[1]);
-}
-
-/* MySQL PASSWORD() routines end. */
-
 MYSQL *mysql = NULL;
 tokens mysql_servers;
 char mysql_driver_active = 0;
@@ -432,37 +252,23 @@ authcontext auth_mysql_new_apop(const char *name, const char *local_part, const 
                 MYSQL_ROW row;
                 unsigned long *lengths;
                 struct passwd *pw;
-                unsigned char this_digest[16];
-                md5_ctx ctx;
                 uid_t uid;
                 
                 row = mysql_fetch_row(result);
                 /* These are "can't happen" errors */
                 if (!row || !(lengths = mysql_fetch_lengths(result))) break;
 
-                /* Sanity check. XXX how about row[0], row[3]? */
+                /* Sanity check. Verify that user has UID and password. */
                 if (!row[2]) {
                     log_print(LOG_ERR, _("auth_mysql_new_apop: UID for user %s is NULL"), who);
                     goto fail;
-                }
-                
-                /* Verify that this user has a plaintext password. */
-                if (!row[1]) {
+                } else if (!row[1]) {
                     log_print(LOG_ERR, _("auth_mysql_new_apop: password hash for user %s is NULL"), who);
                     break;
-                } else if (strncmp(row[1], "{plaintext}", 11) != 0) {
-                    log_print(LOG_WARNING, _("auth_mysql_new_apop: attempted APOP login by %s, who does not have a plaintext password"), who);
-                    break;
                 }
-                
-                /* Calculate our idea of the digest */
-                MD5Init(&ctx);
-                MD5Update(&ctx, (unsigned char*)timestamp, strlen(timestamp));
-                MD5Update(&ctx, (unsigned char*)row[1] + 11, lengths[1] - 11);
-                MD5Final(this_digest, &ctx);
-
-                /* User was lying */
-                if (memcmp(this_digest, digest, 16)) {
+ 
+                /* Actually check the password. */
+                if (!check_password_apop(who, row[1], timestamp, digest)) {
                     log_print(LOG_WARNING, _("auth_mysql_new_apop: failed login for %s"), who);
                     break;
                 }
@@ -546,9 +352,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *local_part, c
         case 1: {
                 MYSQL_ROW row;
                 unsigned long *lengths;
-                char *pwhash;
                 struct passwd *pw;
-                int authok = 0;
                 uid_t uid;
                 
                 row = mysql_fetch_row(result);
@@ -556,70 +360,17 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *local_part, c
                 /* These are "can't happen" errors */
                 if (!row || !(lengths = mysql_fetch_lengths(result))) break;
 
-                /* Sanity check. XXX how about row[0], row[3]? */
+                /* Sanity check. Verify that user has UID and password. */
                 if (!row[2]) {
-                    log_print(LOG_ERR, _("auth_mysql_new_apop: UID for user %s is NULL"), who);
+                    log_print(LOG_ERR, _("auth_mysql_new_user_pass: UID for user %s is NULL"), who);
                     goto fail;
-                }
-
-                /* Verify the password. There are several possibilities here. */
-                pwhash = (char*)row[1];
-
-                if (!pwhash) {
+                } else if (!row[1]) {
                     log_print(LOG_ERR, _("auth_mysql_new_user_pass: password hash for user %s is NULL"), who);
-                } else if (strncmp(pwhash, "{crypt}", 7) == 0) {
-                    /* Password hashed by system crypt function. */
-                    if (strcmp(crypt(pass, pwhash + 7), pwhash + 7) == 0) authok = 1;
-                } else if (strncmp(pwhash, "{crypt_md5}", 11) == 0) {
-                    /* Password hashed by crypt_md5. */
-                    if (strcmp(crypt_md5(pass, pwhash + 11), pwhash + 11) == 0) authok = 1;
-                } else if (strncmp(pwhash, "{plaintext}", 11) == 0) {
-                    /* Plain text password, as used for APOP. */
-                    if (strcmp(pass, pwhash + 11) == 0) authok = 1;
-                } else if (strncmp(pwhash, "{mysql}", 7) == 0) {
-                    /* MySQL PASSWORD() type password hash. */
-                    char hash[17] = {0};
-                    int n;
-                    mysql_make_scrambled_password(hash, pass);
-                    /* The MySQL password format changed, and we should accept
-                     * either a 16- or 8-character long hash. */
-                    switch (n = strlen(pwhash + 7)) {
-                        case 8:
-                            if (strncmp(pwhash + 7, hash, 8) == 0) authok = 1;
-                            break;
-
-                        case 16:
-                            if (strcmp(pwhash + 7, hash) == 0) authok = 1;
-                            break;
-
-                        default:
-                            log_print(LOG_ERR, _("auth_mysql_new_user_pass: %s has password type mysql, but hash is of incorrect length %d"), who, n);
-                            break;
-                    }
-                } else if (strncmp(pwhash, "{md5}", 5) == 0 || *pwhash != '{') {
-                    /* Straight MD5 password. But this might be either in hex
-                     * or base64 encoding. */
-                    if (*pwhash == '{')
-                        pwhash += 5;
-
-                    if (strlen(pwhash) == 32) {
-                        /* Hex. */
-                        if (strcasecmp(pwhash, md5_digest_str(pass, strlen(pass), 0)) == 0)
-                            authok = 1;
-                    } else if (strlen(pwhash) == 24) {
-                        /* Base 64. */
-                        if (strcmp(pwhash, md5_digest_str(pass, strlen(pass), 1)) == 0)
-                            authok = 1;
-                    } else
-                        /* Doesn't make sense. */
-                        log_print(LOG_ERR, _("auth_mysql_new_user_pass: %s has password type md5, but hash is of incorrect length"), who);
-                } else {
-                    /* Unknown format. */
-                    log_print(LOG_ERR, _("auth_mysql_new_user_pass: %s has unknown password format `%.*s'"), who, 2 + strcspn(pwhash + 1, "}"), pwhash);
                     break;
                 }
 
-                if (!authok) {
+                /* Verify the password. */
+                if (!check_password(who, row[1], pass, "{md5}")) {
                     log_print(LOG_ERR, _("auth_mysql_new_user_pass: %s failed login with wrong password"), who);
                     break;
                 }

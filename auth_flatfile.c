@@ -29,6 +29,7 @@ static const char rcsid[] = "$Id$";
 
 #include "auth_flatfile.h"
 #include "authswitch.h"
+#include "password.h"
 #include "config.h"
 #include "util.h"
 
@@ -38,7 +39,7 @@ static char *user_passwd_file_template;
 
 /* auth_flatfile_init:
  * Initialise the driver. Reads the config directives. */
-int auth_flatfile_init() {
+int auth_flatfile_init(void) {
     char *s;
     int ret = 0;
 
@@ -78,58 +79,132 @@ fail:
     return ret;
 }
 
+/* read_user_passwd LOCALPART DOMAIN
+ * Read the password hash from the proper flat file for the given LOCALPART and
+ * DOMAIN. Returns the password or NULL if not found. The files are structured
+ * with colon-separated fields, where the first field is the local-part and the
+ * second field to the password hash. Any subsequent fields are ignored. */
+static char *read_user_passwd(const char *local_part, const char *domain) {
+    FILE *fp = NULL;
+    char *filename = NULL;
+    struct sverr err;
+    static char *buf, *pwhash;
+    static size_t buflen;
+    size_t i, linenum;
+    int c;
+
+    if (!(filename = substitute_variables(user_passwd_file_template, &err, 1, "domain", domain))) {
+        log_print(LOG_ERR, _("read_user_passwd: %s near `%.16s'"), err.msg, user_passwd_file_template + err.offset);
+        goto fail;
+    }
+
+    if (!(fp = fopen(filename, "rt"))) {
+        log_print(LOG_ERR, _("read_user_passwd: flat file %s: %m"), filename);
+        goto fail;
+    }
+
+    /* Read lines from the file. */
+    if (!buf)
+        buf = xmalloc(buflen = 1024);
+    
+    linenum = 0;
+    while (1) {
+        char *user, *end;
+        
+        i = 0;
+        while ((c = getc(fp)) != EOF) {
+            if (c == '\n')
+                break;
+            buf[i++] = (char)c;
+            if (i == buflen)
+                buf = xrealloc(buf, buflen *= 2);
+        }
+
+        buf[i] = 0;
+
+        if (c == EOF) {
+            if (ferror(fp)) {
+                /* Read error. */
+                log_print(LOG_ERR, _("read_user_passwd: flat file %s: %m"), filename);
+                goto fail;
+            } else if (i == 0)
+                /* Read nothing at end of file. */
+                break;
+        }
+
+        /* OK, have a line. */
+        user = buf;
+        pwhash = strchr(buf, ':');
+        if (!pwhash) {
+            log_print(LOG_WARNING, _("read_user_passwd: flat file %s: line %u: bad format (missing :)"), filename, (unsigned)linenum);
+            continue;
+        }
+        
+        *pwhash++ = 0;
+
+        /* Check username. */
+        if (strcmp(user, local_part) != 0)
+            continue;
+
+        if ((end = strchr(pwhash, ':')))
+            *end = 0;
+
+        break;
+    }
+    
+fail:
+    if (fp)
+        fclose(fp);
+    
+    if (filename)
+        xfree(filename);
+
+    return pwhash;
+}
+
 /* auth_flatfile_new_user_pass:
  * Attempt to authenticate user and pass using an alternate passwd file,
  * as configured at compile-time. This is a virtual-domains authenticator. */
 authcontext auth_flatfile_new_user_pass(const char *user, const char *local_part, const char *domain, const char *pass, const char *clienthost /* unused */, const char *serverhost /* unused */) {
-    FILE *fd = NULL;
-    char *user_passwd = NULL, *passwd_file = NULL, *who;
-    struct passwd *pwent = NULL;
     authcontext a = NULL;
-    struct sverr err;
+    char *pwhash, *who;
 
+    if (!local_part) return NULL;
+    
     who = username_string(user, local_part, domain);
 
-    /* Authenticate virtual user without local_part is a hard job :) */
-    if (!local_part)
-        goto fail;
-
-    /* Get password file location for this virtual domain */
-    if (!(passwd_file = substitute_variables(user_passwd_file_template, &err, 1, "domain", domain))) {
-        log_print(LOG_ERR, _("auth_flatfile_new_user_pass: %s near `%.16s'"), err.msg, user_passwd_file_template + err.offset);
-        goto fail;
-    }
-
-    /* Try to open the password file */
-    if ((fd = fopen(passwd_file, "r")) == (FILE *) NULL) {
-        log_print(LOG_ERR, _("auth_flatfile_new_user_pass: unable to open virtual password file %s"), passwd_file);
-        goto fail;
-    }
-
-    /* Now we look for the user password */
-    pwent = fgetpwent(fd);
-    while (pwent) {
-        if (!strcmp(local_part, pwent->pw_name)) {
-            user_passwd = xstrdup(pwent->pw_passwd);
-            pwent = NULL;
-            break;
-        }
-        pwent = fgetpwent(fd);
-    }
-
-    /* Now we need to authenticate the user */
-    if (user_passwd) {
-        if (!strcmp(crypt(pass, user_passwd), user_passwd))
+    pwhash = read_user_passwd(local_part, domain);
+    if (pwhash) {
+        if (check_password(who, pwhash, pass, "{crypt}"))
             a = authcontext_new(virtual_uid, virtual_gid, NULL, NULL, NULL);
         else
             log_print(LOG_ERR, _("auth_flatfile_new_user_pass: failed login for %s"), who);
     }
 
-fail:
-    if (fd) fclose(fd);
-    if (user_passwd) xfree(user_passwd);
-    if (passwd_file) xfree(passwd_file);
     return a;
 }
+
+/* auth_flatfile_new_apop:
+ * Attempt to authenticate user via APOP using an alternate passwd file,
+ * as configured at compile-time. This is a virtual-domains authenticator. */
+authcontext auth_flatfile_new_apop(const char *user, const char *local_part, const char *domain, const char *timestamp, const unsigned char *digest, const char *clienthost /* unused */, const char *serverhost /* unused */) {
+    authcontext a = NULL;
+    char *pwhash, *who;
+
+    if (!local_part) return NULL;
+
+    who = username_string(user, local_part, domain);
+
+    pwhash = read_user_passwd(local_part, domain);
+    if (pwhash) {
+        if (check_password_apop(who, pwhash, timestamp, digest))
+            a = authcontext_new(virtual_uid, virtual_gid, NULL, NULL, NULL);
+        else
+            log_print(LOG_ERR, _("auth_flatfile_new_apop: failed login for %s"), who);
+    }
+
+    return a;
+}
+
 
 #endif /* AUTH_FLATFILE */

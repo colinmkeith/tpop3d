@@ -107,7 +107,7 @@ struct authdrv auth_drivers[] = {
 
 #ifdef AUTH_FLATFILE
         /* Authenticate against /etc/passwd-style flat files. */
-        {auth_flatfile_init, NULL, auth_flatfile_new_user_pass, NULL, NULL, NULL,
+        {auth_flatfile_init, auth_flatfile_new_apop, auth_flatfile_new_user_pass, NULL, NULL, NULL,
             "flatfile",
             _X("Uses /etc/passwd-style flat files")},
 #endif /* AUTH_FLATFILE */
