@@ -47,6 +47,8 @@ typedef struct _connection {
 
     buffer rdb;             /* data read from peer              */
     buffer wrb;             /* data to write to peer            */
+
+    int secured;            /* is this a secured connection?    */
     
     struct ioabs *io;       /* I/O abstraction structure        */
 
@@ -62,6 +64,8 @@ typedef struct _connection {
     char *user, *pass;      /* authentication state accumulated */
     authcontext a;
     mailbox m;
+
+    listener l;             /* need listener for STLS           */
 } *connection;
 
 /* struct ioabs:
@@ -139,8 +143,8 @@ enum pop3_command_code {UNKNOWN,
                         APOP, DELE, LIST,
                         NOOP, PASS, QUIT,
                         RETR, RSET, STAT,
-                        TOP,  UIDL, USER,
-                        LAST, CAPA};
+                        STLS, TOP,  UIDL,
+                        USER, LAST, CAPA};
     
 typedef struct _pop3command {
     enum pop3_command_code cmd;

@@ -379,6 +379,8 @@ struct ioabs_tls *ioabs_tls_create(connection c, listener l) {
     io->und.post_select     = ioabs_tls_post_select;
     io->und.shutdown        = ioabs_tls_shutdown;
     io->und.destroy         = ioabs_tls_destroy;
+
+    c->secured = 1;
     
     return io;
 }

@@ -153,6 +153,8 @@ connection connection_new(int s, const struct sockaddr_in *sin, listener L) {
         goto fail;
     }
 
+    c->l = L;
+
     return c;
 
 fail:
@@ -280,6 +282,7 @@ struct {
      {"RETR", RETR},
      {"RSET", RSET},
      {"STAT", STAT},
+     {"STLS", STLS},
      {"TOP",  TOP },
      {"UIDL", UIDL},
      {"USER", USER},

@@ -48,8 +48,17 @@ enum connection_action do_capa(connection c) {
         }, **p;
 
     connection_sendresponse(c, 1, _("Capability list follows"));
-    for (p = capas; *p; ++p)
-        if (strcmp(*p, "USER") != 0 || !apop_only) connection_sendline(c, *p);
+    for (p = capas; *p; ++p) {
+        if (strcmp(*p, "USER") == 0 && apop_only)
+            continue;
+        
+#ifdef TPOP3D_TLS
+        if (strcmp(*p, "STLS") == 0 && c->l->tls.mode != stls)
+            continue;
+#endif
+
+        connection_sendline(c, *p);
+    }
     connection_sendline(c, ".");
     return do_nothing;
 }
@@ -363,6 +372,31 @@ enum connection_action connection_do(connection c, const pop3command p) {
 #endif
                 return close_connection;
 
+            case STLS:
+#ifdef TPOP3D_TLS
+                if (c->secured) {
+                    connection_sendresponse(c, 0, _("You're already using TLS"));
+                    return do_nothing;
+                } else if (c->l->tls.mode == stls) {
+                    struct ioabs_tls *newio;
+                    connection_sendresponse(c, 1, _("Begin TLS negotiation"));
+                    if ((newio = ioabs_tls_create(c, c->l))) {
+                        log_print(LOG_INFO, _("connection_do: client %s: negotiating TLS connection"), c->idstr);
+                        c->io->destroy(c);
+                        c->io = (struct ioabs*)newio;
+                        return do_nothing;
+                    } else {
+                        /* Otherwise we've issued an OK response but haven't
+                         * managed to negotiate a TLS connection. */
+                        log_print(LOG_INFO, _("connection_do: client %s: tried and failed to negotiate TLS connection; closing connection"), c->idstr);
+                        return close_connection;
+                    }
+                }
+#endif
+                log_print(LOG_INFO, _("connection_do: client %s: asked for TLS, not available"), c->idstr);
+                connection_sendresponse(c, 0, _("Sorry, TLS not available"));
+                return do_nothing;
+
             case UNKNOWN:
 #ifndef NO_SNIDE_COMMENTS
                 connection_sendresponse(c, 0, _("Do you actually know how to use this thing?"));
@@ -555,6 +589,14 @@ enum connection_action connection_do(connection c, const pop3command p) {
 
             case LAST:
                 connection_sendresponse(c, 0, _("Sorry, the LAST command was removed in RFC1725."));
+                break;
+
+            case STLS:
+#ifndef NO_SNIDE_COMMENTS
+                connection_sendresponse(c, 0, _("It's a bit late for that now, isn't it?"));
+#else
+                connection_sendresponse(c, 0, _("STLS command available only in AUTHORIZATION stat"));
+#endif
                 break;
 
             default:
