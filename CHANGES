@@ -2,7 +2,7 @@ Changes for tpop3d
 $Id$
 
 Fixed some omissions in the man page. Fixed a bug which caused bind(2) to fail
-on some systems.
+on some systems. Corrected a small error in README.bulletins.
 
 1.5.1
 

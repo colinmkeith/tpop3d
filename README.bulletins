@@ -59,7 +59,8 @@ for this:
 
                     # Sendmail exits with code 0 on success.
 
-                    $recips{$r} = 1;
+                    # Record delivery of this bulletin to this user.
+                    $rr{$r} = 1;
                 } else {
 
                     # Sendmail (or system(3)) failed. There's not a whole lot
