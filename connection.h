@@ -6,6 +6,9 @@
  * $Id$
  *
  * $Log$
+ * Revision 1.5  2000/10/31 23:17:29  chris
+ * Modified pop3_command structure to include vector of tokens.
+ *
  * Revision 1.4  2000/10/18 22:21:23  chris
  * Added timeouts, APOP support.
  *
@@ -31,6 +34,7 @@
 
 #include "authswitch.h"
 #include "mailspool.h"
+#include "tokenise.h"
 #include "vector.h"
 
 /* How long a period of inactivity is allowed before we time a client out. The
@@ -77,7 +81,7 @@ enum pop3_command_code {UNKNOWN,
     
 typedef struct _pop3command {
     enum pop3_command_code cmd;
-    char *tail;
+    tokens toks;
 } *pop3command;
 
 /* Create/destroy connections */
@@ -107,7 +111,7 @@ enum connection_action connection_do(connection c, const pop3command p);
 int connection_start_transaction(connection c);
 
 /* Commands */
-pop3command pop3command_new(const enum pop3_command_code cmd, const char *s1, const char *s2);
+pop3command pop3command_new(const char *s);
 void        pop3command_delete(pop3command p);
 
 #endif /* __CONNECTION_H_ */
