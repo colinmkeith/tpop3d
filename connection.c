@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.2  2000/09/26 22:23:36  chris
+ * Various changes.
+ *
  * Revision 1.1  2000/09/18 23:43:38  chris
  * Initial revision
  *
@@ -14,8 +17,12 @@ static const char rcsid[] = "$Id$";
 
 #include <fcntl.h>
 #include <pwd.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
+
 #include <netinet/in.h>
+
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/utsname.h>
@@ -81,8 +88,6 @@ connection connection_new(int s, const struct sockaddr_in *sin) {
     
     c->state = authorisation;
 
-    c->uid = -1;
-
     if (!connection_sendresponse(c, 1, c->timestamp)) goto fail;
 
     return c;
@@ -141,6 +146,23 @@ struct {
      {"USER", USER},
      {NULL,   UNKNOWN}};
 
+/*
+static void dump(const char *s, size_t l) {
+    const char *p;
+    for (p = s; p < s + l; ++p) {
+        if (*p < 32)
+            switch(*p) {
+            case '\t': fprintf(stderr, "\\t"); break;
+            case '\r': fprintf(stderr, "\\r"); break;
+            case '\n': fprintf(stderr, "\\n"); break;
+            default:   fprintf(stderr, "\\x%02x", *p);
+            }
+        else fprintf(stderr, "%c", (int)*p);
+    }
+    fprintf(stderr, "\n");
+}
+*/
+     
 pop3command connection_parsecommand(connection c) {
     char *p, *q, *r;
     pop3command pc = NULL;
@@ -153,7 +175,7 @@ pop3command connection_parsecommand(connection c) {
     for (q = p; q < c->p && !strchr("\r\n", *q); ++q);
     if (q == c->p) return NULL;
 
-    if (q > p) {
+    if (q >= p) {
         int i;
         size_t n;
         for (i = 0; pop3_commands[i].s; ++i)
@@ -162,29 +184,47 @@ pop3command connection_parsecommand(connection c) {
                 for (; s < q && strchr(" \t", *s); ++s);
                 pc = pop3command_new(pop3_commands[i].cmd, s, q);
             }
+
+        if (!pc) pc = pop3command_new(UNKNOWN, NULL, NULL);
     }
 
     /* now update the buffer */
     for (; q < c->p && strchr("\r\n", *q); ++q);
 
     memmove(c->buffer, q, c->buffer + c->bufferlen - q);
+    c->p = c->buffer;
 
     return pc;
 }
 
-/* onnection_sendresponse:
+/* connection_sendresponse:
  * Send a +OK... / -ERR... response to a message. Returns 1 on success or 0 on
  * failure.
  */
 int connection_sendresponse(connection c, const int success, const char *s) {
     char *x;
     size_t l, m;
-    x = (char*)malloc(l = 4 + strlen(s) + 3);
+    x = (char*)malloc(4 + strlen(s) + 3);
     if (!x) return 0;
     sprintf(x, "%s %s\r\n", success ? "+OK" : "-ERR", s);
-    m = write(c->s, x, l - 1);
+    m = write(c->s, x, l = strlen(x));
     free(x);
-    return (m == l - 1);
+    return (m == l);
+}
+
+/* connection_sendline:
+ * Send an arbitrary line to a connected peer. Returns 1 on success or 0 on
+ * failure.
+ */
+int connection_sendline(connection c, const char *s) {
+    char *x;
+    size_t l, m;
+    x = (char*)malloc(3 + strlen(s));
+    if (!x) return 0;
+    sprintf(x, "%s\r\n", s);
+    m = write(c->s, x, l = strlen(x));
+    free(x);
+    return (m == l);
 }
 
 /* pop3command_new:

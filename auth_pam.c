@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.2  2000/09/26 22:23:36  chris
+ * Various changes.
+ *
  * Revision 1.1  2000/09/18 23:43:38  chris
  * Initial revision
  *
@@ -72,7 +75,7 @@ authcontext auth_pam_new_user_pass(const char *user, const char *pass) {
 
     if (r == PAM_SUCCESS) {
         char *s;
-        s = (char*)malloc(strlen(AUTH_PAM_MAILSPOOL_DIR + 1 + strlen(user) + 1));
+        s = (char*)malloc(strlen(AUTH_PAM_MAILSPOOL_DIR) + 1 + strlen(user) + 1);
         if (s) {
             sprintf(s, AUTH_PAM_MAILSPOOL_DIR"/%s", user);
             a = authcontext_new(pw.pw_uid,

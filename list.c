@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.2  2000/09/26 22:23:36  chris
+ * Various changes.
+ *
  * Revision 1.1  2000/09/18 23:43:38  chris
  * Initial revision
  *
@@ -29,6 +32,16 @@ void list_delete(list l) {
     listitem i;
     if (!l) return;
     list_iterate(l, i) if (i->prev) free(i->prev);
+    free(l);
+}
+
+void item_delete_free(list l) {
+    listitem i;
+    if (!l) return;
+    list_iterate(l, i) if (i->prev) {
+        free(i->prev->d.v);
+        free(i->prev);
+    }
     free(l);
 }
 

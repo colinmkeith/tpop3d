@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.2  2000/09/26 22:23:36  chris
+ * Various changes.
+ *
  * Revision 1.1  2000/09/18 23:43:38  chris
  * Initial revision
  *
@@ -16,18 +19,21 @@ static const char rcsid[] = "$Id$";
 #include <string.h>
 #include <syslog.h>
 
+#include "auth_mysql.h"
 #include "auth_pam.h"
+/*#include "auth_passwd.h" */
 #include "authswitch.h"
+#include "stringmap.h"
 
 /* auth_drivers:
  * References the various authentication drivers. New ones should be added as
- * below, retaining the final NULL.
+ * below.
  */
-const struct authdrv auth_drivers[] = {
+struct authdrv auth_drivers[] = {
         /* This is the PAM driver, which should be used wherever possible. */
         {NULL, NULL, auth_pam_new_user_pass, NULL,
             "pam",
-            "Uses Pluggable Authentication Modules, with a service name of \"tpop3d\""},
+            "Uses Pluggable Authentication Modules"},
 
         /* This is an example of how to write an authentication driver, and
          * shouldn't be used on modern systems.
@@ -39,23 +45,41 @@ const struct authdrv auth_drivers[] = {
 */
             
         /* This is for vmail-sql and similar schemes */
-/*
         {auth_mysql_init, auth_mysql_new_apop, auth_mysql_new_user_pass, auth_mysql_close,
             "mysql",
             "Uses a MySQL database"},
-*/
-        NULL
     };
+
+int *auth_drivers_running;
+    
+#define NUM_AUTH_DRIVERS    (sizeof(auth_drivers) / sizeof(struct authdrv))
+#define auth_drivers_end    auth_drivers + NUM_AUTH_DRIVERS
 
 /* authswitch_init:
  * Attempt to initialise all the authentication drivers listed in
  * auth_drivers.
  */
-int authswitch_init() {
+extern stringmap config;
+    
+void authswitch_init() {
     const struct authdrv *aa;
+    int *aar;
 
-    for (aa = auth_drivers; aa; ++aa)
-        if (aa->auth_init && !aa->auth_init()) syslog(LOG_ERR, "failed to initialise %s authentication driver", aa->name);
+    auth_drivers_running = (int*)malloc(NUM_AUTH_DRIVERS * sizeof(int));
+    memset(auth_drivers_running, 0, NUM_AUTH_DRIVERS * sizeof(int));
+
+    for (aa = auth_drivers, aar = auth_drivers_running; aa < auth_drivers_end; ++aa, ++aar) {
+        char *s = (char*)malloc(13 + strlen(aa->name));
+        item *I;
+        sprintf(s, "auth-%s-enable", aa->name);
+        I = stringmap_find(config, s);
+        if (I && (!strcmp(I->v, "yes") || !strcmp(I->v, "true")))
+            if (aa->auth_init && !aa->auth_init())
+                syslog(LOG_ERR, "failed to initialise %s authentication driver", aa->name);
+            else *aar = 1;
+
+        free(s);
+    }
 }
 
 /* authcontext_new_apop:
@@ -64,9 +88,10 @@ int authswitch_init() {
 authcontext authcontext_new_apop(const char *timestamp, const char *name, unsigned char *digest) {
     authcontext a = NULL;
     const struct authdrv *aa;
-
-    for (aa = auth_drivers; aa; ++aa)
-        if (aa->auth_new_apop && (a = aa->auth_new_apop(timestamp, name, digest))) return a;
+    int *aar;
+    
+    for (aa = auth_drivers, aar = auth_drivers_running; aa < auth_drivers_end; ++aa, ++aar)
+        if (*aar && aa->auth_new_apop && (a = aa->auth_new_apop(timestamp, name, digest))) return a;
 
     return NULL;
 }
@@ -77,9 +102,10 @@ authcontext authcontext_new_apop(const char *timestamp, const char *name, unsign
 authcontext authcontext_new_user_pass(const char *user, const char *pass) {
     authcontext a = NULL;
     const struct authdrv *aa;
+    int *aar;
 
-    for (aa = auth_drivers; aa; ++aa)
-        if (aa->auth_new_user_pass && (a = aa->auth_new_user_pass(user, pass))) return a;
+    for (aa = auth_drivers, aar = auth_drivers_running; aa < auth_drivers_end; ++aa, ++aar)
+        if (aar && aa->auth_new_user_pass && (a = aa->auth_new_user_pass(user, pass))) return a;
 
     return NULL;
 }
@@ -91,10 +117,12 @@ authcontext authcontext_new_user_pass(const char *user, const char *pass) {
  */
 void authswitch_close() {
     const struct authdrv *aa;
+    int *aar;
 
-    for (aa = auth_drivers; aa; ++aa)
-        if (aa->auth_close) aa->auth_close();
+    for (aa = auth_drivers, aar = auth_drivers_running; aa < auth_drivers_end; ++aa, ++aar)
+        if (*aar && aa->auth_close) aa->auth_close();
 
+    free(auth_drivers_running);
 }
 
 authcontext authcontext_new(const uid_t uid, const gid_t gid, const char *mailspool) {
