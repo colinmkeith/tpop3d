@@ -1,5 +1,7 @@
 #
-# Makefile: makefile for tpop3d
+# Makefile:
+# Old makefile for tpop3d; now use ./configure ; make, unless you have
+# difficulty.
 #
 # Copyright (c) 2000 Chris Lightfoot. All Rights Reserved.
 #

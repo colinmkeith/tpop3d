@@ -90,6 +90,18 @@ tpop3d for your system.
   the system policy is different (such as new RedHat Linux distributions),
   C-Client will use fcntl(2) locking internally, and you should use the
   configure option --enable-cclient-uses-fcntl to switch on this behaviour.
+  If you do not know whether this is the case or not, you can either get hold
+  of the source of the version of PINE on your system (perhaps using your
+  vendor's package management tools) and see if an appropriate patch has been
+  applied, or use a debugging tool such as strace(1) or truss(1). For
+  instance, using strace:
+
+    strace -eopen,fcntl,flock `which pine` 2> /tmp/pine-lock-log
+
+  If PINE creates lock files in /tmp and locks them with fcntl, then you
+  should switch on --enable-cclient-uses-fcntl. On most systems you will find
+  that PINE uses flock for this purpose. In the worst case, it is unlikely
+  that disaster will strike if you get this wrong.
 
 
 * Interaction with PINE and the Washington University IMAP server

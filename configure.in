@@ -1,4 +1,13 @@
+dnl
+dnl configure.in:
+dnl Source for configure script.
+dnl
 dnl Process this file with autoconf to produce a configure script.
+dnl
+dnl Copyright (c) 2001 Mark Longair, Chris Lightfoot. All Rights Reserved.
+dnl
+dnl $Id$
+dnl
 
 AC_INIT(auth_mysql.c)
 AC_CONFIG_AUX_DIR(config)
@@ -6,11 +15,6 @@ AM_CONFIG_HEADER(configuration.h)
 AM_INIT_AUTOMAKE(tpop3d, 1.2.4)
 
 dnl Check which options are enabled...
-
-AC_ARG_ENABLE(electric-fence,
-    [  --enable-electric-fence Enable Electric Fence support [default=no]],
-    [enable_efence=$enableval],
-    [enable_efence=no])
 
 AC_ARG_ENABLE(flock-locking,
     [  --enable-flock-locking  Enable flock(2) locking [default=no]],
@@ -34,44 +38,49 @@ AC_ARG_ENABLE(cclient-locking,
     [enable_cclient=$enableval],
     [enable_cclient=yes])
 
-AC_ARG_ENABLE(backtrace,
-        [  --enable-backtrace
-                          Enable backtrace(3) reporting in the case of
-                          crashes. [default=no]],
-    [enable_backtrace=$enableval],
-    [enable_backtrace=no])
+AC_ARG_ENABLE(cclient-uses-fcntl,
+    [  --enable-cclient-uses-fcntl
+                          Lock C-Client lockfiles with fcntl(2), rather than
+                          flock(2). [default=no]],
+    [enable_cclient_uses_fcntl=$enableval],
+    [enable_cclient_uses_fcntl=no])
 
-AC_ARG_ENABLE(ignore-cclient-metadata,
-    [  --enable-ignore-cclient-metadata
-                          Ignore C-Client metadata [default=yes]],
-    [enable_ignore_cclient_metadata=$enableval],
-    [enable_ignore_cclient_metadata=yes])
+AC_ARG_ENABLE(suppress-cclient-metadata,
+    [  --enable-suppress-cclient-metadata
+                          Suppress C-Client metadata [default=yes]],
+    [enable_suppress_cclient_metadata=$enableval],
+    [enable_suppress_cclient_metadata=yes])
 
 dnl The various authentication options...
 
-AC_ARG_ENABLE(passwd-authentication,
-        [  --enable-passwd-authentication
-                          Enable /etc/passwd authentication. [default=no]],
-    [enable_passwd=$enableval],
-    [enable_passwd="no"])
+AC_ARG_ENABLE(auth-passwd,
+        [  --enable-auth-passwd    Enable /etc/passwd authentication. [default=no]],
+    [enable_auth_passwd=$enableval],
+    [enable_auth_passwd="no"])
 
-AC_ARG_ENABLE(shadow-authentication,
-        [  --enable-shadow-authentication
-                          Enable /etc/shadow authentication. [default=no]],
+AC_ARG_ENABLE(shadow-passwords,
+        [  --enable-shadow-passwords
+                          auth_passwd should use /etc/shadow. [default=no]],
     [enable_shadow=$enableval],
     [enable_shadow="no"])
 
-AC_ARG_ENABLE(pam-authentication,
-        [  --enable-pam-authentication
-                          Enable PAM authentication. [default=yes]],
+AC_ARG_ENABLE(auth-pam,
+        [  --enable-auth-pam       Enable PAM authentication. [default=yes]],
     [enable_pam=$enableval],
     [enable_pam="yes"])
 
-AC_ARG_ENABLE(vmail-sql-authentication,
-        [  --enable-vmail-sql-authentication
-                          Enable vmail-sql authentication. [default=no]],
-    [enable_vmail_sql=$enableval],
-    [enable_vmail_sql="no"])
+AC_ARG_ENABLE(auth-mysql,
+        [  --enable-auth-mysql     Enable auth_mysql (vmail-sql) authentication.
+                          [default=no]],
+    [enable_auth_mysql=$enableval],
+    [enable_auth_mysql="no"])
+
+AC_ARG_WITH(mysql-root,
+        [  --with-mysql-root=DIR   Set root of MySQL distribution.  Should contain
+                          include/mysql/mysql.h and lib/mysql/libmysqlclient.so
+                          [default=/usr]],
+    [mysql_root=$withval],
+    [mysql_root="/usr"])
 
 dnl Choose the type of messages the server sends users...
 
@@ -84,23 +93,37 @@ AC_ARG_ENABLE(snide-comments,
 dnl FIXME: change to a configuration file option...
 
 AC_ARG_WITH(mailspool-directory,
-        [  --with-mailspool-directory=DIR
+    [  --with-mailspool-directory=DIR
                           Set the mailspool directory.
                           [default=/var/spool/mail]],
     [mspool=$withval],
     [mspool="/var/spool/mail"])
 
-AC_ARG_WITH(mysql-root,
-        [  --with-mysql-root=DIR   Set root of MySQL distribution.  Should contain
-                          include/mysql/mysql.h and lib/mysql/libmysqlclient.so
-                          [default=/usr]],
-    [mysql_root=$withval],
-    [mysql_root="/usr"])
+dnl Some options mainly useful for development/debugging.
+
+dnl Note the ugliness I've used to put a note in the output of
+dnl ./configure --help; there ought to be a better way to do this.
+
+AC_ARG_ENABLE(electric-fence,
+    [
+The following options will be of interest to developers, or in the event that
+you have trouble with tpop3d:
+
+  --enable-electric-fence Enable Electric Fence debugging support.
+                          [default=no]],
+    [enable_efence=$enableval],
+    [enable_efence=no])
+
+AC_ARG_ENABLE(backtrace,
+    [  --enable-backtrace      Enable backtrace(3) reporting for crash debugging.
+                          [default=no]],
+    [enable_backtrace=$enableval],
+    [enable_backtrace=no])
 
 dnl Now do some configuration based on these options; nothing done
 dnl here should have awkward dependencies.
 
-if test x"$enable_passwd" = x"yes" || test x"$enable_shadow" = x"yes"
+if test x"$enable_auth_passwd" = x"yes" || test x"$enable_shadow" = x"yes"
 then
     AC_DEFINE(AUTH_PASSWD,1,[Use /etc/passwd style authentication.])
 fi
@@ -112,10 +135,10 @@ fi
 
 if test x"$enable_pam" = x"yes"
 then
-    AC_DEFINE(AUTH_PAM,1,[Use PAM authetication.])
+    AC_DEFINE(AUTH_PAM,1,[Use PAM authentication.])
 fi
 
-if test x"$enable_vmail_sql" = x"yes"
+if test x"$enable_auth_mysql" = x"yes"
 then
     AC_DEFINE(AUTH_MYSQL,1,[Use vmail-sql style authentication.])
 fi
@@ -123,9 +146,8 @@ fi
 
 if test x"$enable_snide" = x"no"
 then
-    AC_DEFINE(NO_SNIDE_COMMENTS,1,[Turns off responses that some people object to.])
+    AC_DEFINE(NO_SNIDE_COMMENTS,1,[Turns off responses to which some people object.])
 fi
-
 
 if test x"$enable_backtrace" = x"yes"
 then
@@ -136,7 +158,7 @@ fi
 AC_DEFINE_UNQUOTED( MAILSPOOL_DIR, "$mspool", [Tells tpop3d where the mailspool is.] )
 
 
-if test x"$enable_vmail_sql" = x"yes"
+if test x"$enable_auth_mysql" = x"yes"
 then
     LDFLAGS="$LDFLAGS -L$mysql_root/lib/mysql"
     dnl Also have to do CPPFLAGS, so that AC_CHECK_HEADER works...
@@ -149,28 +171,22 @@ then
     AC_DEFINE(WITH_CCLIENT_LOCKING,1,[Turns on C-Client locking.])
 fi
 
-if test x"$enable_ignore_cclient_metadata" = x"yes"
+if test x"$enable_cclient_uses_fcntl" = x"yes"
 then
-#   if test "$enable_cclient" = "yes"
-#   then
-        AC_DEFINE(IGNORE_CCLIENT_METADATA,1,[Ignore C-Client metadata?] )
-#   else
-#       AC_MSG_ERROR(--enable-ignore-cclient-metadata makes no sense without --enable-cclient-locking.)
-#   fi
+    AC_DEFINE(CCLIENT_USES_FCNTL,1,[Uses fcntl(2) rather than flock(2) to lock C-Client lock files.])
 fi
-
 
 if test x"$enable_dotfile" = x"yes"
 then
     AC_DEFINE(WITH_DOTFILE_LOCKING,1,[Use NFS safe dotfile locking.])
 fi
 
-if test x"$enable_flock" = x"yes"
+if test x"$enable_flock" = x"yes" -o x"$enable_cclient_locking" = x"yes" -a x"$enable_cclient_uses_fcntl" = x"no"
 then
     AC_DEFINE(WITH_FLOCK_LOCKING,1,[Turns on flock(2) locking.])
 fi
 
-if test x"$enable_fcntl" = x"yes"
+if test x"$enable_fcntl" = x"yes" -o test x"$enable_cclient_uses_fcntl"
 then
     AC_DEFINE(WITH_FCNTL_LOCKING,1,[Turns on fcntl(2) locking.])
 fi
@@ -190,7 +206,7 @@ then
     LDFLAGS="$LDFLAGS -umalloc -ufree -ucalloc -urealloc"
 fi
 
-if test x"$enable_passwd" = x"yes" || test x"$enable_shadow" = x"yes"
+if test x"$enable_auth_passwd" = x"yes" || test x"$enable_shadow" = x"yes"
 then
     AC_CHECK_LIB(crypt, main, [], AC_MSG_ERROR([[passwd authentication enabled, but can't find libcrypt]]) )
 fi
@@ -201,7 +217,7 @@ then
     AC_CHECK_LIB(pam, pam_start, [], AC_MSG_ERROR([[pam authentication enabled, but can't find libpam]]) )
 fi
 
-if test x"$enable_vmail_sql" = x"yes"
+if test x"$enable_auth_mysql" = x"yes"
 then
     AC_CHECK_LIB(mysqlclient, main, [], AC_MSG_ERROR([[vmail-sql authentication enabled, but can't find libmysqlclient]]) )
 fi
@@ -220,7 +236,7 @@ then
     fi
 fi
 
-if test x"$enable_passwd" = x"yes" || test x"$enable_shadow" = x"yes"
+if test x"$enable_auth_passwd" = x"yes" || test x"$enable_shadow" = x"yes"
 then
     if test x"$ac_cv_header_crypt_h" != x"yes"
     then
@@ -236,7 +252,7 @@ then
     fi
 fi
 
-if test x"$enable_vmail_sql" = x"yes"
+if test x"$enable_auth_mysql" = x"yes"
 then
     if test x"$ac_cv_header_mysql_h" != x"yes"
     then
@@ -244,7 +260,7 @@ then
     fi
 fi
 
-if test x"$enable_flock" = x"yes"
+if test x"$enable_flock" = x"yes" -o test x"$enable_cclient_locking" = x"yes" -a test x"$enable_cclient_uses_fcntl" = x"no"
 then
     if test x"$ac_cv_header_sys_file_h" != x"yes"
     then
@@ -298,7 +314,7 @@ then
 
 fi
 
-if test x"$enable_passwd" = x"yes" || test x"$enable_shadow" = x"yes"
+if test x"$enable_auth_passwd" = x"yes" || test x"$enable_shadow" = x"yes"
 then
     AC_CHECK_FUNC(crypt, [], AC_MSG_ERROR([[passwd authentication enabled, but crypt doesn't seem to be available.]]))
 
@@ -310,7 +326,7 @@ then
 
 fi
 
-if test x"$enable_vmail_sql" = x"yes"
+if test x"$enable_auth_mysql" = x"yes"
 then
     AC_CHECK_FUNC(mysql_init, [], AC_MSG_ERROR([[vmail-sql authentication enabled, but mysql_init doesn't seem to be available.]]))
 
