@@ -55,7 +55,7 @@ char *cfgdirectives[] = {
 #endif
 
 #ifdef USE_TLS
-    "tls-bug-workarounds",
+    "tls-no-bug-workarounds",
 #endif
 
 #ifdef AUTH_PAM
@@ -63,6 +63,7 @@ char *cfgdirectives[] = {
     "auth-pam-enable",
     "auth-pam-facility",
     "auth-pam-mailbox",
+    "auth-pam-mail-user",
     "auth-pam-mail-group",
 #endif
 

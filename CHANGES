@@ -1,6 +1,9 @@
 Changes for tpop3d
 $Id$
 
+Fixed a couple of errors in the man page and configuration directives which
+got lost; thanks to Haris Hudji.
+
 1.5.2
 
 Fixed some omissions in the man page. Fixed a bug which caused bind(2) to fail
