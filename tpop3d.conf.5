@@ -129,8 +129,10 @@ This option only takes effect when \fIusername\fP contains a separator,
 which may be `@', `%' or `!'.
 .TP
 \fBapop-only\fP: (\fByes\fP|\fBtrue\fP)
-Disconnect any client which sends a USER command. The intention of this option
-is to discourage users from sending plaintext passwords over the network.
+Disconnect any client which attempts plaintext USER/PASS authentication. The
+intention of this option is to discourage users from sending plaintext
+passwords over the network, so it has no effect when a user is connected over a
+TLS-secured connection.
 .TP
 \fBtimeout-seconds\fP: \fInumber\fP
 This is the number of seconds for which a connection may be idle for before it

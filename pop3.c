@@ -31,7 +31,8 @@ extern int verbose;
 
 int append_domain;  /* Do we automatically try user@domain if user alone fails to authenticate? */
 int strip_domain;   /* Automatically try user if user@domain fails? */
-int apop_only;      /* Disconnect any client which says USER. */
+int apop_only;      /* Disconnect any client which says USER, unless their
+                       connection is secured. */
 int log_bad_pass;   /* Log bad passwords for support purposes. */
 
 /* do_capa CONNECTION COMMAND
@@ -376,7 +377,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 return do_capa(c);
             
             case USER:
-                if (apop_only) {
+                if (apop_only && !c->secured) {
                     connection_sendresponse(c, 0, _("Sorry, you must use APOP"));
                     return close_connection;
                 } else if (!do_user(c, p))
@@ -384,7 +385,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 break;
 
             case PASS:
-                if (apop_only) {
+                if (apop_only && !c->secured) {
                     connection_sendresponse(c, 0, _("Sorry, you must use APOP"));
                     return close_connection;
                 } else if (!do_pass(c, p))

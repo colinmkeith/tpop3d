@@ -275,7 +275,7 @@ static int try_ldap_bind(LDAP *ld, const char *who, const char *passwd) {
  * search/bind process. */
 authcontext auth_ldap_new_user_pass(const char *username, const char *local_part, const char *domain, const char *pass, const char *clienthost /* unused */, const char *serverhost /* unused */) {
     authcontext a = NULL;
-    char *filter = NULL, *who;
+    char *filter = NULL, *base = NULL, *who;
     LDAPMessage *ldapres = NULL, *user_attr = NULL;
     char *user_dn = NULL;
     int nentries, ret;
@@ -295,8 +295,12 @@ authcontext auth_ldap_new_user_pass(const char *username, const char *local_part
     if (verbose)
         log_print(LOG_DEBUG, _("auth_ldap_new_user_pass: LDAP search filter: %s"), filter);
 
+    /* Obtain search base. */
+    if (!(base = substitute_filter_params(ldapinfo.dn, username, local_part, domain)))
+        goto fail;
+
     /* Look for DN of user in the directory. */
-    if ((ret = ldap_search_s(ldapinfo.ldap, ldapinfo.dn, LDAP_SCOPE_SUBTREE, filter, NULL, 0, &ldapres)) != LDAP_SUCCESS) {
+    if ((ret = ldap_search_s(ldapinfo.ldap, base, LDAP_SCOPE_SUBTREE, filter, NULL, 0, &ldapres)) != LDAP_SUCCESS) {
         log_print(LOG_ERR, "auth_ldap_new_user_pass: ldap_search_s: %s", ldap_err2string(ret));
         goto fail;
     }
@@ -419,6 +423,7 @@ fail:
     if (user_dn) ldap_memfree(user_dn);
 
     xfree(filter);
+    xfree(base);
 
 /*    auth_ldap_close();*/
 

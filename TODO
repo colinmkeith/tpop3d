@@ -81,3 +81,6 @@ $Id$
 * Offer an option to disconnect users who fail to issue STLS before USER
 
 * Underlying connection closed... TLS bug (email of 20030906).
+
+* Log statistics on transactions (email of 20031013)
+
