@@ -53,35 +53,35 @@ static const char rcsid[] = "$Id$";
 struct authdrv auth_drivers[] = {
 #ifdef AUTH_PAM
         /* This is the PAM driver, which should be used wherever possible. */
-        {NULL, NULL, auth_pam_new_user_pass, NULL,
+        {NULL, NULL, auth_pam_new_user_pass, NULL, NULL,
             "pam",
             _X("Uses Pluggable Authentication Modules")},
 #endif /* AUTH_PAM */
             
 #ifdef AUTH_PASSWD
         /* This is the old-style unix authentication driver. */
-        {NULL, NULL, auth_passwd_new_user_pass, NULL,
+        {NULL, NULL, auth_passwd_new_user_pass, NULL, NULL,
             "passwd",
             _X("Uses /etc/passwd or /etc/shadow")},
 #endif /* AUTH_PASSWD */
             
 #ifdef AUTH_MYSQL
         /* This is for vmail-sql and similar schemes */
-        {auth_mysql_init, auth_mysql_new_apop, auth_mysql_new_user_pass, auth_mysql_close,
+        {auth_mysql_init, auth_mysql_new_apop, auth_mysql_new_user_pass, auth_mysql_postfork, auth_mysql_close,
             "mysql",
             _X("Uses a MySQL database")},
 #endif /* AUTH_MYSQL */
 
 #ifdef AUTH_OTHER
         /* This talks to an external program. */
-        {auth_other_init, auth_other_new_apop, auth_other_new_user_pass, auth_other_close,
+        {auth_other_init, auth_other_new_apop, auth_other_new_user_pass, auth_other_postfork, auth_other_close,
             "other",
             _X("Uses an external program")},
 #endif /* AUTH_OTHER */
 
 #ifdef AUTH_PERL
         /* This calls into perl subroutines. */
-        {auth_perl_init, auth_perl_new_apop, auth_perl_new_user_pass, auth_perl_close,
+        {auth_perl_init, auth_perl_new_apop, auth_perl_new_user_pass, auth_perl_postfork, auth_perl_close,
             "perl",
             _X("Uses perl code")},
 #endif /* AUTH_PERL */
@@ -176,11 +176,21 @@ authcontext authcontext_new_user_pass(const char *user, const char *pass, const 
     return NULL;
 }
 
+/* authswitch_postfork:
+ * Do post-fork cleanup if defined by each driver. */
+void authswitch_postfork() {
+    const struct authdrv *aa;
+    int *aar;
+
+    for (aa = auth_drivers, aar = auth_drivers_running; aa < auth_drivers_end; ++aa, ++aar)
+        if (*aar && aa->auth_postfork) aa->auth_postfork();
+
+}
+
 /* authswitch_close:
  * Closes down each authentication driver. Note that it doesn't check whether
  * the driver started successfully, so even drivers which didn't start will
- * get called. So sue me.
- */
+ * get called. So sue me. */
 void authswitch_close() {
     const struct authdrv *aa;
     int *aar;
@@ -192,8 +202,7 @@ void authswitch_close() {
 }
 
 /* authcontext_new:
- * Fill in a new authentication context structure with the given information.
- */
+ * Fill in a new authentication context structure with the given information. */
 authcontext authcontext_new(const uid_t uid, const gid_t gid, const char *mboxdrv, const char *mailbox, const char *home, const char *domain) {
     authcontext a;
     a = xcalloc(1, sizeof *a);
@@ -215,8 +224,7 @@ authcontext authcontext_new(const uid_t uid, const gid_t gid, const char *mboxdr
 }
 
 /* authcontext_delete:
- * Free data associated with an authentication context.
- */
+ * Free data associated with an authentication context. */
 extern int post_fork;   /* in main.c */
 
 void authcontext_delete(authcontext a) {
@@ -226,8 +234,7 @@ void authcontext_delete(authcontext a) {
     if (a->mailbox) xfree(a->mailbox);
 
     /* Only log if this is the end of the session, not the parent freeing its
-     * copy of the data. (This is a hack, and I am ashamed.)
-     */
+     * copy of the data. (This is a hack, and I am ashamed.) */
     if (post_fork) log_print(LOG_INFO, _("authcontext_delete: finished session for `%s' with %s"), a->user, a->auth);
 
     if (a->auth) xfree(a->auth);

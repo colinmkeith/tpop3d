@@ -28,14 +28,14 @@ static const char rcsid[] = "$Id$";
  * Read a configuration file consisting of key: value tuples, returning a
  * stringmap of the results. Prints errors to stderr, rather than using
  * syslog, since this file is called at program startup. Returns 1 on success
- * or 0 on failure.
- */
+ * or 0 on failure. */
 stringmap read_config_file(const char *f) {
     stringmap S = NULL;
     FILE *fp;
-    char *line = xmalloc(MAX_CONFIG_LINE);
+    char *line;
     int i = 1;
-    if (!line) return NULL;
+
+    line = xmalloc(MAX_CONFIG_LINE);
 
     fp = fopen(f, "rt");
     if (!fp) {
@@ -111,14 +111,16 @@ fail:
 
 /* config_get_int:
  * Get an integer value from a config string. Returns 1 on success, -1 on
- * failure, or 0 if no value was found.
- */
+ * failure, or 0 if no value was found. */
 extern stringmap config; /* in main.c */
 
 int config_get_int(const char *directive, int *value) {
-    item *I = stringmap_find(config, directive);
+    item *I;
     char *s, *t;
+
     if (!value) return -1;
+
+    I = stringmap_find(config, directive);
     if (!I) return 0;
 
     s = (char*)I->v;
@@ -132,12 +134,14 @@ int config_get_int(const char *directive, int *value) {
 
 /* config_get_float:
  * Get an integer value from a config string. Returns 1 on success, -1 on
- * failure, or 0 if no value was found.
- */
+ * failure, or 0 if no value was found. */
 int config_get_float(const char *directive, float *value) {
-    item *I = stringmap_find(config, directive);
+    item *I;
     char *s, *t;
+
     if (!value) return -1;
+
+    I = stringmap_find(config, directive);
     if (!I) return 0;
 
     s = (char*)I->v;
@@ -149,3 +153,13 @@ int config_get_float(const char *directive, float *value) {
     return errno == ERANGE ? -1 : 1;
 }
 
+/* config_get_string;
+ * Get a string value from the config file. Returns NULL if it is not
+ * present. */
+char *config_get_string(const char *directive) {
+    item *I;
+
+    I = stringmap_find(config, directive);
+    if (I) return (char*)I->v;
+    else return NULL;
+}

@@ -82,8 +82,7 @@ struct timeval authchild_timeout;
 volatile int authchild_wr = -1, authchild_rd = -1;
 
 /* dump:
- * Debugging method.
- */
+ * Debugging method. */
 void dump(unsigned char *b, size_t len) {
     unsigned char *p;
     char *q;
@@ -100,9 +99,8 @@ void dump(unsigned char *b, size_t len) {
 }
 
 /* tvadd:
- * t1 += t2 on timevals.
- */
-void tvadd(struct timeval *t1, const struct timeval *t2) {
+ * t1 += t2 on timevals. */
+static void tvadd(struct timeval *t1, const struct timeval *t2) {
     t1->tv_sec  += t2->tv_sec;
     t1->tv_usec += t2->tv_usec;
     while (t1->tv_usec > 1000000) {
@@ -112,9 +110,8 @@ void tvadd(struct timeval *t1, const struct timeval *t2) {
 }
 
 /* tvsub:
- * t1 -= t2 on timevals.
- */
-void tvsub(struct timeval *t1, const struct timeval *t2) {
+ * t1 -= t2 on timevals. */
+static void tvsub(struct timeval *t1, const struct timeval *t2) {
     t1->tv_sec  -= t2->tv_sec;
     t1->tv_usec -= t2->tv_usec;
     while (t1->tv_usec < 0) {
@@ -124,9 +121,8 @@ void tvsub(struct timeval *t1, const struct timeval *t2) {
 }
 
 /* tvcmp:
- * Is t1 before (-1), after (1), or the same as (0) t2?
- */
-int tvcmp(const struct timeval *t1, const struct timeval *t2) {
+ * Is t1 before (-1), after (1), or the same as (0) t2? */
+static int tvcmp(const struct timeval *t1, const struct timeval *t2) {
     if (t1->tv_sec < t2->tv_sec) return -1;
     else if (t1->tv_sec > t2->tv_sec) return 1;
     else {
@@ -138,8 +134,7 @@ int tvcmp(const struct timeval *t1, const struct timeval *t2) {
 
 /* auth_other_start_child:
  * Start the authentication program, setting up pipes on which to talk to it.
- * Returns 1 on success or 0 on failure.
- */
+ * Returns 1 on success or 0 on failure. */
 int auth_other_start_child() {
     int p1[2], p2[2];
     char *argv[2] = {auth_program, NULL};
@@ -154,8 +149,7 @@ int auth_other_start_child() {
 
     /* p1[0] becomes the child's standard input.
      * p2[1] becomes the child's standard output.
-     * We want p1[1] to be non-blocking.
-     */
+     * We want p1[1] to be non-blocking. */
     if (fcntl(p1[1], F_SETFL, O_NONBLOCK) == -1) {
         log_print(LOG_ERR, "auth_other_start_child: fcntl: %m");
         close(p1[0]); close(p1[1]); close(p2[0]); close(p2[1]);
@@ -209,8 +203,7 @@ int auth_other_start_child() {
 
 /* auth_other_kill_child:
  * Kill the authentication child, with SIGTERM at first and then with added
- * SIGKILL-shaped violence if that fails.
- */
+ * SIGKILL-shaped violence if that fails. */
 void auth_other_kill_child() {
     struct timeval deadline, now;
     if (authchild_pid == 0) return; /* Already dead. */
@@ -237,8 +230,7 @@ void auth_other_kill_child() {
 /* auth_other_init:
  * Initialise the authentication driver for external programs. This starts the
  * program specified by the auth-other-program config directive, running under
- * the user and group ids in auth-other-user and auth-other-group.
- */
+ * the user and group ids in auth-other-user and auth-other-group. */
 extern stringmap config;    /* in main.c */
 int auth_other_init() {
     item *I;
@@ -258,8 +250,7 @@ int auth_other_init() {
             return 0;
         }
         /* XXX should fail if it turns out that the program is not executable
-         * by the given group and user; but this is a pain to work out.
-         */
+         * by the given group and user; but this is a pain to work out. */
     }
 
     /* Find out the timeout for talking to the program. */
@@ -309,17 +300,22 @@ int auth_other_init() {
     return 1;
 }
 
+/* auth_other_postfork:
+ * Post-fork cleanup: close our copies of the file descriptors. */
+void auth_other_postfork() {
+    close(authchild_wr);
+    close(authchild_rd);
+}
+
 /* auth_other_close:
- * Shut down the authentication driver, killing the external program.
- */
+ * Shut down the authentication driver, killing the external program. */
 void auth_other_close() {
     auth_other_kill_child();
 }
 
 /* auth_other_send_request:
  * Send the auth child a request consisting of several key/value pairs, as
- * above. Returns 1 on success or 0 on failure.
- */
+ * above. Returns 1 on success or 0 on failure. */
 int auth_other_send_request(const int nvars, ...) {
     va_list ap;
     int i, ret = 0;
@@ -354,8 +350,7 @@ int auth_other_send_request(const int nvars, ...) {
 
     /* Since write operations are atomic, this will either succeed entirely or
      * fail. In the latter case, it may be with EAGAIN because the child
-     * process is blocking; we interpret this as a protocol error.
-     */
+     * process is blocking; we interpret this as a protocol error. */
     if (try_write(authchild_wr, buffer, nn)) ret = 1;
     else {
         if (errno == EAGAIN)
@@ -373,8 +368,7 @@ fail:
 
 /* auth_other_recv_response:
  * Receive a response from the auth child, as above. Returns a stringmap of
- * responses on success, or NULL on failure.
- */
+ * responses on success, or NULL on failure. */
 stringmap auth_other_recv_response() {
     stringmap S = NULL;
     char buffer[MAX_DATA_SIZE], ends[2] = {0, 0};
@@ -437,14 +431,12 @@ stringmap auth_other_recv_response() {
     } while (p < buffer + 2 || memcmp(p - 2, ends, 2) != 0); /* Now see whether we have some valid data. */
 
     /* Try to interpret the passed data. We want to find pairs of
-     * \0-terminated strings and put them into the stringmap.
-     */
+     * \0-terminated strings and put them into the stringmap. */
     S = stringmap_new();
     
     /* q points to the beginning of a key, r to the end of the key, and s to
      * the end of the value, so that [q...r] is the key and [r + 1...s] is the
-     * value.
-     */
+     * value. */
     q = buffer;
     while (*q && S) {
         r = memchr(q, 0, p - q);
@@ -470,8 +462,7 @@ fail:
 }
 
 /* auth_other_new_apop:
- * Attempt to authenticate a user using APOP, via the child program.
- */
+ * Attempt to authenticate a user using APOP, via the child program. */
 authcontext auth_other_new_apop(const char *name, const char *timestamp, const unsigned char *digest, const char *host) {
 #define MISSING(k)     do { log_print(LOG_ERR, _("auth_other_new_apop: missing key `%s' in response"), (k)); goto fail; } while(0)
 #define INVALID(k, v)  do { log_print(LOG_ERR, _("auth_other_new_apop: invalid value `%s' for key `%s' in response"), (v), (k)); goto fail; } while(0)
@@ -533,8 +524,7 @@ fail:
 }
 
 /* auth_other_new_user_pass:
- * Attempt to authenticate a user using USER/PASS, via the child program.
- */
+ * Attempt to authenticate a user using USER/PASS, via the child program. */
 authcontext auth_other_new_user_pass(const char *user, const char *pass, const char *host) {
 #define MISSING(k)     do { log_print(LOG_ERR, _("auth_other_new_user_pass: missing key `%s' in response"), (k)); goto fail; } while(0)
 #define INVALID(k, v)  do { log_print(LOG_ERR, _("auth_other_new_user_pass: invalid value `%s' for key `%s' in response"), (v), (k)); goto fail; } while(0)

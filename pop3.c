@@ -153,7 +153,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                         connection_sendresponse(c, 0, _("Too many authentication attempts."));
 #endif
 
-                        log_print(LOG_ERR, _("connection_do: client `%s' failed to log in after %d attempts"), c->idstr, MAX_AUTH_TRIES);
+                        log_print(LOG_ERR, _("connection_do: client `%s': username `%s': failed to log in after %d attempts"), c->idstr, name, MAX_AUTH_TRIES);
                         return close_connection;
                     } else {
 #ifndef NO_SNIDE_COMMENTS
@@ -161,7 +161,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
 #else
                         connection_sendresponse(c, 0, _("Authentication failed."));
 #endif
-                        log_print(LOG_ERR, _("connection_do: client `%s': %d authentication failures"), c->idstr, c->n_auth_tries);
+                        log_print(LOG_ERR, _("connection_do: client `%s': username `%s': %d authentication failures"), c->idstr, name, c->n_auth_tries);
                         return do_nothing;
                     }
                 }
@@ -212,11 +212,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 c->state = transaction;
                 return fork_and_setuid; /* Code in main.c sends response in case of error. */
             } else {
-                xfree(c->user);
-                c->user = NULL;
-                memset(c->pass, 0, strlen(c->pass));
-                xfree(c->pass);
-                c->pass = NULL;
+                connection_action act;
 
                 ++c->n_auth_tries;
                 if (c->n_auth_tries == MAX_AUTH_TRIES) {
@@ -225,17 +221,26 @@ enum connection_action connection_do(connection c, const pop3command p) {
 #else
                     connection_sendresponse(c, 0, _("Too many authentication attempts."));
 #endif
-                    log_print(LOG_ERR, _("connection_do: client `%s' failed to log in after %d attempts"), c->idstr, MAX_AUTH_TRIES);
-                    return close_connection;
+                    log_print(LOG_ERR, _("connection_do: client `%s': username `%s': failed to log in after %d attempts"), c->idstr, c->user, MAX_AUTH_TRIES);
+                    act = close_connection;
                 } else {
 #ifndef NO_SNIDE_COMMENTS
                     connection_sendresponse(c, 0, _("Lies! Try again!"));
 #else
                     connection_sendresponse(c, 0, _("Authentication failed."));
 #endif
-                    log_print(LOG_ERR, _("connection_do: client `%s': %d authentication failures"), c->idstr, c->n_auth_tries);
-                    return do_nothing;
+                    log_print(LOG_ERR, _("connection_do: client `%s': username `%s': %d authentication failures"), c->idstr, c->n_auth_tries);
+                    act = do_nothing;
                 }
+
+                memset(c->pass, 0, strlen(c->pass));
+                xfree(c->pass);
+                c->pass = NULL;
+
+                xfree(c->user);
+                c->user = NULL;
+                
+                return act;
             }
         } else {
             connection_sendresponse(c, 1, c->pass ? _("What's your name?") : _("Tell me your password."));

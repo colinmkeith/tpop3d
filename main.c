@@ -186,12 +186,8 @@ void connections_pre_select(int *n, fd_set *readfds, fd_set *writefds, fd_set *e
 }
 
 /* fork_child:
- * Handle forking a child to handle an individual connection c after authentication.
- */
-#ifdef AUTH_OTHER
-extern volatile int authchild_wr, authchild_rd; /* in auth_other.c */
-#endif /* AUTH_OTHER */
-
+ * Handle forking a child to handle an individual connection c after
+ * authentication. */
 void fork_child(connection c) {
     connection *J;
     item *t;
@@ -225,11 +221,8 @@ void fork_child(connection c) {
                     *J = NULL;
                 }
             
-#ifdef AUTH_OTHER
-            /* Need to close the pipe to the authentication child. */
-            if (authchild_rd != -1) close(authchild_rd);
-            if (authchild_wr != -1) close(authchild_wr);
-#endif /* AUTH_OTHER */
+            /* Do any post-fork cleanup defined by authenticators. */
+            authswitch_postfork();
 
             /* We never access mailspools as root. */
             if (c->a->uid == 0) {
@@ -239,7 +232,8 @@ void fork_child(connection c) {
                 _exit(0);
             }
 
-            /* Set our gid and uid to that appropriate for the mailspool, as decided by the auth switch. */
+            /* Set our gid and uid to that appropriate for the mailspool, as
+             * decided by the auth switch. */
             if (setgid(c->a->gid) == -1) {
                 log_print(LOG_ERR, "fork_child: setgid(%d): %m", c->a->gid);
                 connection_sendresponse(c, 0, _("Something bad happened, and I just can't go on. Sorry."));
@@ -280,8 +274,7 @@ void fork_child(connection c) {
             }
 
             /* Began session; log something useful in case of POP-before-SMTP
-             * relaying.
-             */
+             * relaying. */
             log_print(LOG_INFO, _("fork_child: %s: successfully authenticated with %s"), c->idstr, c->a->auth);
 
             break;
@@ -316,8 +309,7 @@ void fork_child(connection c) {
 }
 
 /* connections_post_select:
- * Called after the main select(2) to do stuff with connections.
- */
+ * Called after the main select(2) to do stuff with connections. */
 void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
     connection *I;
     
@@ -389,8 +381,7 @@ void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfd
 
 /* net_loop:
  * Accept connections and put them into an appropriate state, calling
- * setuid() and fork() when appropriate.
- */
+ * setuid() and fork() when appropriate. */
 volatile int foad = 0, restart = 0; /* Flags used to indicate that we should exit or should re-exec. */
 
 #ifdef AUTH_OTHER
@@ -438,8 +429,7 @@ void net_loop() {
 #ifdef AUTH_OTHER
         /* It may be that the authentication child died; log the message here
          * to avoid doing something we shouldn't in the signal handler. We
-         * block SIGCHLD while doing this.
-         */
+         * block SIGCHLD while doing this. */
         sigprocmask(SIG_BLOCK, &chmask, NULL);
         if (authchild_died) {
             log_print(LOG_WARNING, _("net_loop: authentication child %d terminated with status %d"), (int)authchild_died, authchild_status);
@@ -450,11 +440,11 @@ void net_loop() {
     }
 
     /* Termination request received; we should close all connections in an
-     * orderly fashion.
-     */
-    if (restart) log_print(LOG_INFO, _("net_loop: restarting on signal %d"),
-            foad);
-    else log_print(LOG_INFO, _("net_loop: terminating on signal %d"), foad);
+     * orderly fashion. */
+    if (restart)
+        log_print(LOG_INFO, _("net_loop: restarting on signal %d"), foad);
+    else
+        log_print(LOG_INFO, _("net_loop: terminating on signal %d"), foad);
 
     if (connections) {
         for (J = connections; J < connections + max_connections; ++J)
@@ -506,8 +496,7 @@ void usage(FILE *fp) {
 }
 
 /* main:
- * Read config file, set up authentication and proceed to main loop.
- */
+ * Read config file, set up authentication and proceed to main loop. */
 char optstring[] = "+hdvf:p:";
 
 #if defined(MBOX_BSD) && defined(MBOX_BSD_SAVE_INDICES)
@@ -625,8 +614,7 @@ retry_pid_file:
     }
 
     /* Identify addresses on which to listen.
-     * The syntax for these is <addr>[:port][(domain)].
-     */
+     * The syntax for these is <addr>[:port][(domain)]. */
     I = stringmap_find(config, "listen-address");
     listeners = vector_new();
     if (I) {
@@ -714,7 +702,7 @@ retry_pid_file:
     I = stringmap_find(config, "append-domain");
     if (I && (!strcmp(I->v, "yes") || !strcmp(I->v, "true"))) append_domain = 1;
 
-    /* Find out how long we wait before timing out... */
+    /* Find out how long we wait before timing out.... */
     switch (config_get_int("timeout-seconds", &timeout_seconds)) {
         case -1:
             log_print(LOG_ERR, _("%s: value given for timeout-seconds does not make sense; exiting"), configfile);
@@ -733,7 +721,7 @@ retry_pid_file:
 
     set_signals();
 
-    /* Start the authentication drivers */
+    /* Start the authentication drivers. */
     na = authswitch_init();
     if (!na) {
         log_print(LOG_ERR, _("no authentication drivers were loaded; aborting."));

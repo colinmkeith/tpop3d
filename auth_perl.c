@@ -33,16 +33,15 @@ static const char rcsid[] = "$Id$";
 #include <perl.h>
 #include <XSUB.h>
 
-static PerlInterpreter *auth_perl_interp;
-char *auth_perl_apop, *auth_perl_pass;      /* Names of functions we call. */
+static PerlInterpreter *perl_interp;
+char *apop_sub, *pass_sub, *onlogin_sub;    /* Names of functions we call. */
 
 #ifndef ERRSV
 #define ERRSV (GvSV(errgv))
 #endif
 
 /* xs_log_print:
- * Perl interface to tpop3d's logging.
- */
+ * Perl interface to tpop3d's logging. */
 XS(xs_log_print)
 {
     dXSARGS;
@@ -56,8 +55,7 @@ XS(xs_log_print)
 }
 
 /* xs_init:
- * Start up XS code in perl.
- */
+ * Start up XS code in perl. */
 extern void boot_DynaLoader(CV *cv);
 
 void xs_init(void) {
@@ -67,8 +65,7 @@ void xs_init(void) {
 }
 
 /* auth_perl_init:
- * Initialise the perl interpreter and run its startup code.
- */
+ * Initialise the perl interpreter and run its startup code. */
 extern stringmap config;    /* in main.c */
 
 int auth_perl_init() {
@@ -76,23 +73,25 @@ int auth_perl_init() {
     int argc = 2;
     char *argv[3] = {"auth_perl", "/dev/null", NULL};
 /*   char *argv[4] = {"auth_perl", "-e", "$ENV{TPOP3D_CONTEXT} = 'auth_perl';", NULL}; */
-    item *I;
-    char *startupcode;
+    char *startupcode, *s;
     SV *sv;
     STRLEN len;
 
     /* Obtain perl startup code; this should probably be something like
-     * "do '/etc/tpop3d.pl';"
-     */
-    if (!(I = stringmap_find(config, "auth-perl-start"))) {
+     * "do '/etc/tpop3d.pl';" */
+    if (!(s = config_get_string("auth-perl-start"))) {
         log_print(LOG_ERR, _("auth_perl_init: auth_perl enabled, but no startup code specified"));
         return 0;
-    } else startupcode = I->v;
+    } else startupcode = s;
 
-    if ((I = stringmap_find(config, "auth-perl-apop"))) auth_perl_apop = I->v;
-    if ((I = stringmap_find(config, "auth-perl-pass"))) auth_perl_pass = I->v;
-    if (!auth_perl_apop && !auth_perl_pass) {
-        log_print(LOG_ERR, _("auth_perl_init: auth_perl enabled but no authenticator subroutines supplied"));
+    if ((s = config_get_string("auth-perl-apop")))
+        apop_sub = s;
+    if ((s = config_get_string("auth-perl-pass")))
+        pass_sub = s;
+    if ((s = config_get_string("auth-perl-onlogin")))
+        onlogin_sub = s;
+    if (!apop_sub && !pass_sub && !onlogin_sub) {
+        log_print(LOG_ERR, _("auth_perl_init: auth_perl enabled but no subroutines supplied"));
         return 0;
     }
 
@@ -100,10 +99,10 @@ int auth_perl_init() {
     putenv(strdup("TPOP3D_CONTEXT=auth_perl"));
 
     /* Create and start up perl interpreter. */
-    auth_perl_interp = perl_alloc();
-    perl_construct(auth_perl_interp);
-    perl_parse(auth_perl_interp, xs_init, argc, argv, 0);
-    perl_run(auth_perl_interp);
+    perl_interp = perl_alloc();
+    perl_construct(perl_interp);
+    perl_parse(perl_interp, xs_init, argc, argv, 0);
+    perl_run(perl_interp);
 
     /* Try to execute the startup code. */
     sv = newSVpv(startupcode, 0);
@@ -112,20 +111,25 @@ int auth_perl_init() {
     SvREFCNT_dec(sv);
     if (SvTRUE(ERRSV)) {
         log_print(LOG_ERR, _("auth_perl_init: error executing perl start code: %s"), SvPV(ERRSV, len));
-        perl_destruct(auth_perl_interp);
-        perl_free(auth_perl_interp);
-        auth_perl_interp = NULL;
+        perl_destruct(perl_interp);
+        perl_free(perl_interp);
+        perl_interp = NULL;
         return 0;
     }
 
     return 1;
 }
 
+/* auth_perl_postfork:
+ * Post-fork cleanup. */
+void auth_perl_postfork() {
+    perl_interp = NULL; /* XXX */
+}
+
 /* auth_perl_close:
- * Shut down the perl interpreter.
- */
+ * Shut down the perl interpreter. */
 void auth_perl_close() {
-    if (auth_perl_interp) {
+    if (perl_interp) {
         /* There may be code to execute on shutdown. */
         item *I;
         if ((I = stringmap_find(config, "auth-perl-finish"))) {
@@ -139,17 +143,16 @@ void auth_perl_close() {
             if (SvTRUE(ERRSV))
                 log_print(LOG_ERR, _("auth_perl_close: error executing perl finish code: %s"), SvPV(ERRSV, len));
         }
-        perl_destruct(auth_perl_interp);
-        perl_free(auth_perl_interp);
-        auth_perl_interp = NULL;
+        perl_destruct(perl_interp);
+        perl_free(perl_interp);
+        perl_interp = NULL;
     }
 }
 
 /* auth_perl_callfn:
  * Calls a perl function, passing the parameters in as a reference to a hash,
  * expecting a reference to a hash to be returned; it converts this into a
- * stringmap and returns it to the caller.
- */
+ * stringmap and returns it to the caller. */
 stringmap auth_perl_callfn(const char *perlfn, const int nvars, ...) {
     dSP;
     HV *hash_in, *hash_out;
@@ -158,7 +161,7 @@ stringmap auth_perl_callfn(const char *perlfn, const int nvars, ...) {
     int i, items;
     stringmap s = NULL;
 
-    if (!auth_perl_interp) return NULL;
+    if (!perl_interp) return NULL;
     
     hash_in = newHV();
 
@@ -225,8 +228,7 @@ stringmap auth_perl_callfn(const char *perlfn, const int nvars, ...) {
 
 /* auth_perl_new_apop:
  * Attempt to authenticate a user using APOP, via a perl subroutine. Much like
- * auth_other_new_apop.
- */
+ * auth_other_new_apop. */
 authcontext auth_perl_new_apop(const char *name, const char *timestamp, const unsigned char *digest, const char *host) {
 #define MISSING(k)     do { log_print(LOG_ERR, _("auth_perl_new_apop: missing key `%s' in response"), (k)); goto fail; } while(0)
 #define INVALID(k, v)  do { log_print(LOG_ERR, _("auth_perl_new_apop: invalid value `%s' for key `%s' in response"), (v), (k)); goto fail; } while(0)
@@ -239,8 +241,8 @@ authcontext auth_perl_new_apop(const char *name, const char *timestamp, const un
  
     for (p = digeststr, q = digest; q < digest + 16; p += 2, ++q)
         sprintf(p, "%02x", (unsigned int)*q);
-    if (!auth_perl_apop ||
-        !(S = auth_perl_callfn(auth_perl_apop, 5, "method", "APOP", "user", name, "timestamp", timestamp, "digest", digeststr, "clienthost", host)))
+    if (!apop_sub ||
+        !(S = auth_perl_callfn(apop_sub, 5, "method", "APOP", "user", name, "timestamp", timestamp, "digest", digeststr, "clienthost", host)))
         return NULL;
 
     I = stringmap_find(S, "logmsg");
@@ -286,8 +288,7 @@ fail:
 }
 
 /* auth_perl_new_user_pass:
- * Attempt to authenticate a user using USER/PASS, via a perl subroutine.
- */
+ * Attempt to authenticate a user using USER/PASS, via a perl subroutine. */
 authcontext auth_perl_new_user_pass(const char *user, const char *pass, const char *host) {
 #define MISSING(k)     do { log_print(LOG_ERR, _("auth_perl_new_user_pass: missing key `%s' in response"), (k)); goto fail; } while(0)
 #define INVALID(k, v)  do { log_print(LOG_ERR, _("auth_perl_new_user_pass: invalid value `%s' for key `%s' in response"), (v), (k)); goto fail; } while(0)
@@ -295,7 +296,7 @@ authcontext auth_perl_new_user_pass(const char *user, const char *pass, const ch
     item *I;
     authcontext a = NULL;
 
-    if (!auth_perl_pass || !(S = auth_perl_callfn(auth_perl_pass, 4, "method", "PASS", "user", user, "pass", pass, "clienthost", host)))
+    if (!pass_sub || !(S = auth_perl_callfn(pass_sub, 4, "method", "PASS", "user", user, "pass", pass, "clienthost", host)))
         return NULL;
     
     if ((I = stringmap_find(S, "logmsg")))
@@ -338,5 +339,23 @@ fail:
 #undef MISSING
 #undef INVALID
 }
+
+/* auth_perl_onlogin:
+ * Attempt to authenticate a user using USER/PASS, via a perl subroutine. */
+authcontext auth_perl_onlogin(const authcontext A, const char *clienthost) {
+    stringmap S;
+    item *I;
+    authcontext a = NULL;
+
+    if (!pass_sub || !(S = auth_perl_callfn(pass_sub, 4, "method", "ONLOGIN", "local_part", A->user, "domain", A->domain, "clienthost", host)))
+        return NULL;
+    
+    if ((I = stringmap_find(S, "logmsg")))
+        log_print(LOG_INFO, "auth_perl_onlogin: (perl code): %s", (char*)I->v);
+
+fail:
+    stringmap_delete_free(S);
+}
+
 
 #endif

@@ -323,20 +323,26 @@ fi
 # Some machines have crypt(3) in libcrypt; test for this.
 if test x"$enable_auth_passwd" = x"yes" || test x"$enable_shadow" = x"yes" || test x"$enable_auth_mysql" = x"yes"
 then
-    AC_CHECK_LIB(crypt, crypt, , )
+    AC_SEARCH_LIBS(crypt, crypt, , )
 fi
 
 # Some machines have dlopen etc. in libdl, and these are needed for PAM.
 if test x"$enable_pam" = x"yes"
 then
     AC_CHECK_LIB(dl, dlopen, , )
-    AC_CHECK_LIB(pam, pam_start, [], AC_MSG_ERROR([[pam authentication enabled, but can't find libpam]]) )
+    AC_CHECK_LIB(pam, pam_start, [], AC_MSG_ERROR([[pam authentication enabled, but can't find libpam]]))
 fi
 
 # MySQL client libraries.
 if test x"$enable_auth_mysql" = x"yes"
 then
     AC_CHECK_LIB(mysqlclient, main, [], AC_MSG_ERROR([[vmail-sql authentication enabled, but can't find libmysqlclient]]) )
+fi
+
+# Where is nanosleep?
+if test x"$enable_auth_other" = x"yes"
+then
+    AC_SEARCH_LIBS(nanosleep, rt, [], AC_MSG_ERROR([[auth-other enabled, but no nanosleep(2)]]) )
 fi
 
 if test x"$enable_tcp_wrappers" = x"yes"

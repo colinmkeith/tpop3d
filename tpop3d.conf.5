@@ -220,6 +220,9 @@ Query template to use for USER/PASS authentication.
 .TP
 \fBauth-mysql-apop-query\fP: \fIsubstitution string\fP
 Query template to use for APOP authentication.
+.TP
+\fBauth-mysql-onlogin-query\fP: \fIsubstitution string\fP
+Query template to use for POP-before-SMTP operation.
 .PP
 Since mailbox names are stored in the database, the \fBauth-mysql-mailbox:\fP
 setting is ignored.
@@ -238,7 +241,10 @@ return the mailbox file location, password hash, Unix user and mailbox type,
 in that order. The variables \fB$(local_part)\fP and \fB$(domain)\fP are
 substituted into the string, in the same way as for the mailbox path
 specifications described above. The nature of password hashes is described
-more fully in README.auth_mysql in the distribution.
+more fully in README.auth_mysql in the distribution. If you do not wish to use
+either of USER/PASS or APOP authentication, specify the value \fBnone\fP for
+the relevant configuration directive; otherwise, the default (vmail-sql)
+query will be used.
 
 As an example, if you have a table called users which contains fields login,
 domain, cryptpw and the Maildir mailboxes for the users are under
@@ -254,6 +260,14 @@ domain, cryptpw and the Maildir mailboxes for the users are under
          AND domain = '$(domain)'
 .fi
 .Sp
+
+The \fBauth-mysql-onlogin-query\fP specifies an SQL statement (most likely
+an INSERT or UPDATE) which is executed after a successful login. This is
+intended to allow you to insert a record into a database table used to
+permit relaying in a `POP-before-SMTP' scheme. For this query, the additional
+value \fB$(host)\fP indicates the connected client host, as a numeric IP
+address. This statement will be executed for any successful login, not only
+\fBauth-mysql\fP logins.
 
 Note that the username and password supplied in the configuration file
 are privileged information, in the sense that they would allow an
@@ -309,8 +323,10 @@ following format on its standard input:
 
 Defined \fIkey\fPs are:
 .TP
-\fBmethod\fP = (\fBAPOP\fP | \fBPASS\fP)
-Authentication mechanism being attempted.
+\fBmethod\fP = (\fBAPOP\fP | \fBPASS\fP | \fBONLOGIN\fP)
+Authentication mechanism being attempted; \fBONLOGIN\fP is used to pass
+information on a successful login to the authentication driver, and is
+intended to be used to implement POP-before-SMTP relaying.
 .TP
 \fBuser\fP = \fIusername\fP
 The username being sent with an APOP or USER command.
@@ -327,8 +343,9 @@ The host from which the client is connecting to the POP server.
 \fBpassword\fP = \fIpassword\fP
 (PASS only.) The password sent with a PASS command.
 .PP
-In response, the program should write to standard output `packets' in the
-format described above. Defined \fIkey\fPs are:
+In response to an \fBAPOP\fP or \fBPASS\fP request, the program should write to
+standard output `packets' in the format described above. Defined \fIkey\fPs
+are:
 .TP
 \fBresult\fP = (\fBYES\fP | \fBNO\fP)
 Was authentication successful?
@@ -345,14 +362,20 @@ and \fBgid\fP are optional:
 The user and group with which to access the mailspool. Note that the user must
 have a valid home directory.
 .TP
+\fBdomain\fP = \fIdomain\fP
+(Optional.) The domain in which the user has been authenticated.
+.TP
 \fBmailbox\fP = \fIpath\fP
-Path of this user's mailbox.
+(Optional.) Path of this user's mailbox.
 .TP
 \fBmboxtype\fP = \fImailbox driver\fP
-The type of the mailbox.
+(Optional.) The type of the mailbox.
 .PP
 If the mailbox is not specified, then the normal mechanism (via configuration
 directives \fBmailbox:\fP and \fBauth-other-mailbox:\fP) is used.
+
+The only valid responses to an \fBONLOGIN\fP request are an empty set or one
+containing only a \fBlogmsg\fP directive.
 
 Note that \fBtpop3d\fP requires external authentication programs to respond in
 a timely fashion, since authentication blocks the main daemon; if no response
@@ -389,15 +412,22 @@ APOP authentication is received.
 \fBauth-perl-pass\fP: \fIsubroutine name\fP
 Specify the name of a perl subroutine which will be called when a request for
 USER/PASS authentication is received.
+.TP
+\fBauth-perl-onlogin\fP: \fIsubroutine name\fP
+Specify the name of a perl subroutine which will be called after a successful
+login for POP-before-SMTP operation.
 
 .SS A note on perl authentication
 
-The perl subroutines named in the configuration file should take as their
-single argument a reference to a hash; this will contain keys and values as
-listed for \fBauth-other\fP above. The subroutines should also return a
-reference to a hash, indicating results as for \fBauth-other\fP. In addition,
+The perl authentication subroutines named in the configuration file should take
+as their single argument a reference to a hash; this will contain keys and
+values as listed for \fBauth-other\fP above. The subroutines should also return
+a reference to a hash, indicating results as for \fBauth-other\fP. In addition,
 they may call \fBTPOP3D::print_log\fP with a single scalar argument to write a
-message via \fBtpop3d\fP's logging facility.
+message via \fBtpop3d\fP's logging facility. The \fBauth-perl-onlogin\fP
+subroutine is called after any successful login (not just logins mediated
+by \fBauth-perl\fP) and is intended to be used to implement POP-before-SMTP
+relaying; the return value from this subroutine is ignored.
 
 .SH FILES
 .B /etc/tpop3d.conf

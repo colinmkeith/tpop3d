@@ -262,8 +262,7 @@ static void strclr(char *s) {
 /* auth_mysql_init:
  * Initialise the database connection driver. Clears the config directives
  * associated with the database so that a user cannot recover them with a
- * debugger.
- */
+ * debugger. */
 extern stringmap config; /* in main.c */
 MYSQL *mysql;
 
@@ -324,8 +323,7 @@ extern int verbose; /* in main.c */
 
 /* auth_mysql_new_apop:
  * Attempt to authenticate a user via APOP, using the template SELECT query in
- * the config file or the default defined above otherwise.
- */
+ * the config file or the default defined above otherwise. */
 authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const unsigned char *digest, const char *host /* unused */) {
     char *query = NULL;
     authcontext a = NULL;
@@ -616,17 +614,21 @@ fail:
     return a;
 }
 
+/* auth_mysql_postfork:
+ * Post-fork cleanup. */
+void auth_mysql_postfork() {
+    mysql = NULL; /* XXX */
+}
+
 /* auth_mysql_close:
- * Close the database connection.
- */
+ * Close the database connection. */
 void auth_mysql_close() {
     if (mysql) mysql_close(mysql);
 }
 
 /* substitute_query_params
  * Given a query template, a localpart and a domain, return a copy of the
- * template with the fields filled in.
- */
+ * template with the fields filled in. */
 static char *substitute_query_params(const char *template, const char *local_part, const char *domain) {
     char *query, *l, *d;
     struct sverr err;

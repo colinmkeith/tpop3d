@@ -28,19 +28,19 @@ typedef struct _authcontext {
 
 struct authdrv {
     /* Initialise this authentication driver. Returns 1 on success or 0 on
-     * failure.
-     */
+     * failure. */
     int         (*auth_init)(void);
     
     /* Attempt to build authcontext from APOP; parameters are name, original
-     * timestamp, supplied digest and the client host.
-     */
+     * timestamp, supplied digest and the client host. */
     authcontext (*auth_new_apop)(const char *name, const char *timestamp, const unsigned char *digest, const char *host);
     
     /* Attempt to build authcontext from USER and PASS; parameters are name,
-     * password and the client host.
-     */
+     * password and the client host. */
     authcontext (*auth_new_user_pass)(const char *user, const char *password, const char *host);
+
+    /* Clear up any resources associated with this driver prior to a fork. */
+    void        (*auth_postfork)(void);
 
     /* Shut down this authentication driver, and free associated resources. */
     void        (*auth_close)(void);
@@ -57,6 +57,7 @@ void authswitch_describe(FILE *fp);
 int authswitch_init();
 authcontext authcontext_new_apop(const char *name, const char *timestamp, const unsigned char *digest, const char *domain, const char *host);
 authcontext authcontext_new_user_pass(const char *user, const char *pass, const char *domain, const char *host);
+void authswitch_postfork();
 void authswitch_close();
 
 authcontext authcontext_new(const uid_t uid, const gid_t gid, const char *mboxdrv, const char *mailbox, const char *home, const char *domain);
