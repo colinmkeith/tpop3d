@@ -3,7 +3,8 @@ $Id$
 
 1.4.1
 
-Hooks for POP-before-SMTP relaying support were implemented.
+Hooks for POP-before-SMTP relaying support were implemented in tpop3d, and
+support for same in TPOP3D::AuthDriver.
 
 The facility as which tpop3d logs messages may now be changed from the
 configuration file.

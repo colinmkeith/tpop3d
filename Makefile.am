@@ -39,7 +39,7 @@ tpop3d.conf.cat: tpop3d.conf.5
 
 EXTRA_DIST = bootstrap \
              CREDITS PORTABILITY CHANGES HACKING TODO FAQ \
-             README.auth_mysql README.darwin \
+             README.auth_mysql README.darwin README.POP-before-SMTP \
              $(man_MANS) \
              tpop3d.cat tpop3d.conf.cat \
              scripts/dotapopfile scripts/nasty scripts/oraclevmail \

@@ -242,6 +242,7 @@ authcontext auth_perl_new_apop(const char *name, const char *timestamp, const un
  
     for (p = digeststr, q = digest; q < digest + 16; p += 2, ++q)
         sprintf(p, "%02x", (unsigned int)*q);
+
     if (!apop_sub ||
         !(S = auth_perl_callfn(apop_sub, 5, "method", "APOP", "user", name, "timestamp", timestamp, "digest", digeststr, "clienthost", host)))
         return NULL;
@@ -348,7 +349,7 @@ void auth_perl_onlogin(const authcontext A, const char *host) {
     item *I;
     authcontext a = NULL;
 
-    if (!pass_sub || !(S = auth_perl_callfn(pass_sub, 4, "method", "ONLOGIN", "local_part", A->user, "domain", A->domain, "clienthost", host)))
+    if (!onlogin_sub || !(S = auth_perl_callfn(onlogin_sub, 4, "method", "ONLOGIN", "local_part", A->user, "domain", A->domain, "clienthost", host)))
         return NULL;
     
     if ((I = stringmap_find(S, "logmsg")))

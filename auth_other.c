@@ -171,7 +171,7 @@ int auth_other_start_child() {
             }
             
             /* Child. */
-            close(0); close(1); close(2); 
+            close(0); close(1); close(2);
 
             /* Set up standard input and output. */
             dup2(p1[0], 0); dup2(p2[1], 1); 

@@ -1,0 +1,37 @@
+POP-before-SMTP relaying with tpop3d
+$Id$
+
+First, a caveat: I do not use POP-before-SMTP relaying, and I think that it's
+a ghastly hack. However, in the real world, POP-before-SMTP relaying is very
+popular, so I've implemented it in tpop3d, for versions 1.4.1 and later.
+
+The basic game is to store the address of clients who are allowed to relay in
+some sort of table which can be read by your MTA. When a client connects to
+the POP server and authenticates successfully, their address is put into the
+table; some other process then cleans old records out of the table after a
+short interval. Then, after checking mail with a POP3 client, the user will be
+allowed -- for a little while at least -- to relay through the associated SMTP
+server.
+
+In tpop3d, POP-before-SMTP relaying is supported via hooks which are called
+after a successful login. These hooks are associated with authentication
+drivers, but they are called whenever a client is authenticated, regardless
+of which authentication driver was used.
+
+Hooks exist in three authentication drivers:
+
+    auth-mysql
+        An SQL query specified in auth-mysql-onlogin-query will be executed
+        after a login.
+
+    auth-other
+        A packet with method `ONLOGIN' will be sent to the authentication
+        program after a login.
+
+    auth-perl
+        The subroutine specified by auth-perl-onlogin will be called after a
+        login.
+
+There is example code for auth-other and auth-perl in scripts/relaydbm.
+
+

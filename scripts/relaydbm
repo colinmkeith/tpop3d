@@ -29,22 +29,11 @@ sub onlogin ($$) {
     my %table;
     my $file;
 
-    # We want to lock the file, so we need a file handle with which to open
-    # it. If we don't open the file, we proceed anyway.
-    $file = new IO::File($client_ip_db, O_WRONLY|O_APPEND);
-    if ($file) {
-        $file->flock(LOCK_EX) or return { logmsg => "flock($client_ip_db): $!" };
-    }
-
+    # GDBM databases are always locked when writing.
     tie(%table, 'GDBM_File', $client_ip_db, &GDBM_WRCREAT, 0600)
         or return { logmsg => "tie($client_ip_db): $!" };
     $table{$req->{clienthost}} = time;
     untie(%table);
-
-    if ($file) {
-        $file->flock(LOCK_UN);
-        $file->close();
-    }
 
     return { logmsg => "saved $req->{clienthost} in $client_ip_db" };
 }
