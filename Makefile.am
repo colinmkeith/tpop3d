@@ -75,7 +75,7 @@ tpop3d.conf.cat: tpop3d.conf.5
 ## These need to be distributed along with configure:
 
 EXTRA_DIST = bootstrap \
-             CREDITS PORTABILITY CHANGES HACKING TODO \
+             CREDITS PORTABILITY CHANGES HACKING TODO FAQ \
              README.auth_mysql README.darwin \
              $(man_MANS) \
              tpop3d.cat tpop3d.conf.cat \
