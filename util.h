@@ -17,17 +17,6 @@
 #   define TPOP3D_VERSION   "(unknown)"
 #endif
 
-/*
-#define strdup(a)   mystrdup(__FILE__, __LINE__, (a))
-#define malloc(a)   mymalloc(__FILE__, __LINE__ ,(a))
-#define free(a)     myfree(__FILE__, __LINE__, (a))
-*/
-/*
-char *mystrdup(char *, int, char *);
-void *mymalloc(char *, int, size_t);
-void myfree(char *, int, void *);
-*/
-
 /* syslog(3) replacement */
 void print_log(int priority, const char *fmt, ...);
 

@@ -32,210 +32,69 @@ static const char rcsid[] = "$Id$";
 #include <sys/utsname.h>
 
 #include "connection.h"
+#include "locks.h"
 #include "mailspool.h"
 #include "md5.h"
 #include "util.h"
-
-/* File locking:
- * fcntl, flock and .lock locking are done, along with a rather comedy attempt
- * at cclient locking, which is only there so that PINE figures out when the
- * user is attempting to pick up her mail using POP3 in the middle of a PINE
- * session. cclient locks aren't made, just stolen from PINE using the wacky
- * "Kiss Of Death" described in the cclient documentation.
- *
- * Note also that we lock the whole mailspool for reading and writing. This is
- * pretty crap, but it makes it easier to make the program fast. In principle,
- * we could just lock the existing section of the file, so that the MTA could
- * deliver new messages on to the end of it, and then stat it when we were
- * about to apply changes in the UPDATE state, to see whether it had grown.
- */
-
-/* file_lock:
- * Lock a mailspool file. Returns 1 on success or 0 on failure. We save the
- * name of the lockfile in a global variable accessible to the signal handler,
- * so that the lock can be undone even if a signal is received whilst the
- * mailspool is being processed.
- */
-extern char *this_lockfile;
-
-int file_lock(const int fd, const char *name) {
-    char pidstr[16];
-    struct flock fl = {0};
-    struct stat st2 = {0};
-    int fd2 = -1;
-    int ret = 0, rc;
-    size_t l;
-    char *lockfile = (char*)malloc(l = (strlen(name) + 6)), *hitchfile = NULL;
-    struct utsname uts;
-#ifdef CCLIENT_LOCKING
-    char cclient_lockfile[64];
-    int fd_cclient_lock = -1;
-#endif /* CCLIENT_LOCKING */
-    
-    /* Set up flock structure. */
-    fl.l_type   = F_WRLCK;
-    fl.l_whence = SEEK_SET;
-    fl.l_start  = 0;
-    fl.l_len    = 0;
-    
-    if (!lockfile) goto fail;
-    snprintf(lockfile, l, "%s.lock", name);
-
-    if (uname(&uts) == -1) goto fail;
-
-    /* Make a name for a hitching-post file. */
-    hitchfile = (char*)malloc(l = (strlen(name) + strlen(uts.nodename) + 20));
-    if (!hitchfile) goto fail;
-    snprintf(hitchfile, l, "%s.%ld.%ld.%s", name, (long)getpid(), (long)time(NULL), uts.nodename);
-
-    /* Try to fcntl-lock the file. */
-    if (fcntl(fd, F_SETLK, &fl) == -1) {
-        print_log(LOG_ERR, "file_locK(%s): fcntl(F_SETLK): %m", name);
-        goto fail;
-    }
-
-    /* Now change the flock structure so that a call to fcntl will unlock the
-     * file.
-     */
-    fl.l_type = F_UNLCK;
-
-#ifdef FLOCK_LOCKING
-    /* Attempt to flock the file. */
-    if (flock(fd, LOCK_EX | LOCK_NB) == -1) {
-        print_log(LOG_ERR, "file_locK(%s): flock(LOCK_EX): %m", name);
-        goto fail;
-    }
-#endif /* FLOCK_LOCKING */
-
-#ifdef CCLIENT_LOCKING
-    /* Comedy attempt at cclient-compatible locking. This is just here so that
-     * PINE will report "Another PINE is accessing mailbox" rather than
-     * hanging on exit if a session is concurrent with a tpop3d session.
-     */
-    fstat(fd, &st2);
-    snprintf(cclient_lockfile, sizeof(cclient_lockfile), "/tmp/.%lx.%lx", (unsigned long)st2.st_dev, (unsigned long)st2.st_ino);
-    /* Open this with O_RDWR, even though we never write to it, since we need
-     * to flock it in LOCK_EX mode.
-     *
-     * XXX exim_lock.c lstats the /tmp/... file to ensure that it is not a
-     * symbolic link. Since we don't actually write to the file, it is
-     * probably not necessary to make this check.
-     */
-    if ((fd_cclient_lock = open(cclient_lockfile, O_RDWR)) != -1) {
-        print_log(LOG_DEBUG, "file_lock(%s): found cclient lock file %s", name, cclient_lockfile);
-       
-        if (flock(fd_cclient_lock, LOCK_EX | LOCK_NB) == -1) {
-            char other_pid[128];
-            int p;
-            
-            /* OK, now we have identified another PINE instance. This means
-             * that we have to send it the Kiss-Of-Death (really -- this is
-             * what the documentation calls it), and try locking again. If
-             * that fails, we give up.
-             */
-            read(fd_cclient_lock, other_pid, sizeof(other_pid));
-            p = atoi(other_pid);
-            if (p) {
-                print_log(LOG_DEBUG, "file_lock(%s): trying to grab c-client lock from process %d", name, p);
-                kill(p, SIGUSR2);
-            }
-
-            sleep(1); /* Give PINE a moment to sort itself out. */
-
-            /* Now have another go. */
-            if (flock(fd_cclient_lock, LOCK_EX | LOCK_NB) == -1) {
-                /* OK, well that didn't work then. */
-                print_log(LOG_ERR, "file_lock(%s): failed to grab c-client lock from process %d", name, p);
-                close(fd_cclient_lock);
-                goto fail;
-            }
-        }
-        close(fd_cclient_lock);
-    }
-#endif /* CCLIENT_LOCKING */
-
-    /* Make lockfile, going via a hitching post. */
-    fd2 = open(hitchfile, O_EXCL|O_CREAT|O_WRONLY, 0440);
-    if (fd2 == -1) {
-        print_log(LOG_ERR, "file_lock(%s): unable to create hitching post: %m", name);
-        goto fail;
-    }
-
-    /* Now, write our process ID into the lockfile (*not* the mailspool...). */
-    sprintf(pidstr, "%d\n", (int)getpid());
-    if (xwrite(fd2, pidstr, strlen(pidstr)) != strlen(pidstr)) {
-        print_log(LOG_ERR, "file_lock(%s): failed to write PID to hitching post: %m", name);
-        goto fail;
-    }
-
-    if ((rc = link(hitchfile, lockfile)) != 0) fstat(fd2, &st2);
-    close(fd2);
-    fd2 = -1;
-    unlink(hitchfile);
-
-    /* Were we able to link the hitching post to the lockfile, and if we were,
-     * did it have exactly 2 links when we were done?
-     */
-    if (rc != 0 && st2.st_nlink != 2) {
-        print_log(LOG_ERR, "file_lock(%s): unable to link hitching post to lock file: %m", name);
-        goto fail;
-    }
-    
-    /* OK, we succeeded. */
-    this_lockfile = lockfile; /* Store this so that we ensure that mailspool is unlocked if a signal is received. */
-    ret = 1;
-
-fail:
-    if (hitchfile) free(hitchfile);
-    if (!ret) {
-        if (lockfile) free(lockfile);
-        if (fl.l_type == F_UNLCK) fcntl(fd, F_SETLK, &fl);
-#ifdef FLOCK_LOCKING
-        flock(fd, LOCK_UN);
-#endif /* FLOCK_LOCKING */
-    }
-    if (fd2 != -1) close(fd2);
-
-    return ret;
-}
 
 /* file_unlock:
  * Unlock a mailspool file. Returns 1 on success or 0 on failure.
  */
 int file_unlock(const int fd, const char *name) {
-    struct flock fl = {0};
-    size_t l;
-    char *lockfile = (char*)malloc(l = (strlen(name) + 6));
-    int ret = 1;
+    int r = 1;
+ #ifdef WITH_FCNTL_LOCKING
+    if (fcntl_unlock(fd) == -1) r = 0;
+#endif
 
-    fl.l_type   = F_UNLCK;
-    fl.l_whence = SEEK_SET;
-    fl.l_start  = 0;
-    fl.l_len    = 0;
- 
-    if (!lockfile) return 0;
-    snprintf(lockfile, l, "%s.lock", name);
+#ifdef WITH_FLOCK_LOCKING
+    if (flock_unlock(fd) == -1) r = 0;
+#endif
 
-    if (unlink(lockfile) == -1) {
-        print_log(LOG_ERR, "file_unlock(%s): unlink: %m", name);
-        ret = 0;
-    }
+#ifdef WITH_DOTFILE_LOCKING
+    if (name && dotfile_unlock(name) == -1) r = 0;
+#endif
 
-    free(lockfile);
+    return r;
+}
 
-    if (fcntl(fd, F_SETLK, &fl) == -1) {
-        print_log(LOG_ERR, "file_unlock(%s): fcntl: %m", name);
-        ret = 0;
-    }
+/* file_lock:
+ * Lock a mailspool file. Returns 1 on success or 0 on failure. This uses
+ * whatever locking strategies the user has selected with compile-time
+ * definitions.
+ */
+int file_lock(const int fd, const char *name) {
+    int l_fcntl = 0, l_flock = 0, l_dotfile = 0;
 
-#ifdef FLOCK_LOCKING
-    if (flock(fd, LOCK_UN) == -1) {
-        print_log(LOG_ERR, "file_unlock(%s): flock: %m", name);
-        ret = 0;
-    }
-#endif /* FLOCK_LOCKING */
+#ifdef WITH_FCNTL_LOCKING
+    if (fcntl_lock(fd) == -1) goto fail;
+    else l_fcntl = 1;
+#endif
+#ifdef WITH_FLOCK_LOCKING
+    if (flock_lock(fd) == -1) goto fail;
+    else l_flock = 1;
+#endif
+#ifdef WITH_DOTFILE_LOCKING
+    if (dotfile_lock(name) == -1) goto fail;
+    else l_dotfile = 1;
+#endif
+#ifdef WITH_CCLIENT_LOCKING
+    if (cclient_steal_lock(fd) == -1) goto fail;
+#endif
 
-    return ret;
+    return 1;
+    
+fail:
+#ifdef WITH_FCNTL_LOCKING
+    if (l_fcntl) fcntl_unlock(fd);
+#endif
+#ifdef WITH_FLOCK_LOCKING
+    if (l_flock) flock_unlock(fd);
+#endif
+#ifdef WITH_DOTFILE_LOCKING
+    if (l_dotfile) dotfile_unlock(name);
+#endif
+    
+    return 0;
 }
 
 /* mailspool_new_from_file:
@@ -306,7 +165,7 @@ fail:
         if (M->fd != -1) close(M->fd);
         free(M);
     }
-	return NULL;
+    return NULL;
 }
 
 /* memstr:
@@ -397,6 +256,27 @@ vector mailspool_build_index(mailspool M) {
         MD5Final(x->hash, &ctx);
     }
 
+#ifdef IGNORE_CCLIENT_METADATA
+    /* Optionally, check whether the first message in the mailspool is
+     * internal data used by c-client; such messages contain the following
+     * headers:
+     *
+     *  Subject: DON'T DELETE THIS MESSAGE -- FOLDER INTERNAL DATA
+     *  X-IMAP: <some numbers>
+     */
+    if (M->index->n_used >= 1) {
+        p = memstr(filemem, ((indexpoint)M->index->ary->v)->msglength, "\n\n", 2);
+        if (p) {
+            const char hdr1[] = "\nX-IMAP: ", hdr2[] = "Subject: DON'T DELETE THIS MESSAGE -- FOLDER INTERNAL DATA\n";
+            if (memstr(filemem, p - filemem, hdr1, strlen(hdr1)) && memstr(filemem, p - filemem, hdr2, strlen(hdr2))) {
+                print_log(LOG_DEBUG, "mailspool_build_index(%s): found c-client metadata; skipping", M->name);
+                vector_remove(M->index, M->index->ary);
+            }
+
+        }
+    }
+#endif /* IGNORE_CCLIENT_METADATA */
+
     munmap(filemem, len);
     
     return M->index;
@@ -429,7 +309,7 @@ void mailspool_delete(mailspool m) {
 
     if (m->index) vector_delete_free(m->index);
 
-    if (m->name && m->fd != -1) {
+    if (m->name || m->fd != -1) {
         file_unlock(m->fd, m->name);
         close(m->fd);
     }
@@ -574,8 +454,10 @@ int mailspool_apply_changes(mailspool M) {
         /* No messages deleted, do nothing. */
         return 1;
     else if (M->numdeleted == M->index->n_used) {
-        /* All messages deleted, so just truncate file at zero. */
-        if (ftruncate(M->fd, 0) == -1) {
+        /* All messages deleted, so just truncate file at the beginning of the
+         * first message.
+         */
+        if (ftruncate(M->fd, ((indexpoint)M->index->ary[0].v)->offset) == -1) {
             print_log(LOG_ERR, "mailspool_apply_changes(%s): ftruncate: %m", M->name);
             return 0;
         } else return 1;

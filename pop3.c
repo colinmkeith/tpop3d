@@ -428,7 +428,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
 
         return do_nothing;
     } else {
-        /* can't happen, but keep the compiler quiet... */
+        /* Can't happen, but keep the compiler quiet... */
         connection_sendresponse(c, 0, "Unknown state, closing connection.");
         return close_connection;
     }

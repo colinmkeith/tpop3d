@@ -11,12 +11,6 @@ Also, there are some deficiencies in the way that locking happens on Solaris
 at the moment. In particular, the c-client locking needs to use fcntl locks
 on that platform. This should be easy to implement.
 
-In addition, some systems (in particular more recent Linux distributions,
-including RedHat 6.2 and 7) are avoiding lockfiles for mailspools entirely.
-Presumably a whole set of locking options is needed: lockfile, flock, fcntl,
-c-client with flock or fcntl. This is a bit of a nuisance.
-
-
 * Better interaction with PINE/c-client
 
 In particular, it would be nice if tpop3d could suppress the c-client metadata
@@ -40,3 +34,9 @@ temporary files, so is unlikely to suffer from /tmp race conditions. I have
 thought about denial-of-service attacks, and I think that it is safe from the
 most obvious ones. Nevertheless, a full security audit would be desirable.
 
+
+* Autoconfification
+
+Editing Makefiles may be the way "we" did things in the good old days, but
+nowadays even people like me who don't believe in package management do
+believe in ./configure.

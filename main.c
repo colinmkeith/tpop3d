@@ -452,15 +452,17 @@ void net_loop(vector listen_addrs) {
 
 /* die_signal_handler:
  * Signal handler to log a message and quit.
+ *
+ * XXX This is bad, because we call out to functions which may use malloc or
+ * file I/O or anything else. However, we quit immediately afterwards, so it's
+ * probably OK. Alternatively we would have to siglongjmp out, but that would
+ * be undefined behaviour too.
  */
-char *this_lockfile;
-
 void die_signal_handler(const int i) {
     struct sigaction sa;
 /*    print_log(LOG_ERR, "quit: %s", sys_siglist[i]); */
     print_log(LOG_ERR, "quit: signal %d", i); /* Some systems do not have sys_siglist. */
-    if (this_child_connection) connection_delete(this_child_connection); 
-    if (this_lockfile) unlink(this_lockfile);
+    if (this_child_connection) connection_delete(this_child_connection);
     memset(&sa, 0, sizeof(sa));
     sa.sa_handler = SIG_DFL;
     sigaction(i, &sa, NULL);
