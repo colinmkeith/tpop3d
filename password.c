@@ -244,10 +244,10 @@ int check_password(const char *who, const char *pwhash, const char *pass, const 
     
     if (IS_SCHEME(pwhash, "{crypt}", default_crypt_scheme)) {
         /* Password hashed by system crypt function. */
-        return strcmp(crypt(pass, pwhash), realhash) == 0;
+        return strcmp(crypt(pass, realhash), realhash) == 0;
     } else if (IS_SCHEME(pwhash, "{crypt_md5}", default_crypt_scheme)) {
         /* Password hashed by crypt_md5. */
-        return strcmp(crypt_md5(pass, pwhash), realhash) == 0;
+        return strcmp(crypt_md5(pass, realhash), realhash) == 0;
     } else if (IS_SCHEME(pwhash, "{plaintext}", default_crypt_scheme)) {
         /* Plain text password, as used for APOP. */
         return strcmp(pass, realhash) == 0;
@@ -260,10 +260,10 @@ int check_password(const char *who, const char *pwhash, const char *pass, const 
          * or 8-character long hash. */
         switch (n = strlen(pwhash)) {
             case 8:
-                return strncmp(pwhash, realhash, 8) == 0;
+                return strncmp(hash, realhash, 8) == 0;
 
             case 16:
-                return strcmp(pwhash, realhash) == 0;
+                return strcmp(hash, realhash) == 0;
 
             default:
                 log_print(LOG_ERR, _("password: %s has password type mysql, but hash is of incorrect length %d (expecting 8 or 16)"), who, n);
