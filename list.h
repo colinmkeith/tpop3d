@@ -6,6 +6,9 @@
  * $Id$
  *
  * $Log$
+ * Revision 1.3  2000/10/07 17:41:16  chris
+ * Minor changes.
+ *
  * Revision 1.2  2000/10/02 18:21:25  chris
  * Minor changes.
  *
@@ -41,6 +44,6 @@ void list_pop_front(list);
 
 listitem list_remove(list, listitem);
 
-#define list_iterate(_l, _t)    for (_t = _l->front; _t; _t ? _t = _t->next : 0)
+#define list_iterate(_l, _t)    for ((_t) = (_l)->front; (_t); (_t) ? (_t) = (_t)->next : 0)
 
 #endif /* __LIST_H_ */

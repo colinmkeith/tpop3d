@@ -1,9 +1,12 @@
 /*
  * main.c: main loop for pop3 server
  *
- * Copyright (c) 2000 Chris Lightfoot-> All rights reserved.
+ * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.4  2000/10/07 17:41:16  chris
+ * Minor changes.
+ *
  * Revision 1.3  2000/10/02 18:21:25  chris
  * SIGCHLD handling etc.
  *
@@ -22,6 +25,7 @@ static char rcsid[] = "$Id$";
 #include <fcntl.h>
 #include <netdb.h>
 #include <signal.h>
+#include <stdio.h>
 #include <string.h>
 #include <syslog.h>
 #include <unistd.h>
@@ -207,6 +211,13 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
                                         if (!J) break;
                                     }
 
+                                    /* We never access mailspools as root. */
+                                    if (!c->a->uid) {
+                                        syslog(LOG_ERR, "net_loop: authentication context has UID of 0");
+                                        connection_sendresponse(c, 0, "Everything's really bad");
+                                        exit(0);
+                                    }
+                                    
                                     /* Set our gid and uid to that appropriate for the mailspool, as decided by the auth switch. */
                                     if (setgid(c->a->gid) == -1) {
                                         syslog(LOG_ERR, "net_loop: setuid(%d): %m", c->a->uid);
@@ -270,9 +281,6 @@ void die_signal_handler(const int i) {
     char buffer[1024];
     if (this_child_connection) connection_delete(this_child_connection);
     syslog(LOG_ERR, "quit: %s", sys_siglist[i]);
-    syslog(LOG_ERR, "calling debugger to make stack trace...");
-    sprintf(buffer, "/bin/echo 'bt\ndetach' | /usr/bin/gdb /proc/%d/exe %d 2>&1 | /bin/grep '^[# ]' | /usr/bin/logger -s -t 'tpop3d[%d]' -p mail.error", getpid(), getpid(), getpid());
-    system(buffer);
     exit(i + 127);
 }
 
@@ -313,6 +321,27 @@ void set_signals() {
     sigaction(SIGCHLD, &sa, NULL);
 }
 
+/* usage:
+ * Print usage information.
+ */
+void usage(FILE *fp) {
+    fprintf(fp, "\n"
+                "tpop3d [options]\n"
+                "\n"
+                "  -h       display this message\n"
+                "  -f file  read configuration from file\n"
+                "  -d       do not detach from controlling terminal\n"
+                "\n"
+                "tpop3d, copyright (c) 2000 Chris Lightfoot <chris@ex-parrot.com>\n"
+                "  http://www.ex-parrot.com/~chris/tpop3d/\n"
+                "\n"
+                "This program is free software; you can redistribute it and/or modify\n"
+                "it under the terms of the GNU General Public License as published by\n"
+                "the Free Software Foundation; either version 2 of the License, or\n"
+                "(at your option) any later version.\n"
+                "\n");
+}
+
 /* main:
  * Read config file, set up authentication and proceed to main loop.
  */
@@ -321,15 +350,44 @@ stringmap config;
 int main(int argc, char **argv) {
     vector listeners;
     item *I;
+    char **p;
+    int nodaemon = 0;
+    char *configfile = "/etc/tpop3d.conf";
+    int na;
 
-    openlog("tpop3d", LOG_PERROR | LOG_PID | LOG_NDELAY, LOG_MAIL);
-    set_signals();
+    /* Read the options. */
+    for (p = argv + 1; *p; ++p) {
+        if (**p == '-') {
+            switch (*(*p + 1)) {
+                case 'h':
+                    usage(stdout);
+                    return 0;
 
-    /* Read the config file */
-    config = read_config_file("tpop3d.conf");
+                case 'd':
+                    nodaemon = 1;
+                    break;
+
+                case 'f':
+                    ++p;
+                    configfile = *p;
+                    break;
+
+                default:
+                    fprintf(stderr, "Unrecognised option -%c\n", *(*p + 1));
+                    usage(stderr);
+                    return 1;
+            }
+        } else {
+            usage(stderr);
+            return 1;
+        }
+    }
+
+    /* Read the config file. */
+    config = read_config_file(configfile);
     if (!config) return 1;
 
-    /* Identify addresses on which to listen */
+    /* Identify addresses on which to listen. */
     I = stringmap_find(config, "listen-address");
     listeners = vector_new();
     if (I) {
@@ -351,18 +409,18 @@ int main(int argc, char **argv) {
                     struct servent *se;
                     se = getservbyname(r, "tcp");
                     if (!se) {
-                        syslog(LOG_ERR, "specified listen address `%s' has invalid port `%s'", s, r);
+                        fprintf(stderr, "%s: specified listen address `%s' has invalid port `%s'", configfile, s, r);
                         free(sin);
                         continue;
                     } else sin->sin_port = se->s_port;
                 } else sin->sin_port = htons(sin->sin_port);
-            } else sin->sin_port = htons(1201);
+            } else sin->sin_port = htons(110);
             
             if (!inet_aton(s, &(sin->sin_addr))) {
                 struct hostent *he;
                 he = gethostbyname(s);
                 if (!he) {
-                    syslog(LOG_ERR, "gethostbyname: specified listen address `%s' is invalid", s);
+                    fprintf(stderr, "%s: gethostbyname: specified listen address `%s' is invalid", configfile);
                     free(sin);
                     continue;
                 } else memcpy(&(sin->sin_addr), he->h_addr, sizeof(struct in_addr));
@@ -380,7 +438,7 @@ int main(int argc, char **argv) {
     }
 
     if (listeners->n_used == 0) {
-        syslog(LOG_ERR, "no listen addresses obtained; exiting");
+        fprintf(stderr, "%s: no listen addresses obtained; exiting", configfile);
         exit(1);
     }
 
@@ -389,13 +447,24 @@ int main(int argc, char **argv) {
     if (I) {
         max_running_children = atoi((char*)I->v);
         if (!max_running_children) {
-            syslog(LOG_ERR, "value of `%s' for max-children does not make sense; exiting", I->v);
-            exit(1);
+            fprintf(stderr, "%s: value of `%s' for max-children does not make sense; exiting", configfile, I->v);
+            return 1;
         }
     }
 
+    /* Detach from controlling tty etc. */
+    if (!nodaemon) daemon(0, 0);
+    
+    /* Start logging */
+    openlog("tpop3d", (nodaemon ? LOG_PERROR : 0) | LOG_PID | LOG_NDELAY, LOG_MAIL);
+    set_signals();
+
     /* Start the authentication drivers */
-    authswitch_init();
+    na = authswitch_init();
+    if (!na) {
+        syslog(LOG_ERR, "no authentication drivers were loaded; aborting.");
+        syslog(LOG_ERR, "you may wish to check your config file %s", configfile);
+    } else syslog(LOG_INFO, "%d authentication drivers successfully loaded", na);
     
     net_loop((struct sockaddr_in**)listeners->ary, listeners->n_used);
 

@@ -6,6 +6,9 @@
  * $Id$
  *
  * $Log$
+ * Revision 1.3  2000/10/07 17:41:16  chris
+ * Minor changes.
+ *
  * Revision 1.2  2000/10/02 18:22:19  chris
  * Minor changes.
  *
@@ -18,13 +21,15 @@
 #ifndef __VECTOR_H_ /* include guard */
 #define __VECTOR_H_
 
-typedef union {
+typedef union _item {
     void *v;
     long l;
 } item;
 
-static item item_long(const long l) { item u; u.l = l; return u; }
-static item item_ptr(void *const v) { item u; u.v = v; return u; }
+#define _inline inline
+
+static _inline item item_long(const long l) { item u; u.l = l; return u; }
+static _inline item item_ptr(void *const v) { item u; u.v = v; return u; }
 
 typedef struct _vector{
     item *ary;
@@ -46,6 +51,6 @@ item *vector_remove(vector, item *t);
 void  vector_reallocate(vector, const size_t n);
 
 /* A macro to iterate over a vector */
-#define vector_iterate(_v, _t)  for (_t = _v->ary; _t < _v->ary + _v->n_used; ++_t)
+#define vector_iterate(_v, _t)  for ((_t) = (_v)->ary; (_t) < (_v)->ary + (_v)->n_used; ++(_t))
 
 #endif /* __VECTOR_H_ */

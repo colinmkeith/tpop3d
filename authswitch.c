@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.4  2000/10/07 17:41:16  chris
+ * Minor changes.
+ *
  * Revision 1.3  2000/10/02 18:20:19  chris
  * Added session logging.
  *
@@ -60,13 +63,14 @@ int *auth_drivers_running;
 
 /* authswitch_init:
  * Attempt to initialise all the authentication drivers listed in
- * auth_drivers.
+ * auth_drivers. Returns the number of drivers successfully started.
  */
 extern stringmap config;
     
-void authswitch_init() {
+int authswitch_init() {
     const struct authdrv *aa;
     int *aar;
+    int ret = 0;
 
     auth_drivers_running = (int*)malloc(NUM_AUTH_DRIVERS * sizeof(int));
     memset(auth_drivers_running, 0, NUM_AUTH_DRIVERS * sizeof(int));
@@ -79,10 +83,15 @@ void authswitch_init() {
         if (I && (!strcmp(I->v, "yes") || !strcmp(I->v, "true")))
             if (aa->auth_init && !aa->auth_init())
                 syslog(LOG_ERR, "failed to initialise %s authentication driver", aa->name);
-            else *aar = 1;
+            else {
+                *aar = 1;
+                ++ret;
+            }
 
         free(s);
     }
+
+    return ret;
 }
 
 /* authcontext_new_apop:

@@ -6,6 +6,9 @@
  * $Id$
  *
  * $Log$
+ * Revision 1.3  2000/10/07 17:41:16  chris
+ * Minor changes.
+ *
  * Revision 1.2  2000/10/02 18:20:19  chris
  * Minor changes.
  *
@@ -57,7 +60,7 @@ struct authdrv {
     char *description;
 };
 
-void authswitch_init();
+int authswitch_init();
 authcontext authcontext_new_apop(const char *timestamp, const char *name, unsigned char *digest);
 authcontext authcontext_new_user_pass(const char *user, const char *pass);
 void authswitch_close();

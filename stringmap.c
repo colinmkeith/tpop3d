@@ -7,6 +7,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.2  2000/10/07 17:41:16  chris
+ * Minor changes.
+ *
  * Revision 1.1  2000/09/26 22:23:36  chris
  * Initial revision
  *
@@ -65,7 +68,7 @@ void stringmap_delete_free(stringmap S) {
 item *stringmap_insert(stringmap S, const char *k, const item d) {
     if (!S) return 0;
     if (S->key == NULL) {
-        S->key = strdup(k);
+        if (!(S->key = strdup(k))) return NULL;
         S->d   = d;
         return NULL;
     } else {
@@ -76,16 +79,16 @@ item *stringmap_insert(stringmap S, const char *k, const item d) {
             else if (i < 0)
                 if (S2->l) S2 = S2->l;
                 else {
-                    S2->l = stringmap_new();
-                    S2->l->key = strdup(k);
+                    if (!(S2->l = stringmap_new())) return NULL;
+                    if (!(S2->l->key = strdup(k))) return NULL;
                     S2->l->d   = d;
                     return NULL;
                 }
             else if (i > 0)
                 if (S2->g) S2 = S2->g;
                 else {
-                    S2->g = stringmap_new();
-                    S2->g->key = strdup(k);
+                    if (!(S2->g = stringmap_new())) return NULL;
+                    if (!(S2->g->key = strdup(k))) return NULL;
                     S2->g->d   = d;
                     return NULL;
                 }

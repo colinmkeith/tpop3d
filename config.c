@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.2  2000/10/07 17:41:16  chris
+ * Minor changes.
+ *
  * Revision 1.1  2000/09/26 22:23:36  chris
  * Initial revision
  *
@@ -12,6 +15,7 @@
 
 static const char rcsid[] = "$Id$";
 
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <syslog.h>
@@ -21,50 +25,60 @@ static const char rcsid[] = "$Id$";
 
 #define MAX_CONFIG_LINE     2048
 
+/* read_config_file:
+ * Read a configuration file consisting of key: value tuples, returning a
+ * stringmap of the results. Prints errors to stderr, rather than using
+ * syslog, since this file is called at program startup. Returns 1 on success
+ * or 0 on failure.
+ */
 stringmap read_config_file(const char *f) {
-    stringmap S;
+    stringmap S = NULL;
     FILE *fp;
     char *line = (char*)malloc(MAX_CONFIG_LINE);
     int i = 1;
     if (!line) return NULL;
 
     fp = fopen(f, "rt");
-    if (!fp) goto fail;
+    if (!fp) {
+        fprintf(stderr, "%s: %s\n", f, strerror(errno));
+        goto fail;
+    }
 
     S = stringmap_new();
     if (!S) goto fail;
 
     while (!feof(fp)) {
-        char *p, *q, *r, *s;
+        char *key, *value, *r, *s;
         fgets(line, MAX_CONFIG_LINE, fp);
 
-        p = strpbrk(line, "#\n");
-        if (p) *p = 0;
+        key = strpbrk(line, "#\n");
+        if (key) *key = 0;
         
-        p = line + strspn(line, " \t");
-        q = strchr(line, ':');
+        key = line + strspn(line, " \t");
+        value = strchr(line, ':');
 
-        if (q) {
-            ++q;
+        if (value) {
+            ++value;
 
-            r = p + strcspn(p, " \t:");
-            if (r != p) {
+            r = key + strcspn(key, " \t:");
+            if (r != key) {
                 *r = 0;
 
-                q += strspn(q, " \t");
-                r = q + strlen(q) - 1;
-                while (strchr(" \t", *r) && r > q) --r;
+                value += strspn(value, " \t");
+                r = value + strlen(value) - 1;
+                while (strchr(" \t", *r) && r > value) --r;
                 *(r + 1) = 0;
 
-                if (r > q) {
+                if (r > value) {
                     item *I;
-                    if ((I = stringmap_insert(S, p, item_ptr(strdup(q))))) {
-                        syslog(LOG_ERR, "%s:%d: warning: repeated directive `%s'", f, i, p);
-                        fprintf(stderr, "%s:%d: warning: repeated directive `%s'\n", f, i, p);
+                    if ((I = stringmap_insert(S, key, item_ptr(strdup(value))))) {
+                        fprintf(stderr, "%s:%d: warning: repeated directive `%s'\n", f, i, key);
                     }
                 }
             }
         }
+
+        memset(line, 0, MAX_CONFIG_LINE); /* security paranoia */
 
         ++i;
     }

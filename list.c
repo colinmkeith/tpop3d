@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.3  2000/10/07 17:41:16  chris
+ * Minor changes.
+ *
  * Revision 1.2  2000/09/26 22:23:36  chris
  * Various changes.
  *
@@ -32,6 +35,7 @@ void list_delete(list l) {
     listitem i;
     if (!l) return;
     list_iterate(l, i) if (i->prev) free(i->prev);
+    if (l->back) free(l->back);
     free(l);
 }
 
@@ -41,6 +45,10 @@ void item_delete_free(list l) {
     list_iterate(l, i) if (i->prev) {
         free(i->prev->d.v);
         free(i->prev);
+    }
+    if (l->back) {
+        free(l->back->d.v);
+        free(l->back);
     }
     free(l);
 }
@@ -58,12 +66,12 @@ void list_push_back(list l, const item i) {
     if (!l->front) l->front = I;
 }
 
-void list_pop_back(list l) {
+void list_pop_front(list l) {
     listitem I;
-    if (!l || !l->back) return;
-    I = l->back;
-    l->back = l->back->prev;
-    if (I == l->front) l->front = NULL;
+    if (!l || !l->front) return;
+    I = l->front;
+    l->front = l->front->next;
+    if (I == l->back) l->back = NULL;
     if (I) free(I);
 }
 
@@ -80,9 +88,9 @@ void list_push_front(list l, const item i) {
     if (!l->back) l->back = I;
 }
 
-void list_pop_front(list l) {
+void list_pop_back(list l) {
     listitem I;
-    if (!l || !l->front) return;
+    if (!l || !l->back) return;
     I = l->back;
     l->back = l->back->prev;
     if (I == l->front) l->front = NULL;
@@ -90,6 +98,8 @@ void list_pop_front(list l) {
 }
 
 listitem list_remove(list l, listitem I) {
+    if (!l || !I) return NULL;
+
     if (I->prev) I->prev->next = I->next;
     if (I->next) I->next->prev = I->prev;
 

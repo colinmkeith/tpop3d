@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.3  2000/10/07 17:41:16  chris
+ * Minor changes.
+ *
  * Revision 1.2  2000/09/26 22:23:36  chris
  * Various changes.
  *
@@ -24,6 +27,7 @@ static char *strndup(const char *s, const size_t n) {
     char *t;
     if (!s) return NULL;
     t = (char*)malloc(n + 1);
+    if (!t) return NULL;
     strncpy(t, s, n);
     t[n] = 0;
     return t;
@@ -77,7 +81,9 @@ vector vector_new_from_string(const char *s) {
         }
 
         if (q && q > p) {
-            vector_push_back(v, item_ptr(strndup(p, q - p)));
+            char *x = strndup(p, q - p);
+            if (!x) return NULL; /* this should never happen, and if it does, things are really bad anyway */
+            vector_push_back(v, item_ptr(x));
             if (*q) ++q;
             else break;
             p = q + strspn(q, " \t\r\n");
@@ -107,8 +113,8 @@ item *vector_remove(vector v, item *t) {
     if (t >= v->ary + v->n_used) return;
     if (t < v->ary + v->n_used - 1)
         memmove(t, t + 1, (v->n_used - (t - v->ary)) * sizeof(item));
-    --v->n_used;
-    if (v->n_used < v->n / 2) {
+    memset(v->ary + v->n_used--, 0, sizeof(item));
+    if (v->n_used < v->n / 2 && v->n > 16) {
         size_t i = t - v->ary;
         vector_reallocate(v, v->n / 2);
         t = v->ary + i;
@@ -119,5 +125,6 @@ item *vector_remove(vector v, item *t) {
 void vector_reallocate(vector v, const size_t n) {
     if (n < v->n_used || n <= 0) return;
     v->ary = realloc(v->ary, n * sizeof(item));
+    memset(v->ary + v->n_used, 0, (v->n - v->n_used) * sizeof(item));
     v->n = n;
 }
