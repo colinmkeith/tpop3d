@@ -248,7 +248,7 @@ fail:
  *            AND popbox.domain_name = domain.domain_name
  */
 const char apop_query_template[] =
-    "SELECT domain.path, popbox.mbox_name, popbox.pwhash, domain.unix_user "
+    "SELECT domain.path, popbox.mbox_name, popbox.password_hash, domain.unix_user "
       "FROM popbox, domain "
      "WHERE popbox.local_part = '%s' "
        "AND popbox.domain_name = '%s' "
@@ -472,7 +472,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
                 if (!row || !(lengths = mysql_fetch_lengths(result))) break;
 
                 /* Verify the password. There are several possibilities here. */
-                pwhash = (char*)row[1];
+                pwhash = (char*)row[2];
 
                 if (strncmp(pwhash, "{crypt}", 7) == 0) {
                     /* Password hashed by system crypt function. */
@@ -483,7 +483,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
                 } else if (strncmp(pwhash, "{plaintext}", 11) == 0) {
                     /* Plain text password, as used for APOP. */
                     if (strcmp(pass, pwhash + 11) == 0) authok = 1;
-                } else if (strncmp(pwhash, "{md5}", 5) == 0 || *pwhash != '{') {
+                } else if (strncmp(pwhash, "{md5}", 4) == 0 || *pwhash != '{') {
                     /* Straight MD5 password. */
                     MD5_CTX ctx;
                     unsigned char digest[16];
@@ -493,8 +493,8 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
                     MD5Final(digest, &ctx);
 
                     for (p = hexhash, q = digest; q < digest + 16; ++q, p += 2) snprintf(p, 3, "%02x", (unsigned)*q);
-
-                    if (strcmp(p, pwhash + 5) == 0 || strcmp(p, pwhash) == 0) authok = 1;
+print_log(LOG_INFO, "amnup: hexhash = %s, pwhash = %s\n", hexhash, pwhash);
+                    if (strcasecmp(hexhash, pwhash + 5) == 0 || strcasecmp(hexhash, pwhash) == 0) authok = 1;
                 } else {
                     /* Unknown format. */
                     print_log(LOG_ERR, _("auth_mysql_new_user_pass: %s@%s has unknown password format"), local_part, domain);
