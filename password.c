@@ -28,6 +28,9 @@
 #include <string.h>
 #include <syslog.h>
 
+#define _XOPEN_SRC      /* crypt(3), on some systems */
+#include <unistd.h>
+
 #include "md5.h"
 #include "util.h"
 
