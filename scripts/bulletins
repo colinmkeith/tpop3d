@@ -60,7 +60,6 @@ sub onlogin_bulletins_handler ($) {
                 # Record delivery of this bulletin to this user.
                 $rr{$r} = 1;
 
-print STDERR "sent bulletin $bull to user $r\n";
             } else {
 
                 # Sendmail (or system(3)) failed. There's not a whole lot we

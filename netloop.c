@@ -261,7 +261,7 @@ static int fork_child(connection c) {
                 }
                 close(pp[0]);
             }
-
+fprintf(stderr, "completed wait\n");
             /* Get in to the `transaction' state, opening the mailbox. */
             this_child_connection = c;
             if (connection_start_transaction(c)) {

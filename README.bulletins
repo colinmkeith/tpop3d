@@ -39,7 +39,7 @@ for this:
             # already exist.
 
             $recips =~ s/msg$/db/;
-            my $r = "$req->{local_part}@$req->{domain}";
+            my $r = $req->{local_part} . '@' . $req->{domain};
             my %rr;
             tie(%rr, 'GDBM_File', $recips, &GDBM_WRCREAT, 0600);
 
