@@ -323,11 +323,18 @@ then authentication will be attempted using:
 .Sp
 In this case, no alternative attempt will be made if authentication fails.
 
-One global option applies to all authenticators:
+Two global options apply to all authenticators:
 .TP
 \fBpermit-empty-password\fP: (\fByes\fP|\fBtrue\fP)
 If enabled, users may log in with an empty password. (Note that their client
 \fImust\fP send a space after the PASS command in this case.)
+.TP
+\fBonlogin-child-wait\fP: (\fByes\fP|\fBtrue\fP)
+If enabled, and the authenticator offers an `onlogin' action to be taken when
+a user logs in, the user's mailbox won't be opened until \fIafter\fP the
+onlogin action completes (otherwise, the child does not block in this way).
+This is intended to allow you to use the onlogin feature to implement server
+bulletins and similar features.
 
 .SS PAM authentication options
 

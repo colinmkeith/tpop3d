@@ -177,18 +177,34 @@ static void connections_pre_select(int *n, fd_set *readfds, fd_set *writefds, fd
  * the child or the parent by testing the post_fork flag. On return in the
  * parent the connection will have been destroyed and removed from the list;
  * in the child, it will be the only remaining connection and all the
- * listeners will have been destroyed. */
+ * listeners will have been destroyed. Optionally, the child can wait until
+ * any ONLOGIN handler has run in the parent, so that ONLOGIN can be used to
+ * implement POP3 server `bulletins' or similar behaviour. */
 static int fork_child(connection c) {
     connection *J;
     item *t;
     sigset_t chmask;
     pid_t ch;
+    int childwait, pp[2];
 
     /* We block SIGCHLD and SIGHUP during this function so as to avoid race
      * conditions involving a child which exits immediately. */
     sigemptyset(&chmask);
     sigaddset(&chmask, SIGCHLD);
     sigprocmask(SIG_BLOCK, &chmask, NULL);
+
+    /* Waiting for ONLOGIN handlers to complete is done using a pipe (when
+     * the only tool you have is a hammer...). The parent writes a byte to
+     * the pipe when the ONLOGIN handler is finished, and the child blocks
+     * reading from the pipe. */
+    if ((childwait = config_get_bool("onlogin-child-wait"))) {
+        if (pipe(pp) == -1) {
+            log_print(LOG_ERR, "fork_child: pipe: %m");
+            connection_sendresponse(c, 0, _("Everything was fine until now, but suddenly I realise I just can't go on. Sorry."));
+            return 0;
+        }
+        /* pp[0] is for reading, pp[1] is for writing */
+    }
 
     post_fork = 1; /* This is right. See below. */
 #ifdef MTRACE_DEBUGGING
@@ -230,6 +246,20 @@ static int fork_child(connection c) {
                 log_print(LOG_ERR, "fork_child: setuid(%d): %m", c->a->uid);
                 connection_sendresponse(c, 0, _("Something bad happened, and I just can't go on. Sorry."));
                 return 0;
+            }
+
+            /* Waiting for ONLOGIN. */
+            if (childwait) {
+                char buf[1];
+                ssize_t x;
+                close(pp[1]);
+                while ((x = read(pp[0], buf, 1) == -1) && errno == EINTR);
+                if (x == -1) {
+                    log_print(LOG_ERR, "fork_child: read: %m");
+                    connection_sendresponse(c, 0, _("Something bad happened, and I just can't go on. Sorry."));
+                    return 0;
+                }
+                close(pp[0]);
             }
 
             /* Get in to the `transaction' state, opening the mailbox. */
@@ -274,6 +304,16 @@ static int fork_child(connection c) {
              * something with the information for POP-before-SMTP relaying. */
             log_print(LOG_INFO, _("fork_child: %s: began session for `%s' with %s; child PID is %d"), c->idstr, c->a->user, c->a->auth, (int)ch);
             authswitch_onlogin(c->a, c->remote_ip, c->local_ip);
+
+            if (childwait) {
+                close(pp[0]);
+                if (xwrite(pp[1], "\0", 1) == -1)
+                    /* Not much we can do here. Hopefully the child will get
+                     * an error from read. If not it will hang, which is
+                     * very bad news. But that shouldn't happen. */
+                    log_print(LOG_ERR, "fork_child: write: %m");
+                close(pp[1]);
+            }
 
             /* Dispose of our copy of this connection. */
             close(c->s);

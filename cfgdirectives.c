@@ -31,6 +31,7 @@ char *cfgdirectives[] = {
     "mailbox",
     "no-detach",
     "permit-empty-passwords",
+    "onlogin-child-wait",
  
 #if defined(MBOX_BSD) && defined(MBOX_BSD_SAVE_INDICES)
     "mailspool-index",

@@ -46,6 +46,12 @@ database being used by auth-mysql.
 
 Various code tidyings-up.
 
+It is now possible to have tpop3d wait until an onlogin handler has run before
+opening and locking a user's mailbox. (Previously these events were not
+sequenced in this way.) This makes it possible to use the onlogin handler to
+implement POP3 server `bulletins' -- that is, messages which are delivered to
+any user who logs in to the POP3 server.
+
 1.4.2
 
 tpop3d now accepts passwords containing spaces. auth-pam now passes the client
