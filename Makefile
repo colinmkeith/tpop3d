@@ -74,7 +74,8 @@ TXTS =  README          \
 	PORTABILITY     \
         COPYING         \
         tpop3d.8        \
-        tpop3d.cat
+        tpop3d.cat      \
+        init.d/tpop3d
 
 SRCS =  auth_mysql.c	\
         auth_pam.c	\
@@ -118,7 +119,8 @@ tpop3d: depend $(OBJS) Makefile
 
 tarball: nodepend
 	mkdir tpop3d-$(VERSION)
-	cp $(SRCS) $(HDRS) $(TXTS) Makefile tpop3d-$(VERSION)
+	for i in $(SUBDIRS) ; do mkdir tpop3d-$(VERSION)/$i ; done
+	for i in $(SRCS) $(HDRS) $(TXTS) ; do cp $i tpop3d-$(VERSION)/$i ; done
 	tar cvzf tpop3d-$(VERSION).tar.gz tpop3d-$(VERSION)
 	rm -rf tpop3d-$(VERSION)
 	mv tpop3d-$(VERSION).tar.gz ..

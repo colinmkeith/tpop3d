@@ -513,6 +513,9 @@ int main(int argc, char **argv) {
     config = read_config_file(configfile);
     if (!config) return 1;
 
+    /* Detach from controlling tty etc. */
+    if (!nodaemon) daemon(0, 0);
+
     /* Start logging */
     openlog("tpop3d", LOG_PID | LOG_NDELAY, LOG_MAIL);
 
@@ -536,7 +539,7 @@ int main(int argc, char **argv) {
             r = strchr(s, '(');
             if (r) {
                 if (*(s + strlen(s) - 1) != ')') {
-                    fprintf(stderr, "%s: syntax for listen address `%s' is incorrect\n", configfile, s);
+                    print_log(LOG_ERR, "%s: syntax for listen address `%s' is incorrect\n", configfile, s);
                     continue;
                 }
 
@@ -554,7 +557,7 @@ int main(int argc, char **argv) {
                     struct servent *se;
                     se = getservbyname(r, "tcp");
                     if (!se) {
-                        fprintf(stderr, "%s: specified listen address `%s' has invalid port `%s'\n", configfile, s, r);
+                        print_log(LOG_ERR, "%s: specified listen address `%s' has invalid port `%s'\n", configfile, s, r);
                         continue;
                     } else sin.sin_port = se->s_port;
                 } else sin.sin_port = htons(sin.sin_port);
@@ -565,7 +568,7 @@ int main(int argc, char **argv) {
                 struct hostent *he;
                 he = gethostbyname(s);
                 if (!he) {
-                    fprintf(stderr, "%s: gethostbyname: specified listen address `%s' is invalid\n", configfile, s);
+                    print_log(LOG_ERR, "%s: gethostbyname: specified listen address `%s' is invalid\n", configfile, s);
                     continue;
                 } else memcpy(&(sin.sin_addr), he->h_addr, sizeof(struct in_addr));
             }
@@ -581,7 +584,7 @@ int main(int argc, char **argv) {
     }
 
     if (listeners->n_used == 0) {
-        fprintf(stderr, "%s: no listen addresses obtained; exiting\n", configfile);
+        print_log(LOG_ERR, "%s: no listen addresses obtained; exiting\n", configfile);
         return 1;
     }
 
@@ -590,7 +593,7 @@ int main(int argc, char **argv) {
     if (I) {
         max_running_children = atoi((char*)I->v);
         if (!max_running_children) {
-            fprintf(stderr, "%s: value of `%s' for max-children does not make sense; exiting\n", configfile, (char *)I->v);
+            print_log(LOG_ERR, "%s: value of `%s' for max-children does not make sense; exiting\n", configfile, (char *)I->v);
             return 1;
         }
     }
@@ -599,9 +602,7 @@ int main(int argc, char **argv) {
     I = stringmap_find(config, "append-domain");
     if (I && (!strcmp(I->v, "yes") || !strcmp(I->v, "true"))) append_domain = 1;
 
-    /* Detach from controlling tty etc. */
-    if (!nodaemon) daemon(0, 0);
-    
+   
     set_signals();
 
     /* Start the authentication drivers */

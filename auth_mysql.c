@@ -103,14 +103,14 @@ fail:
  *   SELECT domain.path, popbox.mbox_name, domain.unix_user,
  *          popbox.apop_password
  *           FROM popbox, domain
- *          WHERE popbox.mbox_name = $local_part
+ *          WHERE popbox.local_part = $local_part
  *            AND popbox.domain_name = $domain
  *            AND popbox.domain_name = domain.domain_name
  */
 const char apop_query_template[] =
     "SELECT domain.path, popbox.mbox_name, domain.unix_user, popbox.apop_password "
       "FROM popbox, domain "
-     "WHERE popbox.mbox_name = '%s' "
+     "WHERE popbox.local_part = '%s' "
        "AND popbox.domain_name = '%s' "
        "AND popbox.domain_name = domain.domain_name";
 authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const unsigned char *digest) {
@@ -259,7 +259,7 @@ fail:
  * the form
  *   SELECT domain.path, popbox.mbox_name, domain.unix_user
  *          FROM popbox, domain
- *          WHERE popbox.mbox_name = $local_part
+ *          WHERE popbox.local_part = $local_part
  *            AND popbox.password_hash = $hash_of_password
  *            AND popbox.domain_name = $domain
  *            AND popbox.domain_name = domain.domain_name
@@ -267,7 +267,7 @@ fail:
 char user_pass_query_template[] =
     "SELECT domain.path, popbox.mbox_name, domain.unix_user "
       "FROM popbox, domain "
-     "WHERE popbox.mbox_name = '%s' "
+     "WHERE popbox.local_part = '%s' "
        "AND popbox.domain_name = '%s' "
        "AND popbox.password_hash = '%s' "
        "AND popbox.domain_name = domain.domain_name";
