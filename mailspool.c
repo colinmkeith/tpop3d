@@ -248,19 +248,19 @@ static unsigned char *memstr(const unsigned char *haystack, const size_t hlen,
  * failure. */
 int mailspool_build_index(mailbox M, char *filemem) {
     char *p, *q;
-    size_t len, len2;
+    size_t filelen, mappedlen;
     int first = 0;
 
     if (!M || M->fd == -1) return -1;
 
-    len = len2 = M->st.st_size;
+    filelen = mappedlen = M->st.st_size;
 
-    if (len < 16) return 0; /* Mailspool doesn't contain any messages. */
+    if (filelen < 16)
+        goto end;
 
-    len += PAGESIZE - (len % PAGESIZE);
+    mappedlen += PAGESIZE - (mappedlen % PAGESIZE);
     if (!filemem) {
-        filemem = mmap(0, len, PROT_READ, MAP_PRIVATE, M->fd, 0);
-        if (filemem == MAP_FAILED) {
+        if (MAP_FAILED == (filemem = mmap(0, mappedlen, PROT_READ, MAP_PRIVATE, M->fd, 0))) {
             log_print(LOG_ERR, "mailspool_build_index(%s): mmap: %m", M->name);
             return -1;
         }
@@ -277,12 +277,10 @@ int mailspool_build_index(mailbox M, char *filemem) {
         /* Nope, never seen this one before. */
         p = filemem - 2;
 
-
-    
     /* Extract all From lines from file */
     do {
         p += 2;
-        q = (char*)memchr(p, '\n', len - (p - filemem));
+        q = (char*)memchr(p, '\n', filelen - (p - filemem));
 
         if (q) {
             size_t o, l;
@@ -293,9 +291,9 @@ int mailspool_build_index(mailbox M, char *filemem) {
             mailspool_make_indexpoint(&pt, o, l, 0, NULL);
             mailbox_add_indexpoint(M, &pt);
 
-            p = memstr(q, len2 - (q - filemem), "\n\nFrom ", 7);
+            p = memstr(q, filelen - (q - filemem), "\n\nFrom ", 7);
         } else break;
-    } while (p && p < filemem + len2);
+    } while (p && p < filemem + filelen);
 
     if (first < M->num) {
         struct indexpoint *t;
@@ -337,7 +335,9 @@ int mailspool_build_index(mailbox M, char *filemem) {
     }
 #endif /* IGNORE_CCLIENT_METADATA */
 
-    munmap(filemem, len);
+end:
+    if (filemem) munmap(filemem, mappedlen);
+
     return 0;
 }
 
