@@ -15,12 +15,11 @@ static const char rcsid[] = "$Id$";
 
 #include <sys/types.h>
 
-#ifdef CRYPT_FUNCTION_IN_CRYPT_H    /* XXX */
+#ifdef HAVE_CRYPT_H /* XXX */
 #include <crypt.h>
-#else
-#include <unistd.h>
 #endif
 
+#include <unistd.h>
 #include <grp.h>
 #include <pwd.h>
 #ifdef AUTH_PASSWD_SHADOW

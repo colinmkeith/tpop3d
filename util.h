@@ -36,6 +36,9 @@ void *myrealloc(char *f, int l, void *p, const size_t n);
 #define realloc(a, b)   myrealloc(__FILE__, __LINE__, a, b)
 #endif
 
+/* reallocating strncat. */
+char *xstrncat(char *pfx, const char *sfx, const size_t n);
+
 /* Function for substituting $(...) in strings. */
 struct sverr {
     char *msg;

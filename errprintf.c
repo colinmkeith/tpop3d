@@ -35,18 +35,26 @@ char *verrprintf(const char *fmt, va_list ap) {
     memset(s, 0, l);
 
     /* First, we need to substitute errors into the string. */
+/*
+    for (p = fmt, q = strstr(p, "%m"); q && *p; p = q, q = strstr(p, "%m")) {
+        s = xstrncat(s, p, q - p);
+        s = xstrncat(s, e, le);
+        q += 2;
+    }
+*/
+/*    s = xstrncat(s, p, strlen(p));*/
     for (p = fmt, q = strstr(p, "%m"); q; p = q, q = strstr(p, "%m")) {
-        while (((q - p) + le) > (l - strlen(s))) {
-            l *= 2;
+        if ((q - p + le) > l - strlen(s)) {
+            l = (q - p + le) - strlen(s) + 1;
             s = realloc(s, l);
         }
         strncat(s, p, q - p);
         strcat(s, e);
         q += 2;
     }
-    while ((fmt + strlen(fmt) - p) > l - strlen(s)) {
-            l *= 2;
-            if (!(s = realloc(s, l))) return NULL;
+    if (strlen(p) > (l - strlen(s))) {
+        l = strlen(s) + strlen(p) + 1;
+        s = realloc(s, l);
     }
 
     strcat(s, p);

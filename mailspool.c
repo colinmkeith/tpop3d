@@ -6,7 +6,8 @@
  * quoting /^From / in body text and attempting to use Content-Length to
  * figure out where messages start and end.
  *
- * See http://home.netscape.com/eng/mozilla/2.0/relnotes/demo/content-length.html
+ * See
+ * http://home.netscape.com/eng/mozilla/2.0/relnotes/demo/content-length.html
  *
  * This also, optionally, allows the metadata stored into mailspools (why,
  * Washington University, why?) by PINE to be ignored. This means that those
@@ -162,7 +163,7 @@ mailbox mailspool_new_from_file(const char *filename) {
         goto fail;
     } else M->name = strdup(filename);
     
-    /* FIXME Naive locking strategy. */
+    /* Naive locking strategy. */
     for (i = 0; i < MAILSPOOL_LOCK_TRIES; ++i) {
         M->fd = open(M->name, O_RDWR);
         if (M->fd == -1) {
@@ -179,7 +180,7 @@ mailbox mailspool_new_from_file(const char *filename) {
     }
 
     if (M->fd == -1) {
-        print_log(LOG_ERR, "mailspool_new_from_file: failed to lock %s: %m", filename);
+        print_log(LOG_ERR, _("mailspool_new_from_file: failed to lock %s: %m"), filename);
         goto fail;
     }
 
@@ -187,19 +188,21 @@ mailbox mailspool_new_from_file(const char *filename) {
     
     /* Build index of mailspool. */
 #ifdef MBOX_BSD_SAVE_INDICES
-    if (mailspool_save_indices && mailspool_load_index(M) == -1) {
-        print_log(LOG_ERR, "mailspool_new_from_file: unable to index mailspool");
-        goto fail;
+    if (mailspool_save_indices) {
+        if (mailspool_load_index(M) == -1) {
+            print_log(LOG_ERR, _("mailspool_new_from_file: unable to index mailspool"));
+            goto fail;
+        }
     } else
 #endif
     if (mailspool_build_index(M, NULL) == -1) {
-        print_log(LOG_ERR, "mailspool_new_from_file: unable to index mailspool");
+        print_log(LOG_ERR, _("mailspool_new_from_file: unable to index mailspool"));
         goto fail;
     }
 
     gettimeofday(&tv2, NULL);
     f = (float)(tv2.tv_sec - tv1.tv_sec) + 1e-6 * (float)(tv2.tv_usec - tv1.tv_usec);
-    print_log(LOG_DEBUG, "mailspool_new_from_file: indexed mailspool %s (%d bytes) in %0.3fs", filename, (int)M->st.st_size, f);
+    print_log(LOG_DEBUG, _("mailspool_new_from_file: indexed mailspool %s (%d bytes) in %0.3fs"), filename, (int)M->st.st_size, f);
     
     return M;
 
@@ -278,7 +281,7 @@ int mailspool_build_index(mailbox M, char *filemem) {
         struct indexpoint *P = M->index + M->num - 1;
         p = filemem + P->offset + P->msglength - 2;
         first = M->num;
-        print_log(LOG_DEBUG, "mailspool_build_index: first %d messages indexed from cached metadata", first);
+        print_log(LOG_DEBUG, _("mailspool_build_index(%s): first %d messages indexed from cached metadata"), M->name, first);
     } else
         /* Nope, never seen this one before. */
         p = filemem - 2;
@@ -344,6 +347,7 @@ int mailspool_build_index(mailbox M, char *filemem) {
             if (memstr(filemem + P->offset, p - filemem, hdr1, strlen(hdr1)) && memstr(filemem + P->offset, p - filemem, hdr2, strlen(hdr2))) {
                 print_log(LOG_DEBUG, "mailspool_build_index(%s): skipping c-client metadata", M->name);
                 memmove((void*)M->index, (void*)(M->index + 1), sizeof(struct indexpoint) * (M->num - 1));
+                --M->num;
             }
         }
     }
@@ -452,7 +456,7 @@ int mailspool_apply_changes(mailbox M) {
     while (I < End && !I->deleted) ++I;
     if (I == End) {
         if (munmap(filemem, len) == -1) print_log(LOG_ERR, "mailspool_send_message: munmap: %m");
-        print_log(LOG_ERR, "mailspool_apply_changes(%s): inconsistency in mailspool data", M->name);
+        print_log(LOG_ERR, _("mailspool_apply_changes(%s): inconsistency in mailspool data"), M->name);
         return 0;
     }
     d = filemem + I->offset;
@@ -494,7 +498,7 @@ int mailspool_apply_changes(mailbox M) {
 
 #ifdef MBOX_BSD_SAVE_INDICES
     if (mailspool_save_indices && !mailspool_save_index(M))
-        print_log(LOG_WARNING, "mailspool_apply_changes(%s): unable to save mailspool index", M->name);
+        print_log(LOG_WARNING, _("mailspool_apply_changes(%s): unable to save mailspool index"), M->name);
 #endif /* MBOX_BSD_SAVE_INDICES */
     
     return 1;
@@ -552,7 +556,7 @@ char *mailspool_find_index(mailbox m) {
      * This allows you to say, for instance,
      *  mailspool-index:    /var/spool/tpop3d/$(escaped_name)
      * or
-     *  mailspool-index:    $(path)/.$(name).tpop3d-index
+     *  mailspool-index:    $(path)/.$(file).tpop3d-index
      *
      * In either case, the path in which the index is saved needs to have
      * permissions which allow the user who owns the mailspool to write a new
@@ -768,6 +772,8 @@ int mailspool_load_index(mailbox m) {
         print_log(LOG_WARNING, _("mailspool_load_index(%s): index exists, but has some stale or corrupt data"), indexfile);
         goto fail;
     }
+
+    r = 0;
 
     /* That's it. Messages after this one (if any) must be indexed `properly'. */
 

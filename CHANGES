@@ -6,6 +6,12 @@ $Id$
 Minor changes, and addition of metadata caching for BSD mailspools; in
 addition, the mailbox object was modified for efficiency reasons.
 
+Fixed a bug which could cause child processes to fail with SIGSEGV under heavy
+load.
+
+Added an auth-perl script for authentication against an Oracle database,
+contributed by Paul Makepeace.
+
 1.3.3
 
 Fixes for a couple of portability bugs which crept in to 1.3.2.

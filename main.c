@@ -35,7 +35,6 @@ static const char rcsid[] = "$Id$";
 #include "config.h"
 #include "connection.h"
 #include "errprintf.h"
-#include "list.h"
 #include "listener.h"
 #include "pidfile.h"
 #include "signals.h"
@@ -70,8 +69,8 @@ int post_fork = 0;                  /* Is this a child handling a connection. */
 connection this_child_connection;   /* Stored here so that if a signal terminates the child, the mailspool will still get unlocked. */
 
 vector listeners;                   /* Listeners */
-list connections;                   /* Active connections. */
-
+connection *connections;            /* Active connections. */
+size_t max_connections;             /* Number of connection slots allocated. */
 
 /* Theory of operation:
  * The main loop is in net_loop, below; it calls listeners_ and
@@ -80,6 +79,25 @@ list connections;                   /* Active connections. */
  * client, fork_child is called. The global variables listeners and
  * connections are used to handle this procedure.
  */
+
+/* find_free_connection:
+ * Find a free connection slot.
+ */
+connection *find_free_connection() {
+    connection *J;
+    for (J = connections; J < connections + max_connections; ++J)
+        if (!*J) return J;
+    return NULL;
+}
+
+/* remove_connection:
+ * Remove a connection from the list.
+ */
+void remove_connection(connection c) {
+    connection *J;
+    for (J = connections; J < connections + max_connections; ++J)
+        if (*J == c) *J = NULL;
+}
 
 /* listeners_pre_select:
  * Called before the main select(2) so listening sockets can be polled.
@@ -119,18 +137,19 @@ void listeners_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfds)
                 print_log(LOG_ERR, "listeners_post_select: fcntl(F_SETFL): %m");
                 close(s);
             } else {
-                if (num_running_children >= max_running_children) {
+                connection *J;
+                if (num_running_children >= max_running_children || !(J = find_free_connection())) {
                     char *m = _("-ERR Sorry, I'm too busy right now\r\n");
                     xwrite(s, m, strlen(m));
                     shutdown(s, 2);
                     close(s);
                     print_log(LOG_INFO, _("listeners_post_select: rejected connection from %s owing to high load"), inet_ntoa(sin.sin_addr));
                 } else {
-                    connection c = connection_new(s, &sin, L->domain);
-                    if (c) {
-                        list_push_back(connections, item_ptr(c));
-                        print_log(LOG_INFO, _("listeners_post_select: client %s: connected"), c->idstr);
-                    } else
+                    /* Find a free connection slot. */
+                    *J = connection_new(s, &sin, L->domain);
+                    if (*J)
+                        print_log(LOG_INFO, _("listeners_post_select: client %s: connected"), (*J)->idstr);
+                    else
                         /* This could be really bad, but all we can do is log the failure. */
                         print_log(LOG_ERR, _("listeners_post_select: unable to set up connection from %s: %m"), inet_ntoa(sin.sin_addr));
                 }
@@ -143,27 +162,33 @@ void listeners_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfds)
  * Called before the main select(2) so connections can be polled.
  */
 void connections_pre_select(int *n, fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
-    listitem I;
-    list_iterate(connections, I) {
-        int s = ((connection)I->d.v)->s;
-        FD_SET(s, readfds);
-        if (s > *n) *n = s;
-    }
+    connection *J;
+    for (J = connections; J < connections + max_connections; ++J)
+        if (*J) {
+            int s = (*J)->s;
+            FD_SET(s, readfds);
+            if (s > *n) *n = s;
+        }
 }
 
 /* fork_child:
- * Handle forking a child to handle an individual connection. C and i are,
- * respectively, pointers to the connection and the listitem which holds it;
- * these are modified by the function, so are passed by reference.
+ * Handle forking a child to handle an individual connection c.
  */
-void fork_child(connection *C, listitem *i) {
-#define c               (*C)
-#define I               (*i)
-    listitem J;
+void fork_child(connection c) {
+    connection *J;
     item *t;
+    sigset_t chmask;
+    pid_t ch;
+
+    /* We block SIGCHLD and SIGHUP during this function so as to avoid race
+     * conditions involving a child which exits immediately. */
+    sigemptyset(&chmask);
+    sigaddset(&chmask, SIGCHLD);
+    sigprocmask(SIG_BLOCK, &chmask, NULL);
+
     post_fork = 1; /* This is right. See below. */
     /* muntrace(); */ /* Memory debugging on glibc systems. */
-    switch(fork()) {
+    switch((ch = fork())) {
         case 0:
             /* Child. Dispose of listeners and connections other than this
              * one.
@@ -172,17 +197,16 @@ void fork_child(connection *C, listitem *i) {
             vector_delete(listeners);
             listeners = NULL;
 
-            list_iterate(connections, J) {
-                if (J->d.v != c) {
-                    close(((connection)J->d.v)->s);
-                    ((connection)J->d.v)->s = -1;
-                    J = list_remove(connections, J);
+            for (J = connections; J < connections + max_connections; ++J)
+                if (*J && *J != c) {
+                    close((*J)->s);
+                    (*J)->s = -1;
+                    connection_delete(*J);
+                    *J = NULL;
                 }
-                if (!J) break;
-            }
 
             /* We never access mailspools as root. */
-            if (!c->a->uid) {
+            if (c->a->uid == 0) {
                 print_log(LOG_ERR, _("fork_child: client %s: authentication context has UID of 0"), c->idstr);
                 connection_sendresponse(c, 0, _("Everything's really bad"));
                 connection_delete(c);
@@ -232,9 +256,7 @@ void fork_child(connection *C, listitem *i) {
             /* Began session; log something useful in case of POP-before-SMTP
              * relaying.
              */
-            print_log(LOG_INFO, _("fork_child: %s: successfully authenticated with auth_%s"), c->idstr, c->a->auth);
-
-            I = NULL;
+            print_log(LOG_INFO, _("fork_child: %s: successfully authenticated with %s"), c->idstr, c->a->auth);
 
             break;
 
@@ -242,9 +264,8 @@ void fork_child(connection *C, listitem *i) {
             /* Error. */
             print_log(LOG_ERR, "fork_child: fork: %m");
             connection_sendresponse(c, 0, _("Everything was fine until now, but suddenly I realise I just can't go on. Sorry."));
+            remove_connection(c);
             connection_delete(c);
-            c = NULL;
-            I = list_remove(connections, I);
             break;
 
         default:
@@ -253,13 +274,17 @@ void fork_child(connection *C, listitem *i) {
             
             close(c->s);
             c->s = -1; /* Don't shutdown the socket */
+            remove_connection(c);
             connection_delete(c);
             c = NULL;
             
-            I = list_remove(connections, I);
+            print_log(LOG_INFO, "fork_child: new child is PID %d", (int)ch);
 
             ++num_running_children;
     }
+
+    /* Unblock SIGCHLD after incrementing num_running_children. */
+    sigprocmask(SIG_UNBLOCK, &chmask, NULL);
 #undef c
 #undef I
 }
@@ -268,71 +293,69 @@ void fork_child(connection *C, listitem *i) {
  * Called after the main select(2) to do stuff with connections.
  */
 void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
-    listitem I;
-    list_iterate(connections, I) {
-        if (FD_ISSET(((connection)I->d.v)->s, readfds)) {
-            /* Data is available on this socket. */
-            int n;
-            connection c = (connection)I->d.v;
-            n = connection_read(c);
-            if (n == 0) {
-                /* Peer closed the connection */
-                print_log(LOG_INFO, _("connections_post_select: connection_read: client %s: closed connection"), c->idstr);
-                connection_delete(c);
-                I = list_remove(connections, I);
-                if (post_fork) _exit(0);
-                if (!I) break;
-            } else if (n < 0 && errno != EINTR) {
-                /* Some sort of error occurred, and we should close the connection. */
-                print_log(LOG_ERR, _("connections_post_select: connection_read: client %s: disconnected: %m"), c->idstr);
-                connection_delete(c);
-                I = list_remove(connections, I);
-                if (post_fork) _exit(0);
-                if (!I) break;
-            } else {
-                /* We read some data and should try to interpret command/s. */
-                pop3command p;
-                while (c && (p = connection_parsecommand(c))) {
-                    enum connection_action act = connection_do(c, p);
-                    pop3command_delete(p);
-                    switch (act) {
-                        case close_connection:
-                            connection_delete(c);
-                            c = NULL;
-                            I = list_remove(connections, I);
-                            if (post_fork) _exit(0);
-                            break;
-
-                        case fork_and_setuid:
-                            if (num_running_children >= max_running_children) {
-                                connection_sendresponse(c, 0, _("Sorry, I'm too busy right now"));
-                                print_log(LOG_INFO, _("connections_post_select: client %s: rejected login owing to high load"), c->idstr);
+    connection *I;
+    
+    for (I = connections; I < connections + max_connections; ++I) {
+        connection c = *I;
+        if (c) {
+                if (FD_ISSET(c->s, readfds)) {
+                /* Data is available on this socket. */
+                int n;
+                n = connection_read(c);
+                if (n == 0) {
+                    /* Peer closed the connection */
+                    print_log(LOG_INFO, _("connections_post_select: connection_read: client %s: closed connection"), c->idstr);
+                    connection_delete(c);
+                    *I = NULL;
+                    if (post_fork) _exit(0);
+                } else if (n < 0 && errno != EINTR) {
+                    /* Some sort of error occurred, and we should close the connection. */
+                    print_log(LOG_ERR, _("connections_post_select: connection_read: client %s: disconnected: %m"), c->idstr);
+                    connection_delete(c);
+                    *I = NULL;
+                    if (post_fork) _exit(0);
+                } else {
+                    /* We read some data and should try to interpret command/s. */
+                    pop3command p;
+                    while (c && (p = connection_parsecommand(c))) {
+                        enum connection_action act = connection_do(c, p);
+                        pop3command_delete(p);
+                        switch (act) {
+                            case close_connection:
+                                remove_connection(c);
                                 connection_delete(c);
-                                I = list_remove(connections, I);
-                                c = NULL;
+                                *I = c = NULL;
+                                if (post_fork) _exit(0);
                                 break;
-                            } else fork_child(&c, &I);
 
-                        default:;
+                            case fork_and_setuid:
+                                if (num_running_children >= max_running_children) {
+                                    connection_sendresponse(c, 0, _("Sorry, I'm too busy right now"));
+                                    print_log(LOG_INFO, _("connections_post_select: client %s: rejected login owing to high load"), c->idstr);
+                                    connection_delete(c);
+                                    *I = c = NULL;
+                                    break;
+                                } else {
+                                    fork_child(c);
+                                    c = NULL;
+                                }
+
+                            default:;
+                        }
                     }
-
-                    if (!I) break;
                 }
-
-                if (!I) break;
-            }
-        } else if (timeout_seconds && (time(NULL) > (((connection)(I->d.v))->idlesince + timeout_seconds))) {
-            /* Connection has timed out. */
+            } else if (timeout_seconds && (time(NULL) > (c->idlesince + timeout_seconds))) {
+                /* Connection has timed out. */
 #ifndef NO_SNIDE_COMMENTS
-            connection_sendresponse((connection)(I->d.v), 0, _("You can hang around all day if you like. I have better things to do."));
+                connection_sendresponse(c, 0, _("You can hang around all day if you like. I have better things to do."));
 #else
-            connection_sendresponse((connection)(I->d.v), 0, _("Client has been idle for too long."));
+                connection_sendresponse(c, 0, _("Client has been idle for too long."));
 #endif
-            print_log(LOG_INFO, "net_loop: timed out client %s", ((connection)I->d.v)->idstr);
-            connection_delete((connection)(I->d.v));
-            if (post_fork) _exit(0);
-            I = list_remove(connections, I);
-            if (!I) break;
+                print_log(LOG_INFO, "net_loop: timed out client %s", c->idstr);
+                connection_delete(c);
+                *I = NULL;
+                if (post_fork) _exit(0);
+            }
         }
     }
 }
@@ -349,14 +372,16 @@ extern int authchild_status;
 #endif /* AUTH_OTHER */
 
 void net_loop() {
-    listitem J;
+    connection *J;
 #ifdef AUTH_OTHER
     sigset_t chmask;
     sigemptyset(&chmask);
     sigaddset(&chmask, SIGCHLD);
 #endif /* AUTH_OTHER */
 
-    connections = list_new();
+    /* 2 * max_running_children is a reasonable ball-park figure. */
+    max_connections = 2 * max_running_children;
+    connections = (connection*)calloc(max_connections, sizeof(connection*));
 
     print_log(LOG_INFO, _("net_loop: tpop3d version %s successfully started"), TPOP3D_VERSION);
     
@@ -405,8 +430,9 @@ void net_loop() {
     else print_log(LOG_INFO, _("net_loop: terminating on signal %d"), foad);
 
     if (connections) {
-        list_iterate(connections, J) connection_delete((connection)J->d.v);
-        list_delete(connections);
+        for (J = connections; J < connections + max_connections; ++J)
+            if (*J) connection_delete(*J);
+        free(connections);
     }
 }
 

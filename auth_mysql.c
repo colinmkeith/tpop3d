@@ -20,7 +20,7 @@ static const char rcsid[] = "$Id$";
 
 #include <sys/types.h> /* BSD needs this here, apparently. */
 
-#ifdef CRYPT_FUNCTION_IN_CRYPT_H
+#ifdef HAVE_CRYPT_H
 #include <crypt.h>
 #endif
 

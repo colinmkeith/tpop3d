@@ -135,7 +135,6 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     strcat(nn, c->domain);
                     c->a = authcontext_new_apop(nn, c->timestamp, digest, c->domain);
                     free(nn);
-
                 }
 
                 if (c->a) {
@@ -163,6 +162,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
 #else
                         connection_sendresponse(c, 0, _("Authentication failed."));
 #endif
+                        print_log(LOG_ERR, _("connection_do: client `%s': %d authentication failures"), c->idstr, c->n_auth_tries);
                         return do_nothing;
                     }
                 }
@@ -234,6 +234,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
 #else
                     connection_sendresponse(c, 0, _("Authentication failed."));
 #endif
+                    print_log(LOG_ERR, _("connection_do: client `%s': %d authentication failures"), c->idstr, c->n_auth_tries);
                     return do_nothing;
                 }
             }

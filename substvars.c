@@ -26,7 +26,7 @@ static const char rcsid[] = "$Id$";
  */
 char *xstrncat(char *pfx, const char *sfx, const size_t n) {
     char *s;
-    s = (char*)malloc(strlen(pfx) + strlen(sfx) + 1);
+    s = (char*)malloc(strlen(pfx) + n + 1);
     if (!s) return NULL;
     strcpy(s, pfx);
     strncat(s, sfx, n);

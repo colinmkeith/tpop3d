@@ -19,7 +19,6 @@ tpop3d_SOURCES = auth_mysql.c \
                  config.c \
                  connection.c \
                  errprintf.c \
-                 list.c	\
                  listener.c \
                  locks.c \
                  mailbox.c \
@@ -47,7 +46,6 @@ noinst_HEADERS = auth_mysql.h \
                  connection.h \
                  errprintf.h \
                  global.h \
-                 list.h \
                  listener.h \
                  locks.h \
                  mailbox.h \
@@ -81,7 +79,7 @@ EXTRA_DIST = bootstrap \
              CREDITS PORTABILITY CHANGES HACKING TODO README.auth_mysql \
              $(man_MANS) \
              tpop3d.cat tpop3d.conf.cat \
-             scripts/dotapopfile scripts/nasty \
+             scripts/dotapopfile scripts/nasty scripts/oraclevmail \
              TPOP3D-AuthDriver/AuthDriver.pm TPOP3D-AuthDriver/Changes \
              TPOP3D-AuthDriver/MANIFEST TPOP3D-AuthDriver/Makefile.PL TPOP3D-AuthDriver/test.pl
              
