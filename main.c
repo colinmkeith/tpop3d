@@ -162,7 +162,7 @@ void fork_child(connection *C, listitem *i) {
     listitem J;
     item *t;
     post_fork = 1; /* This is right. See below. */
-    muntrace();
+    /* muntrace(); */ /* Memory debugging on glibc systems. */
     switch(fork()) {
         case 0:
             /* Child. Dispose of listeners and connections other than this
@@ -452,7 +452,7 @@ int main(int argc, char **argv, char **envp) {
     char *configfile = "/etc/tpop3d.conf", c;
     int na;
 
-    mtrace();
+    /*mtrace();*/ /* Memory debugging on glibc systems. */
 
     /* Read the options. */
     opterr = 0;
