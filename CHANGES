@@ -3,7 +3,9 @@ $Id$
 
 Removed the test which ignored messages in a maildir having modification times
 in the future, replacing it with a warning about possible clock synchronisation
-errors, following a suggestion of Matthew Trent.
+errors, following a suggestion of Matthew Trent. Fixed a (recently-introduced)
+bug in the maildir code which could cause a segmentation faults on
+misconfigured systems.
 
 1.5.3
 

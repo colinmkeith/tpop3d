@@ -213,7 +213,7 @@ mailbox maildir_new(const char *dirname) {
     mailbox M, failM = NULL;
     struct timeval tv1, tv2;
     float f;
-    int locked;
+    int locked = 0;
  
     alloc_struct(_mailbox, M);
     

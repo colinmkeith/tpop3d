@@ -427,7 +427,7 @@ int connection_sendline(connection c, const char *s) {
         buf = xrealloc(buf, buflen = l + 1);
 
     sprintf(buf, "%s\r\n", s);
-    return connection_send(c, s, buf, l);
+    return connection_send(c, buf, l);
 }
 
 /* connection_sendmessage:
