@@ -61,8 +61,7 @@ int mailspool_load_index(mailbox m);
 #endif /* MBOX_BSD_SAVE_INDICES */
 
 /* file_unlock:
- * Unlock a mailspool file. Returns 1 on success or 0 on failure.
- */
+ * Unlock a mailspool file. Returns 1 on success or 0 on failure. */
 int file_unlock(const int fd, const char *name) {
     int r = 1;
  #ifdef WITH_FCNTL_LOCKING
@@ -83,8 +82,7 @@ int file_unlock(const int fd, const char *name) {
 /* file_lock:
  * Lock a mailspool file. Returns 1 on success or 0 on failure. This uses
  * whatever locking strategies the user has selected with compile-time
- * definitions.
- */
+ * definitions. */
 int file_lock(const int fd, const char *name) {
     int l_fcntl, l_flock, l_dotfile;
     l_fcntl = l_flock = l_dotfile = 0;
@@ -122,8 +120,7 @@ fail:
 }
 
 /* mailspool_make_indexpoint:
- * Make an indexpoint.
- */
+ * Make an indexpoint. */
 void mailspool_make_indexpoint(struct indexpoint *x, const size_t offset, const size_t length, const size_t msglength, const unsigned char *hash) {
     memset(x, 0, sizeof(struct indexpoint));
 
@@ -134,8 +131,7 @@ void mailspool_make_indexpoint(struct indexpoint *x, const size_t offset, const 
 }
 
 /* mailspool_new_from_file:
- * Open a file, lock it, and form an index of the messages in it.
- */
+ * Open a file, lock it, and form an index of the messages in it. */
 mailbox mailspool_new_from_file(const char *filename) {
     mailbox M, failM = NULL;
     int i;
@@ -203,6 +199,10 @@ mailbox mailspool_new_from_file(const char *filename) {
     f = (float)(tv2.tv_sec - tv1.tv_sec) + 1e-6 * (float)(tv2.tv_usec - tv1.tv_usec);
     log_print(LOG_DEBUG, _("mailspool_new_from_file: indexed mailspool %s (%d bytes) in %0.3fs"), filename, (int)M->st.st_size, f);
     
+    /* OK, now go through the mailspool and accumulate statistics. */
+    for (i = 0, M->totalsize = 0; i < M->num; ++i)
+        M->totalsize += M->index[i].msglength;
+    
     return M;
 
 fail:
@@ -211,8 +211,7 @@ fail:
 }
 
 /* mailspool_delete:
- * Deletion specific to mailspools.
- */
+ * Deletion specific to mailspools. */
 void mailspool_delete(mailbox m) {
     if (!m) return;
     if (m->name) file_unlock(m->fd, m->name);
@@ -223,36 +222,29 @@ void mailspool_delete(mailbox m) {
 
 /* memstr:
  * Locate needle, of length n_len, in haystack, of length h_len, returning
- * NULL if it is not found.
- */
+ * NULL if it is not found. */
 static char *memstr(const char *haystack, size_t h_len, const char *needle, size_t n_len)
 {
     const char *p;
 
     if (n_len > h_len)
-    return NULL;
+        return NULL;
 
-    p = (const char*) memchr(haystack, *needle, h_len - n_len);
+    p = (const char*)memchr(haystack, *needle, h_len - n_len + 1);
     while (p) {
-    if (!memcmp(p, needle, n_len))
-        return (char*)p;
-    else
-        p = (const char*)memchr(p + 1, *needle, (haystack + h_len - n_len) - p - 1);
+        if (!memcmp(p, needle, n_len))
+            return (char*)p;
+        else
+            p = (const char*)memchr(p + 1, *needle, h_len - n_len - (p - haystack));
     }
 
     return NULL;
 }
 
-/*
-struct timeval TT;
-#define ts(a)  do { struct timeval tv; float t; gettimeofday(&tv, NULL); t = (double)(tv.tv_sec - TT.tv_sec) + 1e-6 * (double)(tv.tv_usec - TT.tv_usec); log_print(LOG_DEBUG, a " delta = %lf", t); TT = tv; } while (0)
-*/
-
 /* mailspool_build_index:
  * Build an index of a mailspool. Uses mmap(2) for speed. Assumes that
  * mailspools use only '\n' to indicate EOL. Returns 0 on success or -1 on
- * failure.
- */
+ * failure. */
 int mailspool_build_index(mailbox M, char *filemem) {
     char *p, *q;
     size_t len, len2;
@@ -275,8 +267,7 @@ int mailspool_build_index(mailbox M, char *filemem) {
 
     if (M->num > 0) {
         /* Perhaps we are parsing the tail of the file, after reading a
-         * partial index?
-         */
+         * partial index? */
         struct indexpoint *P = M->index + M->num - 1;
         p = filemem + P->offset + P->msglength - 2;
         first = M->num;
@@ -313,18 +304,12 @@ int mailspool_build_index(mailbox M, char *filemem) {
         t->msglength = M->st.st_size - t->offset;
 
         /* We generate "unique" IDs by hashing the first 512 or so bytes of the
-         * data in each message. Only do this for messages we've just found.
-         */
+         * data in each message. Only do this for newly found messages. */
         for (t = M->index; t < M->index + M->num; ++t) {
-            MD5_CTX ctx;
             size_t n = 512;
 
             if (n > t->msglength) n = t->msglength;
-            
-            /* Compute MD5 */
-            MD5Init(&ctx);
-            MD5Update(&ctx, (unsigned char*)filemem + t->offset, n);
-            MD5Final(t->hash, &ctx);
+            md5_digest((void*)(filemem + t->offset), n, t->hash);
         }
     }
 
@@ -336,8 +321,7 @@ int mailspool_build_index(mailbox M, char *filemem) {
      *  Subject: DON'T DELETE THIS MESSAGE -- FOLDER INTERNAL DATA
      *  X-IMAP: <some numbers>
      *
-     * The metadata message is assumed to be the first one in the mailspool.
-     */
+     * The metadata message is assumed to be the first one in the mailspool. */
     if (M->num >= 1) {
         struct indexpoint *P = M->index;
         p = memstr(filemem + P->offset, P->msglength, "\n\n", 2);
@@ -353,7 +337,6 @@ int mailspool_build_index(mailbox M, char *filemem) {
 #endif /* IGNORE_CCLIENT_METADATA */
 
     munmap(filemem, len);
-/* ts("munmap");     */
     return 0;
 }
 
@@ -415,8 +398,7 @@ int mailspool_send_message(const mailbox M, int sck, const int i, int n) {
  * d + (K->offset - J->offset), to take account of the hole we made.
  * 
  * A special case occurs where the section to be deleted is at the end of the
- * file, at which point we can just ftruncate(2).
- */
+ * file, at which point we can just ftruncate(2). */
 int mailspool_apply_changes(mailbox M) {
     char *filemem, *s, *d;
     size_t len;
@@ -473,8 +455,7 @@ int mailspool_apply_changes(mailbox M) {
             while (K < End && !K->deleted) copylen += (K++)->msglength;
 
             /* Not every machine has a working memmove(3) (allows overlapping
-             * memory areas). If yours doesn't, you should get a better one ;)
-             */
+             * memory areas). If yours doesn't, get a better one ;) */
             memmove(d, s, copylen);
             d += copylen;
         }
@@ -523,8 +504,7 @@ int mailspool_apply_changes(mailbox M) {
  * some dumb pieces of software (I love you, PINE!) will modify them for some
  * deranged reason probably known only to people who live up in that corner of
  * the world among the giant redwoods, collapsing suspension bridges, and
- * 1970s software empires.
- */
+ * 1970s software empires. */
 
 /* mailspool_find_index:
  * Find the name of a mailspool's index file, using the spec in the config
@@ -601,8 +581,7 @@ char index_signature[] =
  * Save an index of a mailspool. Returns 1 on success or 0 on failure. Uses
  * stdio, which is unfortunate but makes it a bit easier to write. The
  * mailspool must be locked when this is called. Makes some attempt to avoid
- * clobbering files via symlink attacks.
- */
+ * clobbering files via symlink attacks. */
 int mailspool_save_index(mailbox m) {
     char *indexfile;
     int ret = 0;
@@ -626,8 +605,7 @@ int mailspool_save_index(mailbox m) {
     }
 
     /* Now we need to make sure that there isn't some sort of childish symlink
-     * attack in progress.
-     */
+     * attack in progress. */
     a = readlink(indexfile, buf, sizeof(buf));
     if (a == 0) {
         log_print(LOG_ERR, _("mailspool_save_index(%s): possible security problem: index file exists and is a symlink to `%s'"), indexfile, buf);
@@ -681,8 +659,7 @@ fail:
  * Attempts to construct a mailspool index from a saved index file, if one
  * exists and is of the correct format. We may find that we need to re-parse
  * the tail of the file; this is done by calling into the `normal'
- * mailspool_build_index. Returns 0 on success or -1 on failure.
- */
+ * mailspool_build_index. Returns 0 on success or -1 on failure. */
 int mailspool_load_index(mailbox m) {
     char *indexfile;
     FILE *fp = NULL;
@@ -706,8 +683,7 @@ int mailspool_load_index(mailbox m) {
     }
 
     /* Security. The file must have the correct permissions, and be owned by
-     * ourselves.
-     */
+     * ourselves. */
     if (fstat(fileno(fp), &st) == -1) {
         log_print(LOG_ERR, "mailspool_load_index(%s): %m", indexfile);
         goto fail;
@@ -725,8 +701,7 @@ int mailspool_load_index(mailbox m) {
     }
 
     /* Should now get a bunch of offset/hash lines. Stuff these into the
-     * mailbox object. Also mmap the real mailspool so we can check these.
-     */
+     * mailbox object. Also mmap the real mailspool so we can check these. */
     len = len2 = m->st.st_size;
 
     if (len < 16) goto fail;

@@ -223,7 +223,7 @@ static char *crypt_md5(const char *pw, const char *salt)
  * This file is public domain and comes with NO WARRANTY of any kind
  */
 
-/* hash_password:
+/* mysql_hash_password:
  * MySQL password-hashing routine. */
 static void mysql_hash_password(unsigned long *result, const char *password) {
     register unsigned long nr=1345345333L, add=7, nr2=0x12345671L;
@@ -241,7 +241,7 @@ static void mysql_hash_password(unsigned long *result, const char *password) {
     return;
 }
 
-/* make_scrambled_password:
+/* mysql_make_scrambled_password:
  * MySQL function to form a password hash and turn it into a string. */
 static void mysql_make_scrambled_password(char *to, const char *password) {
     unsigned long hash_res[2];
@@ -426,9 +426,6 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
                     break;
                 }
 
-                /* We will let the program figure out which sort of mailbox
-                 * to use later.
-                 */
                 a = authcontext_new(pw->pw_uid, use_gid ? gid : pw->pw_gid,
                                     row[3], row[0], pw->pw_dir, domain);
 
@@ -461,8 +458,6 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const c
     authcontext a = NULL;
     char *local_part = NULL;
     const char *domain;
-    char *p;
-    unsigned char *q;
     item *I;
     int use_gid = 0;
     gid_t gid;
@@ -556,21 +551,26 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const c
                             break;
 
                         default:
-                            log_print(LOG_ERR, _("auth_mysql_new_user_pass: %s@%s has mysql password type, but hash is of incorrect length %d"), local_part, domain, n);
+                            log_print(LOG_ERR, _("auth_mysql_new_user_pass: %s@%s has password type mysql, but hash is of incorrect length %d"), local_part, domain, n);
                             break;
                     }
                 } else if (strncmp(pwhash, "{md5}", 4) == 0 || *pwhash != '{') {
-                    /* Straight MD5 password. */
-                    MD5_CTX ctx;
-                    unsigned char digest[16];
-                    char hexhash[33] = {0};
-                    MD5Init(&ctx);
-                    MD5Update(&ctx, (unsigned char*)pass, strlen(pass));
-                    MD5Final(digest, &ctx);
+                    /* Straight MD5 password. But this might be either in hex
+                     * or base64 encoding. */
+                    if (*pwhash == '{')
+                        pwhash += 4;
 
-                    for (p = hexhash, q = digest; q < digest + 16; ++q, p += 2) snprintf(p, 3, "%02x", (unsigned)*q);
-
-                    if (strcasecmp(hexhash, pwhash + 5) == 0 || strcasecmp(hexhash, pwhash) == 0) authok = 1;
+                    if (strlen(pwhash) == 32) {
+                        /* Hex. */
+                        if (strcasecmp(pwhash, md5_digest_str(pass, strlen(pass), 0)))
+                            authok = 1;
+                    } else if (strlen(pwhash) == 24) {
+                        /* Base 64. */
+                        if (strcmp(pwhash, md5_digest_str(pass, strlen(pass), 1)))
+                            authok = 1;
+                    } else
+                        /* Doesn't make sense. */
+                        log_print(LOG_ERR, _("auth_mysql_new_user_pass: %s@%s has password type md5, but hash is of incorrect length"), local_part, domain);
                 } else {
                     /* Unknown format. */
                     log_print(LOG_ERR, _("auth_mysql_new_user_pass: %s@%s has unknown password format `%.*s'"), local_part, domain, 2 + strcspn(pwhash + 1, "}"), pwhash);

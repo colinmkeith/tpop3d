@@ -377,6 +377,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 curmsg->deleted = 1;
                 connection_sendresponse(c, 1, _("Done."));
                 ++curmbox->numdeleted;
+                curmbox->sizedeleted += curmsg->msglength;
             } else
                 connection_sendresponse(c, 0, _("Which message do you want to delete?"));
             break;
@@ -436,10 +437,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
 
         case STAT: {
                 char response[32] = {0};
-                /* Size here is approximate as we don't strip off the "From "
-                 * headers.
-                 */
-                snprintf(response, 31, "%d %d", curmbox->num, (int)curmbox->st.st_size);
+                snprintf(response, 31, "%d %d", curmbox->num - curmbox->numdeleted, curmbox->totalsize - curmbox->sizedeleted);
                 connection_sendresponse(c, 1, response);
                 break;
             }
@@ -448,6 +446,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 struct indexpoint *i;
                 for (i = curmbox->index; i < curmbox->index + curmbox->num; ++i) i->deleted = 0;
                 curmbox->numdeleted = 0;
+                curmbox->sizedeleted = 0;
                 connection_sendresponse(c, 1, _("Done."));
                 break;
             }

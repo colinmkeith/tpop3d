@@ -49,8 +49,8 @@
  */
 struct indexpoint {
     char    *filename;
-    size_t  offset, length, msglength;  /* Offsets and length for mailboxes.    */
-    time_t  mtime;                      /* Modification time used for maildirs. */
+    size_t  offset, length, msglength;  /* Offsets, length for mailspools.  */
+    time_t  mtime;                      /* Modified time used for maildirs. */
     char    deleted;
     unsigned char hash[16];
 };
@@ -61,13 +61,15 @@ struct indexpoint {
 typedef struct _mailbox *mailbox;
 
 struct _mailbox {
-    char *name;                 /* Spool filename or maildir directory name.    */
-    int fd;                     /* File descriptor for open mailspool.          */
-    char isempty;               /* Boolean for mailspool.                       */
-    struct stat st;             /* stat(2) buffer for file/directory.           */
-    struct indexpoint *index;   /* Array of message lengths/offsets.            */
-    int num, size;              /* Number of messages, and space allocated.     */
-    int numdeleted;             /* Number of messages deleted by client.        */
+    char *name;                 /* Spool filename or maildir directory name. */
+    int fd;                     /* File descriptor for open mailspool.       */
+    char isempty;               /* Boolean for mailspool.                    */
+    struct stat st;             /* stat(2) buffer for file/directory.        */
+    struct indexpoint *index;   /* Array of message lengths/offsets.         */
+    int num, size;              /* Number of messages, and space allocated.  */
+    int numdeleted;             /* Number of messages deleted by client.     */
+    int totalsize;              /* Sum of message sizes.                     */
+    int sizedeleted;            /* Sum of deleted message sizes.             */
 
     /* function pointers for pseudo OO-ness */
     void    (*delete)(mailbox m);
@@ -76,13 +78,11 @@ struct _mailbox {
 };
 
 /* Return code from a mailbox constructor used to indicate non-presence of the
- * mailbox.
- */
+ * mailbox. */
 #define MBOX_NOENT      ((mailbox)-1)
 
 /* struct mboxdrv:
- * Structure for describing alternate mailspool drivers.
- */
+ * Structure for describing alternate mailspool drivers. */
 struct mboxdrv {
     char *name;
     char *description;

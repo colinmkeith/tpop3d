@@ -91,6 +91,10 @@ void *xcalloc(size_t n, size_t m);
 void *xrealloc(void *w, size_t n);
 void xfree(void *v);
 
+/* MD5 digests. */
+void md5_digest(const void *v, const size_t n, unsigned char *md5);
+char *md5_digest_str(const void *v, const size_t n, const int base64);
+
 /* Optional internationalisation support. */
 #ifdef WITH_I18N
 #   include <gettext.h>

@@ -24,6 +24,7 @@ static const char rcsid[] = "$Id$";
 #include <unistd.h>
 #include <sys/mman.h>
 
+#include "md5.h"
 #include "util.h"
 
 /* xwrite:
@@ -283,4 +284,46 @@ void *xrealloc(void *w, size_t n) {
  * Free, ignoring a passed NULL value. */
 void xfree(void *v) {
     if (v) free(v);
+}
+
+/* md5_digest:
+ * Make an MD5 digest of some data. */
+void md5_digest(const void *v, const size_t n, unsigned char *md5) {
+    MD5_CTX ctx;
+    MD5Init(&ctx);
+    MD5Update(&ctx, (unsigned char*)v, n);
+    MD5Final(md5, &ctx);
+}
+
+/* md5_digest_str:
+ * Make an MD5 digest in a representable format, by default hex, otherwise in
+ * base64. */
+char *md5_digest_str(const void *v, const size_t n, const int base64) {
+    unsigned char md5[16], *p;
+    static char res[33] = {0};
+    char *q;
+    md5_digest(v, n, md5);
+    if (base64) {
+        /* Base 64 encoding per RFC2045 as from LDAP. */
+        const char b64[] = 
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        for (p = md5, q = res; p < md5 + 16; p += 3, q += 4) {
+            char s[5] = "====";
+#define P(i)    (p + i > md5 + 16 ? *(p + i) : 0)
+            s[0] = b64[P(0) >> 2];
+            s[1] = b64[(P(0) & 0x3 << 4) | (P(1) & 0xf0 >> 4)];
+            if (p + 1 < md5 + 16)
+                s[2] = b64[(P(1) & 0xf << 2) | (P(2) & 0xc0 >> 4)];
+            if (p + 2 < md5 + 16)
+                s[3] = b64[P(2) & 0x3f];
+            strcat(res, s);
+#undef P
+        }
+    } else {
+        /* Conventional hex encoding. */
+        for (p = md5, q = res; p < md5 + 16; ++p, q += 2)
+            sprintf(q, "%02x", (unsigned int)*p);
+    }
+
+    return res;
 }

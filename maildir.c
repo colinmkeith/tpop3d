@@ -80,8 +80,8 @@ int maildir_build_index(mailbox M, const char *subdir, time_t time) {
             struct indexpoint pt;
             maildir_make_indexpoint(&pt, filename, st.st_size, st.st_mtime);
             mailbox_add_indexpoint(M, &pt);
-            /* Hack: accumulate size of messages. */
-            M->st.st_size += st.st_size;
+            /* Accumulate size of messages. */
+            M->totalsize += st.st_size;
         }
         xfree(filename);
     }
