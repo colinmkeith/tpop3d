@@ -271,6 +271,7 @@ struct {
     enum pop3_command_code cmd;
 } pop3_commands[] =
     {{"APOP", APOP},
+     {"CAPA", CAPA},
      {"DELE", DELE},
      {"LIST", LIST},
      {"NOOP", NOOP},

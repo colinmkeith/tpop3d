@@ -140,7 +140,7 @@ enum pop3_command_code {UNKNOWN,
                         NOOP, PASS, QUIT,
                         RETR, RSET, STAT,
                         TOP,  UIDL, USER,
-                        LAST};
+                        LAST, CAPA};
     
 typedef struct _pop3command {
     enum pop3_command_code cmd;

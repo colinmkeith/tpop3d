@@ -50,24 +50,12 @@ $Id$
   reacquired. This is feasible, but would require careful thought.
 
 
-* Secured Sockets Layer support
-
-  It is possible to use tpop3d with an SSL proxy such as stunnel or tlsproxyd,
-    http://ex-parrot.com/~chris/software.html#tlsproxyd;
-  however, there are advantages to implementing such support natively in
-  tpop3d; in particular, it is more compatible with POP-before-SMTP relaying.
-  There is example code in the OpenSSL distribution which would serve as the
-  starting point for an implementation. However, there are issues with
-  blocking and non-blocking calls. The current plan is to have tpop3d fork
-  a process to handle TLS, while the main daemon carries on doing its stuff.
-
-
-* Multiple database failover for auth-mysql?
-
-
 * Optionally, run as nonprivileged user
 
 
 * Optionally, don't log to syslog
+
+
+* POP3 extended response codes (RFC2449)
 
 

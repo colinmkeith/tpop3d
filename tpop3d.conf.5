@@ -13,9 +13,9 @@
 tpop3d.conf \- configuration file for \fBtpop3d\fP(8)
 .SH SYNOPSIS
 .nf
-# comment
-\fIkey\fP: \fIvalue\fP
-\fIkey\fP: \fIvalue\fP          \\
+\fB#\fP \fIcomment\fP
+\fIkey\fP\fB:\fP \fIvalue\fP
+\fIkey\fP\fB:\fP \fIvalue\fP          \fB\\\fP
     \fIcontinuation of value\fP
   ...
 .fi
@@ -31,19 +31,47 @@ Presently-recognised configuration directives are:
 
 .TP
 .nf
-\fBlisten-address\fP: (\fIhostname\fP | \fIIP number\fP)[:\fIport\fP][(\fIdomain\fP)] ...
+\fBlisten-address\fP: \fIaddress\fP[\fB:\fP\fIport\fP][\fB(\fP\fIdomain\fP\fB)\fP|\fB/\fP\fIregex\fP\fB/\fP][\fB;\fP\fItls-options\fP] ...
 .fi
 .Sp
-The ports and addresses on which the daemon should listen for incoming
-connections. If any \fIport\fP is not specified, it is assumed to be
-\fBpop-3\fP (110). If \fIdomain\fP is not specified, it is assumed to be the
-section of the name associated with the given address after the first `.', or,
-if no such name can be established, the nodename of the system as determined
-by
-.BR uname (2).
-\fIdomain\fP may be used in virtual-domain authentication where there is
-more than one specified listening address; see below. Note that there may not
-be any whitespace within the specification of each listener.
+Specify an \fIaddress\fP and optional \fIport\fP on which incoming connections
+are accepted. \fIdomain\fP is the domain name for which the service is
+operated; alternatively, if mass virtual hosting support is compiled in (the
+default), then you can specify \fIregex\fP, a POSIX extended regular
+expression containing a single bracketed subexpression, instead of \fIdomain\fP;
+in this case, the regular expression is applied (in a case-insensitive sense)
+to the name of the host to which the client has connected, and the matching
+subexpression is used as the domain name. This only really makes sense if
+\fIaddress\fP is \fB0.0.0.0\fP (INADDR_ANY). If neither \fIdomain\fP nor 
+\fIregex\fP are given, the portion of the name associated with the given
+\fIaddress\fP following the first `.' is used, or, if no such name can be
+established, the nodename of the system determined by \fBuname\fP(2). If any
+\fIport\fP is not specified, it is assumed to be \fB110\fP (pop-3), or
+\fB995\fP (pop-3s) if in `immediate' TLS mode.
+
+If \fBtpop3d\fP has been compiled with support for TLS (`SSL'), then you may
+specify additional \fItls-options\fP for each address, in the following form:
+
+.nf
+  \fBtls=\fP(\fBimmediate\fP|\fBstls\fP)\fB,\fP\fIcertificate\fP[\fB,\fP\fIprivate-key\fP]
+.Sp
+.fi
+
+The first token after \fBtls=\fP specifies the mode of TLS operation in use on
+this address. There are two widely-supported modes of POP-3-over-TLS
+operation. In the first case, which we call \fBimmediate\fP mode, TLS
+negotiation is intiated immediately after a connection is received. In this
+mode, only TLS connections can be made to a particular address. In the other
+mode, the client establishes an unencrypted TCP connection, then issues the
+POP-3 command \fBSTLS\fP to initiate TLS negotiation. We call this \fBstls\fP
+mode. This mode permits unencrypted and TLS operation on the same address.
+
+The cryptographic identity to use for this address is read from the files
+named by \fIcertificate\fP and \fIprivate-key\fP. If only \fIcertificate\fP is
+given, then both the certificate and the private key should be contained in
+the one file. If a pass-phrase is required to make use of the certificate or
+private key, then \fBtpop3d\fP must be started with the \fB-P\fP option (see
+\fBtpop3d\fP(8)) to read the pass phrase from the terminal.
 
 To listen for connections on any interface and the default port, the directive
 
@@ -52,19 +80,14 @@ To listen for connections on any interface and the default port, the directive
 .Sp
 .fi
 
-is sufficient. There is no default for this option.
+is sufficient. To specify a specific domain, use this syntax:
 
-If \fBtpop3d\fP has been compiled with support for mass virtual hosting (which
-is the default), you may specify instead of a domain a POSIX extended regular
-expression enclosed in \fB//\fP; this should contain exactly one bracketed
-subexpression. In this mode, \fBtpop3d\fP will look up the host name of the
-address to which a client has connected, and will attempt to match it with the
-specified regular expression, and use the matched subexpression, if any, as the
-domain name. The match is evaluated in a case-insensitive sense. This feature
-only really makes sense if \fBtpop3d\fP is listening on address \fB0.0.0.0\fP
-(INADDR_ANY).
+.nf
+  listen-address: 12.34.56.78(example.com) 0.0.0.0(example.org)
+.Sp
+.fi
 
-For instance, on a host which has numerous interfaces with names
+If, alternatively, the machine has numerous interfaces with names
 \fBpop3.example.com\fP, \fBpop3.example.org\fP, etc., you could specify
 
 .nf
