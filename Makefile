@@ -6,6 +6,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.4  2000/10/09 23:19:07  chris
+# Makefile now works and stuff.
+#
 # Revision 1.3  2000/10/09 22:47:31  chris
 # Added .h dependencies.
 #
@@ -17,9 +20,14 @@
 #
 #
 
-CFLAGS  += -g -I/software/include/mysql
+VERSION = 0.4
+
+CFLAGS  += -g -I/software/include/mysql -DTPOP3D_VERSION="$(VERSION)"
 LDFLAGS += -g -L/software/lib/mysql
 LDLIBS  += -ldl -lpam -lefence -lmysqlclient
+
+TXTS =  README          \
+        COPYING
 
 SRCS =  auth_mysql.c	\
         auth_pam.c	\
@@ -49,11 +57,32 @@ HDRS =  auth_mysql.h	\
         stringmap.h	\
         vector.h
 
-tpop3d: $(OBJS)
-	$(CC) $(LDFLAGS) $(LDLIBS) -o $@ $^
+tpop3d: $(OBJS) depend Makefile
+	$(CC) $(LDFLAGS) $(LDLIBS) -o $@ $(OBJS)
 
-%.o: %.c $(HDRS)
+tarball: nodepend
+	mkdir tpop3d-$(VERSION)
+	cp $(SRCS) $(HDRS) $(TXTS) Makefile tpop3d-$(VERSION)
+	tar cvzf tpop3d-$(VERSION).tar.gz tpop3d-$(VERSION)
+	rm -rf tpop3d-$(VERSION)
+	mv tpop3d-$(VERSION).tar.gz ..
+
+checkin:
+	ci -l $(SRCS) $(HDRS) $(TXTS) Makefile
+
+%.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-clean:
-	rm -f *~ *.o core tpop3d
+clean: nodepend
+	rm -f *~ *.o core tpop3d depend
+
+depend:
+	makedepend -- $(CFLAGS) -- $(SRCS)
+	touch depend
+
+nodepend:
+	head -`grep -n "^# DO NOT DELETE" < Makefile | awk -F: '{print $$1;}'` < Makefile > Makefile.tmp # ugly; is there a better way to do this?
+	mv Makefile.tmp Makefile
+	rm -f depend
+ 
+# DO NOT DELETE
