@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.3  2000/10/02 18:20:19  chris
+ * Added config file support.
+ *
  * Revision 1.2  2000/09/26 22:23:36  chris
  * Various changes.
  *
@@ -15,6 +18,7 @@
 
 static const char rcsid[] = "$Id$";
 
+#include <grp.h>
 #include <pwd.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,6 +30,7 @@ static const char rcsid[] = "$Id$";
 
 #include "auth_pam.h"
 #include "authswitch.h"
+#include "stringmap.h"
 
 int auth_pam_conversation(int num_msg, const struct pam_message **msg, struct pam_response **resp, void *appdata_ptr) {
     const struct pam_message **m;
@@ -50,21 +55,64 @@ int auth_pam_conversation(int num_msg, const struct pam_message **msg, struct pa
 /* auth_pam_new_user_pass:
  * Attempt to authenticate user and pass using PAM.
  */
+extern stringmap config;
+
 authcontext auth_pam_new_user_pass(const char *user, const char *pass) {
     pam_handle_t *pamh = NULL;
     struct passwd pw, *pw2;
     int r, n = PAM_SUCCESS;
     authcontext a = NULL;
     struct pam_conv conv;
+    char *facility, *mailspool_dir;
+    item *I;
+    int use_gid = 0;
+    gid_t gid;
 
     pw2 = getpwnam(user);
     if (!pw2) return NULL;
     else memcpy(&pw, pw2, sizeof(pw));
 
+    /* Obtain facility name. */
+    I = stringmap_find(config, "auth-pam-facility");
+    if (I) facility = (char*)I->v;
+    else facility = AUTH_PAM_FACILITY;
+
+    /* Obtain mailspool directory */
+    if ((I = stringmap_find(config, "auth-pam-mailspool-dir"))) mailspool_dir = (char*)I->v;
+#ifdef AUTH_PAM_MAILSPOOL_DIR
+    else mailspool_dir = AUTH_PAM_MAILSPOOL_DIR;
+#else
+    else {
+        syslog(LOG_ERR, "auth_pam_new_user_pass: no mailspool directory known about\n");
+        return NULL;
+    }
+#endif
+ 
+    /* Obtain gid to use */
+    if ((I = stringmap_find(config, "auth-pam-mail-group"))) {
+        gid = atoi((char*)I->v);
+        if (!gid) {
+            struct group *grp;
+            grp = getgrnam((char*)I->v);
+            if (!grp) {
+                syslog(LOG_ERR, "auth_pam_new_user_pass: auth-pam-mail-group directive `%s' does not make sense", I->v);
+                return NULL;
+            }
+            gid = grp->gr_gid;
+        }
+        use_gid = 1;
+    }
+#ifdef AUTH_PAM_MAIL_GID
+    else {
+        gid = AUTH_PAM_MAIL_GID;
+        use_gid = 1;
+    }
+#endif
+
     conv.conv = auth_pam_conversation;
     conv.appdata_ptr = (void*)pass;
     
-    r = pam_start(AUTH_PAM_FACILITY, user, &conv, &pamh);
+    r = pam_start(facility, user, &conv, &pamh);
 
     if (r != PAM_SUCCESS) {
         syslog(LOG_ERR, "auth_pam_new_user_pass: pam_start: %s", pam_strerror(pamh, r));
@@ -75,15 +123,11 @@ authcontext auth_pam_new_user_pass(const char *user, const char *pass) {
 
     if (r == PAM_SUCCESS) {
         char *s;
-        s = (char*)malloc(strlen(AUTH_PAM_MAILSPOOL_DIR) + 1 + strlen(user) + 1);
+        s = (char*)malloc(strlen(mailspool_dir) + 1 + strlen(user) + 1);
         if (s) {
-            sprintf(s, AUTH_PAM_MAILSPOOL_DIR"/%s", user);
+            sprintf(s, "%s/%s", mailspool_dir, user);
             a = authcontext_new(pw.pw_uid,
-#ifndef AUTH_PAM_MAIL_GID
-                                pw.pw_gid,
-#else
-                                AUTH_PAM_MAIL_GID,
-#endif
+                                use_gid ? gid : pw.pw_gid,
                                 s);
             free(s);
         }

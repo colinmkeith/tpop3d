@@ -1,9 +1,18 @@
 /*
  * auth_mysql.c: authenticate users against a MySQL database
  *
+ * The only subtlety here is that the config directives for the database
+ * (password etc.) are privileged information, which must be cleared prior to
+ * forking after which the program could be attached to a debugger by a
+ * malicious user. In fact, we zero the information at point of attaching to
+ * the database.
+ * 
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.2  2000/10/02 18:20:19  chris
+ * Added config file support.
+ *
  * Revision 1.1  2000/09/26 22:23:36  chris
  * Initial revision
  *
@@ -12,6 +21,7 @@
 
 static const char rcsid[] = "$Id$";
 
+#include <grp.h>
 #include <pwd.h>
 #include <mysql.h>
 #include <stdio.h>
@@ -21,25 +31,73 @@ static const char rcsid[] = "$Id$";
 #include "auth_mysql.h"
 #include "authswitch.h"
 #include "md5.h"
+#include "stringmap.h"
 
 MYSQL *mysql;
 
-/* auth_mysql_init:
- * Initialise the database connection driver.
+/* strclr:
+ * Clear a string.
  */
+static void strclr(char *s) {
+    char *p = s;
+    while (*p) *p++ = 0;
+}
+
+/* auth_mysql_init:
+ * Initialise the database connection driver. Clears the config directives
+ * associated with the database so that a user cannot recover them with a
+ * debugger.
+ */
+extern stringmap config;
+
 int auth_mysql_init() {
+    char *username = NULL, *password = NULL, *hostname = NULL, *database = NULL, *localhost = "localhost";
+    item *I;
+    int ret = 0;
+
+    if ((I = stringmap_find(config, "auth-mysql-username"))) username = (char*)I->v;
+    else {
+        syslog(LOG_ERR, "auth_mysql_init: no auth-mysql-username directive in config");
+        goto fail;
+    }
+
+    if ((I = stringmap_find(config, "auth-mysql-password"))) password = (char*)I->v;
+    else {
+        syslog(LOG_ERR, "auth_mysql_init: no auth-mysql-password directive in config");
+        goto fail;
+    }
+
+    if ((I = stringmap_find(config, "auth-mysql-database"))) database = (char*)I->v;
+    else {
+        syslog(LOG_ERR, "auth_mysql_init: no auth-mysql-database directive in config");
+        goto fail;
+    }
+
+    if ((I = stringmap_find(config, "auth-mysql-hostname"))) hostname = (char*)I->v;
+    else hostname = localhost;
+
     mysql = mysql_init(NULL);
     if (!mysql) {
         syslog(LOG_ERR, "auth_mysql_init: mysql_init: failed");
-        return 0;
+        goto fail;
     }
 
-    if (mysql_real_connect(mysql, AUTH_MYSQL_HOSTNAME, AUTH_MYSQL_USERNAME, AUTH_MYSQL_PASSWORD, AUTH_MYSQL_DATABASE, 0, NULL, 0) != mysql) {
+    if (mysql_real_connect(mysql, hostname, username, password, database, 0, NULL, 0) != mysql) {
         syslog(LOG_ERR, "auth_mysql_init: mysql_real_connect: %s", mysql_error(mysql));
         mysql_close(mysql);
         mysql = NULL;
-        return 0;
+        goto fail;
     }
+
+    ret = 1;
+
+fail:
+    if (username) strclr(username);
+    if (password) strclr(password);
+    if (hostname) strclr(hostname);
+    if (database) strclr(database);
+
+    return ret;
 }
 
 /* auth_mysql_new_apop:
@@ -63,8 +121,32 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
     authcontext a = NULL;
     char *local_part;
     const char *domain;
+    item *I;
+    int use_gid = 0;
+    gid_t gid;
 
     if (!mysql) return NULL;
+
+    /* Obtain gid to use */
+    if ((I = stringmap_find(config, "auth-mysql-mail-group"))) {
+        gid = atoi((char*)I->v);
+        if (!gid) {
+            struct group *grp;
+            grp = getgrnam((char*)I->v);
+            if (!grp) {
+                syslog(LOG_ERR, "auth_mysql_new_apop: auth-mysql-mail-group directive `%s' does not make sense", I->v);
+                return NULL;
+            }
+            gid = grp->gr_gid;
+        }
+        use_gid = 1;
+    }
+#ifdef AUTH_PAM_MAIL_GID
+    else {
+        gid = AUTH_PAM_MAIL_GID;
+        use_gid = 1;
+    }
+#endif
 
     domain = name + strcspn(name, "@%!");
     if (domain == name || !*domain) return NULL;
@@ -147,11 +229,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
                 sprintf(mailbox, "%s/%s", row[0], row[1]);
 
                 a = authcontext_new(pw->pw_uid,
-#ifndef AUTH_MYSQL_MAIL_GID
-                                    pw->pw_gid,
-#else
-                                    AUTH_MYSQL_MAIL_GID,
-#endif
+                                    use_gid ? gid : pw->pw_gid,
                                     mailbox);
 
                 free(mailbox);
@@ -204,9 +282,33 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
     char *p;
     unsigned char *q;
     MD5_CTX ctx;
+    item *I;
+    int use_gid = 0;
+    gid_t gid;
 
     if (!mysql) return NULL;
 
+    /* Obtain gid to use */
+    if ((I = stringmap_find(config, "auth-mysql-mail-group"))) {
+        gid = atoi((char*)I->v);
+        if (!gid) {
+            struct group *grp;
+            grp = getgrnam((char*)I->v);
+            if (!grp) {
+                syslog(LOG_ERR, "auth_mysql_new_user_pass: auth-mysql-mail-group directive `%s' does not make sense", I->v);
+                return NULL;
+            }
+            gid = grp->gr_gid;
+        }
+        use_gid = 1;
+    }
+#ifdef AUTH_PAM_MAIL_GID
+    else {
+        gid = AUTH_PAM_MAIL_GID;
+        use_gid = 1;
+    }
+#endif
+    
     domain = user + strcspn(user, "@%!");
     if (domain == user || !*domain) return NULL;
     ++domain;
@@ -281,11 +383,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
                 sprintf(mailbox, "%s/%s", row[0], row[1]);
 
                 a = authcontext_new(pw->pw_uid,
-#ifndef AUTH_MYSQL_MAIL_GID
-                                    pw->pw_gid,
-#else
-                                    AUTH_MYSQL_MAIL_GID,
-#endif
+                                    use_gid ? gid : pw->pw_gid,
                                     mailbox);
 
                 free(mailbox);

@@ -6,6 +6,9 @@
  * $Id$
  *
  * $Log$
+ * Revision 1.2  2000/10/02 18:20:19  chris
+ * Added config file support.
+ *
  * Revision 1.1  2000/09/18 23:43:38  chris
  * Initial revision
  *
@@ -17,9 +20,13 @@
 
 #include "authswitch.h"
 
+/* config directive auth-pam-mailspool-dir */
 #define AUTH_PAM_MAILSPOOL_DIR  "/var/spool/mail"
+
+/* Config directive auth-pam-mail-group */
 #undef  AUTH_PAM_MAIL_GID
 
+/* Config directive auth-pam-facility */
 #define AUTH_PAM_FACILITY       "tpop3d"
 
 int         auth_pam_init(void);
