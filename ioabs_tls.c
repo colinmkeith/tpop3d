@@ -86,7 +86,7 @@ static int ioabs_tls_shutdown(connection c) {
         case SSL_ERROR_SYSCALL:
             if (!e) {
                 if (n == 0)
-                    log_print(LOG_ERR, _("ioabs_tls_shutdown: client %s: connection unexpectedly closed by peer"), c->idstr);
+                    log_print(LOG_WARNING, _("ioabs_tls_shutdown: client %s: underlying connection closed by peer during shutdown"), c->idstr);
                 else
                     log_print(LOG_ERR, _("ioabs_tls_shutdown: client %s: %m"), c->idstr);
                 break;

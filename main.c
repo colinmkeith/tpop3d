@@ -78,7 +78,7 @@ void usage(FILE *fp) {
     fprintf(fp, _(
 "tpop3d, version %s\n"
 "\n"
-"Synopsis: tpop3d -h | [-f file] [-p file] [-d] [-v]\n"
+"Synopsis: tpop3d -h | [options]\n"
 "\n"
 "  -h               Display this message\n"
 "  -f file          Read configuration from file\n"
@@ -100,16 +100,36 @@ void usage(FILE *fp) {
     authswitch_describe(fp);
     mailbox_describe(fp);
 
-#ifdef USE_TCP_WRAPPERS
-    fprintf(fp, _("This tpop3d has TCP Wrappers support.\n\n"));
-#else
-    fprintf(fp, _("This tpop3d does not have TCP Wrappers support.\n\n"));
+    fprintf(fp, _("Enabled features:\n\n"));
+
+#ifdef MASS_HOSTING
+    fprintf(fp, _("  Mass virtual hosting\n"));
 #endif
+#ifdef USE_DRAC
+    fprintf(fp, _("  DRAC (dynamic relay authentication control\n"));
+#endif
+#ifdef IGNORE_CCLIENT_METADATA
+    fprintf(fp, _("  Suppress C-client metadata\n"));
+#endif
+#ifdef USE_TCP_WRAPPERS
+    fprintf(fp, _("  TCP Wrappers\n"));
+#endif
+#ifdef USE_TLS
+    fprintf(fp, _("  TLS\n"));
+#endif
+#ifdef USE_WHOSON
+    fprintf(fp, _("  WHOSON protocol\n"));
+#endif
+
     
     fprintf(fp, _(
-"tpop3d, copyright (c) 2000-2 Chris Lightfoot <chris@ex-parrot.com>;\n"
-"portions copyright (c) 2001-2 Mark Longair, Paul Makepeace, Sebastien Thomas.\n"
-"home page: http://www.ex-parrot.com/~chris/tpop3d/\n"
+"\n"
+"tpop3d, copyright (c) 2000-2 Chris Lightfoot <chris@ex-parrot.com>; portions\n"
+"copyright (c) 2001-2 Mark Longair, Paul Makepeace, Sebastien Thomas,\n"
+"Yann Grossel, Arkadiusz Miskiewicz, Ben Schumacher and others. See the\n"
+"CREDITS file for full details.\n"
+"\n"
+"Home page: http://www.ex-parrot.com/~chris/tpop3d/\n"
 "\n"
 "This program is free software; you can redistribute it and/or modify\n"
 "it under the terms of the GNU General Public License as published by\n"

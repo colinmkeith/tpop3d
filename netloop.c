@@ -105,19 +105,23 @@ static void listeners_post_select(fd_set *readfds, fd_set *writefds, fd_set *exc
     vector_iterate(listeners, t) {
         listener L = (listener)t->v;
         if (FD_ISSET(L->s, readfds)) {
-            struct sockaddr_in sin;
+            struct sockaddr_in sin, sinlocal;
             size_t l = sizeof(sin);
             int s, a = MAX_DATA_IN_FLIGHT;
 
             /* XXX socklen_t mess... */
             s = accept(L->s, (struct sockaddr*)&sin, (int*)&l);
             
+            l = sizeof(sin);
+            if (s != -1) getsockname(s, (struct sockaddr*)&sinlocal, (int*)&l);
+
             if (s == -1) {
                 if (errno != EAGAIN) log_print(LOG_ERR, "net_loop: accept: %m");
             }
+            
 #ifdef USE_TCP_WRAPPERS
             else if (!hosts_ctl(tcpwrappersname, STRING_UNKNOWN, inet_ntoa(sin.sin_addr), STRING_UNKNOWN)) {
-                log_print(LOG_ERR, "net_loop: tcp_wrappers: connection from %s refused", inet_ntoa(sin.sin_addr));
+                log_print(LOG_ERR, "net_loop: tcp_wrappers: connection from %s to local address %s:%d refused", inet_ntoa(sin.sin_addr), inet_ntoa(sinlocal.sin_addr), htons(sinlocal.sin_port));
                 close(s);
             }
 #endif
@@ -136,14 +140,14 @@ static void listeners_post_select(fd_set *readfds, fd_set *writefds, fd_set *exc
                 if (num_running_children >= max_running_children || !(J = find_free_connection())) {
                     shutdown(s, 2);
                     close(s);
-                    log_print(LOG_WARNING, _("listeners_post_select: rejected connection from %s owing to high load"), inet_ntoa(sin.sin_addr));
+                    log_print(LOG_WARNING, _("listeners_post_select: rejected connection from %s to local address %s:%d owing to high load"), inet_ntoa(sin.sin_addr), inet_ntoa(sinlocal.sin_addr), htons(sinlocal.sin_port));
                 } else {
                     /* Create connection object. */
                     if ((*J = connection_new(s, &sin, L)))
-                        log_print(LOG_INFO, _("listeners_post_select: client %s: connected"), (*J)->idstr);
+                        log_print(LOG_INFO, _("listeners_post_select: client %s: connected to local address %s:%d"), (*J)->idstr, inet_ntoa(sinlocal.sin_addr), htons(sinlocal.sin_port));
                     else
                         /* This could be really bad, but all we can do is log the failure. */
-                        log_print(LOG_ERR, _("listeners_post_select: unable to set up connection from %s: %m"), inet_ntoa(sin.sin_addr));
+                        log_print(LOG_ERR, _("listeners_post_select: unable to set up connection from %s to local address %s:%d: %m"), inet_ntoa(sin.sin_addr), inet_ntoa(sinlocal.sin_addr), htons(sinlocal.sin_port));
                 }
             }
         }
