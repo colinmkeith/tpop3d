@@ -1,9 +1,12 @@
 /*
- * authswitch.c:
+ * authswitch.c: authentication driver switch
  *
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.3  2000/10/02 18:20:19  chris
+ * Added session logging.
+ *
  * Revision 1.2  2000/09/26 22:23:36  chris
  * Various changes.
  *
@@ -91,7 +94,12 @@ authcontext authcontext_new_apop(const char *timestamp, const char *name, unsign
     int *aar;
     
     for (aa = auth_drivers, aar = auth_drivers_running; aa < auth_drivers_end; ++aa, ++aar)
-        if (*aar && aa->auth_new_apop && (a = aa->auth_new_apop(timestamp, name, digest))) return a;
+        if (*aar && aa->auth_new_apop && (a = aa->auth_new_apop(timestamp, name, digest))) {
+            a->auth = strdup(aa->name);
+            a->credential = strdup(name);
+            syslog(LOG_INFO, "authcontext_new_apop: began session for `%s' with %s; uid %d, gid %d", a->credential, a->auth, getuid(), getgid());
+            return a;
+        }
 
     return NULL;
 }
@@ -105,7 +113,12 @@ authcontext authcontext_new_user_pass(const char *user, const char *pass) {
     int *aar;
 
     for (aa = auth_drivers, aar = auth_drivers_running; aa < auth_drivers_end; ++aa, ++aar)
-        if (aar && aa->auth_new_user_pass && (a = aa->auth_new_user_pass(user, pass))) return a;
+        if (aar && aa->auth_new_user_pass && (a = aa->auth_new_user_pass(user, pass))) {
+            a->auth = strdup(aa->name);
+            a->credential = strdup(user);
+            syslog(LOG_INFO, "authcontext_new_apop: began session for `%s' with %s; uid %d, gid %d", a->credential, a->auth, a->uid, a->gid);
+            return a;
+        }
 
     return NULL;
 }
@@ -125,6 +138,9 @@ void authswitch_close() {
     free(auth_drivers_running);
 }
 
+/* authcontext_new:
+ * Fill in a new authentication context structure with the given information.
+ */
 authcontext authcontext_new(const uid_t uid, const gid_t gid, const char *mailspool) {
     authcontext a;
     a = (authcontext)malloc(sizeof(struct _authcontext));
@@ -138,12 +154,28 @@ authcontext authcontext_new(const uid_t uid, const gid_t gid, const char *mailsp
         return NULL;
     }
 
+    a->auth = NULL;
+    a->credential = NULL;
+
     return a;
 }
 
+/* authcontext_delete:
+ * Free data associated with an authentication context.
+ */
 void authcontext_delete(authcontext a) {
     if (!a) return;
 
     if (a->mailspool) free(a->mailspool);
+
+    /* Only log if this is the end of the session, not the parent freeing its
+     * copy of the data. (This is a hack, and I am ashamed.)
+     */
+    if (getuid() == a->uid && a->auth && a->credential)
+        syslog(LOG_INFO, "authcontext_delete: finished session for `%s' with %s", a->credential, a->auth);
+
+    if (a->auth) free(a->auth);
+    if (a->credential) free(a->credential);
+    
     free(a);
 }
