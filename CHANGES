@@ -13,6 +13,8 @@ problem in the command parsing code which could cause problems with Eudora's
 command pipelining; thanks to Shin Zukeran for this fix. Fixed a minor problem
 in the PAM code, thanks to Christian Nordmann, and also added facility to use
 auth-pam for authenticating users who have no UNIX account based on his patch.
+Added scripts/tpop3dtraffic, which extracts the identity of the heaviest POP3
+users from logfiles.
 
 1.4.2
 

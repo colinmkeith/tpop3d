@@ -30,6 +30,7 @@ char *cfgdirectives[] = {
     "apop-only",
     "mailbox",
     "no-detach",
+    "permit-empty-passwords",
 
 #ifdef AUTH_PAM
     /* auth-pam options */

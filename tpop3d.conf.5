@@ -289,11 +289,16 @@ then authentication will be attempted using:
 .Sp
 In this case, no alternative attempt will be made if authentication fails.
 
+One global option applies to all authenticators:
+.TP
+\fBpermit-empty-password\fP: (\fByes\fP|\fBtrue\fP)
+If enabled, users may log in with an empty password. (Note that their client
+\fImust\fP send a space after the PASS command in this case.)
+
 .SS PAM authentication options
 
 \fBauth-pam\fP uses Pluggable Authentication Modules to authenticate
 conventional (non-virtual-domains) users.
-
 .TP
 \fBauth-pam-enable\fP: (\fByes\fP|\fBtrue\fP)
 Enable authentication using Pluggable Authentication Modules.
@@ -332,7 +337,6 @@ will probably not work. You will normally want to set this to `mail'.
 .SS MySQL authentication options
 
 These are only available if you compiled tpop3d with \fBauth-mysql\fP support.
-
 .TP
 \fBauth-mysql-enable\fP: (\fByes\fP | \fBtrue\fP)
 Enable MySQL authentication.
@@ -496,7 +500,6 @@ file.
 
 These are only available if you compiled \fBtpop3d\fP with support for
 \fBauth-flatfile\fP.
-
 .TP
 \fBauth-flatfile-enable\fP: (\fByes\fP | \fBtrue\fP)
 Enable flat file authentication.
@@ -522,7 +525,6 @@ the configuration file. The file to be used is located by substituting for
 
 These are only available if you compiled \fBtpop3d\fP with support for
 \fBauth-other\fP.
-
 .TP
 \fBauth-other-enable\fP: (\fByes\fP | \fBtrue\fP)
 Enable external program authentication.
@@ -659,7 +661,6 @@ restart it automatically.
 
 These are only available if you compiled \fBtpop3d\fP with support for
 \fBauth-perl\fP.
-
 .TP
 \fBauth-perl-enable\fP: (\fByes\fP | \fBtrue\fP)
 Enable authentication via an embedded perl interpreter.

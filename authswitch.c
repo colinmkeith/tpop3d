@@ -256,6 +256,13 @@ authcontext authcontext_new_user_pass(const char *user, const char *local_part, 
     char *x = NULL;
     const char *l = NULL, *d = NULL;
 
+    /* This is here mainly for users who forgot to switch off LDAP anonymous
+     * authentication.... */
+    if (*pass == 0 && !config_get_bool("permit-empty-password")) {
+        log_print(LOG_WARNING, _("authcontext_new_user_pass: rejecting login attempt by `%s' with empty password"), user);
+        return NULL;
+    }
+    
     l = local_part;
     d = domain;
     
