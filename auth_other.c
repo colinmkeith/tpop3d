@@ -409,8 +409,10 @@ stringmap auth_other_recv_response() {
                         goto fail;
 
                     case -1:
-                        print_log(LOG_ERR, _("auth_other_recv_response: read: %m; killing child"));
-                        goto fail;
+                        if (errno != EINTR) {
+                            print_log(LOG_ERR, _("auth_other_recv_response: read: %m; killing child"));
+                            goto fail;
+                        } else break;
 
                     default:
                         p += rr;
