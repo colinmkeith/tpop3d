@@ -47,21 +47,33 @@ AC_ARG_ENABLE(ignore-cclient-metadata,
     [enable_ignore_cclient_metadata=$enableval],
     [enable_ignore_cclient_metadata=yes])
 
-AC_ARG_WITH(authentication,
-        [  --with-authentication=TYPE
-                          Set the type of authentication used.  TYPE
-                          can be passwd, shadow, pam or vmail-sql
-                          [default=pam]],
-    [authentication=$withval],
-    [authentication="pam"])
+dnl The various authentication options...
 
-case $authentication in
-    pam)    ;;
-    passwd) ;;
-    shadow) ;;
-    vmail-sql)  ;;
-    *)  AC_MSG_ERROR( Unknown authentication type: $authentication ) ;;
-esac
+AC_ARG_ENABLE(passwd-authentication,
+        [  --enable-passwd-authentication
+                          Enable /etc/passwd authentication. [default=no]],
+    [enable_passwd=$enableval],
+    [enable_passwd="no"])
+
+AC_ARG_ENABLE(shadow-authentication,
+        [  --enable-shadow-authentication
+                          Enable /etc/shadow authentication. [default=no]],
+    [enable_shadow=$enableval],
+    [enable_shadow="no"])
+
+AC_ARG_ENABLE(pam-authentication,
+        [  --enable-pam-authentication
+                          Enable PAM authentication. [default=yes]],
+    [enable_pam=$enableval],
+    [enable_pam="yes"])
+
+AC_ARG_ENABLE(vmail-sql-authentication,
+        [  --enable-vmail-sql-authentication
+                          Enable vmail-sql authentication. [default=no]],
+    [enable_vmail_sql=$enableval],
+    [enable_vmail_sql="no"])
+
+dnl Choose the type of messages the server sends users...
 
 AC_ARG_ENABLE(snide-comments,
         [  --disable-snide-comments
@@ -88,44 +100,49 @@ AC_ARG_WITH(mysql-root,
 dnl Now do some configuration based on these options; nothing done
 dnl here should have awkward dependencies.
 
-if test x"$authentication" = x"passwd" || test x"$authentication" = x"shadow"
+if test x"$enable_passwd" = x"yes" || test x"$enable_shadow" = x"yes"
 then
     AC_DEFINE(AUTH_PASSWD,1,[Use /etc/passwd style authentication.])
 fi
 
-if test x"$authentication" = x"shadow"
+if test x"$enable_shadow" = x"yes"
 then
     AC_DEFINE(AUTH_PASSWD_SHADOW,1,[Use shadow password authentication.])
 fi
 
-if test x"$authentication" = x"pam"
+if test x"$enable_pam" = x"yes"
 then
     AC_DEFINE(AUTH_PAM,1,[Use PAM authetication.])
 fi
 
-if test x"$authentication" = x"vmail-sql"
+if test x"$enable_vmail_sql" = x"yes"
 then
     AC_DEFINE(AUTH_MYSQL,1,[Use vmail-sql style authentication.])
 fi
+
 
 if test x"$enable_snide" = x"no"
 then
     AC_DEFINE(NO_SNIDE_COMMENTS,1,[Turns off responses that some people object to.])
 fi
 
+
 if test x"$enable_backtrace" = x"yes"
 then
     AC_DEFINE(APPALLING_BACKTRACE_HACK,1,[Produce a backtrace if the program crashes.])
 fi
 
+
 AC_DEFINE_UNQUOTED( MAILSPOOL_DIR, "$mspool", [Tells tpop3d where the mailspool is.] )
 
-if test x"$authentication" = x"vmail-sql"
+
+if test x"$enable_vmail_sql" = x"yes"
 then
     LDFLAGS="$LDFLAGS -L$mysql_root/lib/mysql"
     dnl Also have to do CPPFLAGS, so that AC_CHECK_HEADER works...
     CPPFLAGS="$CPPFLAGS -I$mysql_root/include/mysql"
 fi
+
 
 if test x"$enable_cclient" = x"yes"
 then
@@ -141,6 +158,7 @@ then
 #       AC_MSG_ERROR(--enable-ignore-cclient-metadata makes no sense without --enable-cclient-locking.)
 #   fi
 fi
+
 
 if test x"$enable_dotfile" = x"yes"
 then
@@ -172,18 +190,18 @@ then
     LDFLAGS="$LDFLAGS -umalloc -ufree -ucalloc -urealloc"
 fi
 
-if test x"$authentication" = x"passwd" || test x"$authentication" = x"shadow"
+if test x"$enable_passwd" = x"yes" || test x"$enable_shadow" = x"yes"
 then
     AC_CHECK_LIB(crypt, main, [], AC_MSG_ERROR([[passwd authentication enabled, but can't find libcrypt]]) )
 fi
 
-if test x"$authentication" = x"pam"
+if test x"$enable_pam" = x"yes"
 then
     AC_CHECK_LIB(dl, main, [], [] )
     AC_CHECK_LIB(pam, pam_start, [], AC_MSG_ERROR([[pam authentication enabled, but can't find libpam]]) )
 fi
 
-if test x"$authentication" = x"vmail-sql"
+if test x"$enable_vmail_sql" = x"yes"
 then
     AC_CHECK_LIB(mysqlclient, main, [], AC_MSG_ERROR([[vmail-sql authentication enabled, but can't find libmysqlclient]]) )
 fi
@@ -202,7 +220,7 @@ then
     fi
 fi
 
-if test x"$authentication" = x"passwd" || test x"$authentication" = x"shadow"
+if test x"$enable_passwd" = x"yes" || test x"$enable_shadow" = x"yes"
 then
     if test x"$ac_cv_header_crypt_h" != x"yes"
     then
@@ -210,7 +228,7 @@ then
     fi
 fi
 
-if test x"$authentication" = x"pam"
+if test x"$enable_pam" = x"yes"
 then
     if test x"$ac_cv_header_security_pam_appl_h" != x"yes"
     then
@@ -218,7 +236,7 @@ then
     fi
 fi
 
-if test x"$authentication" = x"vmail-sql"
+if test x"$enable_vmail_sql" = x"yes"
 then
     if test x"$ac_cv_header_mysql_h" != x"yes"
     then
@@ -280,19 +298,19 @@ then
 
 fi
 
-if test x"$authentication" = x"passwd" || test x"$authentication" = x"shadow"
+if test x"$enable_passwd" = x"yes" || test x"$enable_shadow" = x"yes"
 then
     AC_CHECK_FUNC(crypt, [], AC_MSG_ERROR([[passwd authentication enabled, but crypt doesn't seem to be available.]]))
 
 fi
 
-if test x"$authentication" = x"pam"
+if test x"$enable_pam" = x"yes"
 then
     AC_CHECK_FUNC(pam_authenticate, [], AC_MSG_ERROR([[PAM authentication enabled, but pam_authenticate doesn't seem to be available.]]))
 
 fi
 
-if test x"$authentication" = x"vmail-sql"
+if test x"$enable_vmail_sql" = x"yes"
 then
     AC_CHECK_FUNC(mysql_init, [], AC_MSG_ERROR([[vmail-sql authentication enabled, but mysql_init doesn't seem to be available.]]))
 
