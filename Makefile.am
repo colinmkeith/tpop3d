@@ -52,3 +52,6 @@ EXTRA_DIST = bootstrap \
              
 MAINTERCLEANFILES = Makefile.in aclocal.m4 configure configuration.h.in \
                     stamp-h.in
+
+ACLOCAL = aclocal -I @ac_aux_dir@
+
