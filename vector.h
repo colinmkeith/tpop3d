@@ -1,0 +1,45 @@
+/*
+ * vector.h: simple vectors
+ *
+ * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
+ *
+ * $Id$
+ *
+ * $Log$
+ * Revision 1.1  2000/09/18 23:43:38  chris
+ * Initial revision
+ *
+ *
+ */
+
+#ifndef __VECTOR_H_ /* include guard */
+#define __VECTOR_H_
+
+typedef union {
+    void *v;
+    long l;
+} item;
+
+static item item_long(const long l) { item u; u.l = l; return u; }
+static item item_ptr(void *const v) { item u; u.v = v; return u; }
+
+typedef struct _vector{
+    item *ary;
+    size_t n, n_used;
+} *vector;
+
+vector vector_new();
+void vector_delete(vector);
+
+void  vector_push_back(vector, const item);
+void  vector_pop_back(vector);
+item vector_back(const vector);
+
+item *vector_remove(vector, item *t);
+
+void  vector_reallocate(vector, const size_t n);
+
+/* A macro to iterate over a vector */
+#define vector_iterate(_v, _t)  for (_t = _v->ary; _t < _v->ary + _v->n_used; ++_t)
+
+#endif /* __VECTOR_H_ */
