@@ -39,7 +39,9 @@ static ssize_t ioabs_tcp_immediate_write(connection c, const void *buf, size_t c
     io = (struct ioabs_tcp*)c->io;
     if (c->cstate == closed)
         return IOABS_ERROR;
-    n = xwrite(c->s, buf, count);
+    do
+        n = write(c->s, buf, count);
+    while (n == -1 && errno == EINTR);
     if (n > 0)
         c->nwr += n;
     if (n == -1) {
@@ -113,7 +115,9 @@ static int ioabs_tcp_post_select(connection c, fd_set *readfds, fd_set *writefds
             size_t wlen;
             if (!(w = buffer_get_consume_ptr(c->wrb, &wlen)))
                 break; /* no more data to write */
-            n = xwrite(c->s, w, wlen);
+            do
+                n = write(c->s, w, wlen);
+            while (n == -1 && errno == EINTR);
             if (n > 0) {
                 buffer_consume_bytes(c->wrb, n);
                 c->nwr += n;
