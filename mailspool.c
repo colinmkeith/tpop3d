@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.6  2000/10/10 00:05:36  chris
+ * Fixed problems with nonexistent/empty mailspools.
+ *
  * Revision 1.5  2000/10/09 18:44:47  chris
  * Minor changes.
  *
@@ -155,6 +158,7 @@ mailspool mailspool_new_from_file(const char *filename) {
             M->name = strdup("/dev/null");
             M->fd = -1;
             M->isempty = 1;
+            M->index = vector_new();
             return M;
         } else {
             /* Oops. */
@@ -246,6 +250,9 @@ vector mailspool_build_index(mailspool M) {
     if (!M->index) return NULL;
 
     len = len2 = M->st.st_size;
+
+    if (len < 16) return M->index; /* Mailspool doesn't contain any messages. */
+
     len += PAGESIZE - (len % PAGESIZE);
     filemem = mmap(0, len, PROT_READ, MAP_PRIVATE, M->fd, 0);
     if (filemem == MAP_FAILED) {
@@ -268,7 +275,7 @@ vector mailspool_build_index(mailspool M) {
             vector_push_back(M->index, item_ptr(indexpoint_new(o, l, 0, p)));
 
             p = memstr(q, len2 - (q - filemem), "\n\nFrom ", 7);
-        }
+        } else break;
     } while (p);
 
     /* OK, we're done, figure out the lengths */
@@ -465,7 +472,7 @@ int mailspool_apply_changes(mailspool M) {
     size_t len;
     item *I, *J, *K, *End;
 
-    if (!M || M->fd == -1) return 0;
+    if (!M || M->fd == -1) return 1;
 
     if (M->numdeleted == 0)
         /* No messages deleted, do nothing. */
