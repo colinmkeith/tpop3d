@@ -111,6 +111,9 @@ char *cfgdirectives[] = {
 #ifdef USE_DRAC
     "drac-server",
 #endif
+
+#ifdef USE_WHOSON
+    "whoson-enable",
     
     /* final entry must be NULL */
     NULL};

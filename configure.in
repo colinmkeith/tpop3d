@@ -12,7 +12,7 @@ dnl
 AC_INIT(auth_mysql.c)
 AC_CONFIG_AUX_DIR(config)
 AM_CONFIG_HEADER(configuration.h)
-AM_INIT_AUTOMAKE(tpop3d, "1.4.2")
+AM_INIT_AUTOMAKE(tpop3d, "1.5.1pre1")
 
 AC_DEFINE_UNQUOTED(TPOP3D_VERSION, "$VERSION", [The tpop3d version number])
 
@@ -198,6 +198,19 @@ AC_ARG_ENABLE(drac,
     [enable_drac=$enableval],
     [enable_drac=no])
 
+AC_ARG_ENABLE(whoson,
+	[  --enable-whoson                      Enable support for using the WHOSON
+                                      protocol for POP-before-SMTP relaying
+	 			      [default=no]],
+    [enable_whoson=$enableval],
+    [enable_whoson=no])
+
+AC_ARG_ENABLE(masshosting,
+        [  --disable-mass-hosting              Switch off support for inferring domain
+                                      names by inverse name resolution],
+    [enable_masshosting=$enableval],
+    [enable_masshosting=yes])
+
 dnl Some options mainly useful for development/debugging.
 
 dnl Note the ugliness I've used to put a note in the output of
@@ -331,6 +344,16 @@ then
     AC_DEFINE(USE_DRAC,1,[Enables notification of a DRAC daemon.])
 fi
 
+if test x"$enable_whoson" = x"yes" 
+then
+    AC_DEFINE(USE_WHOSON,1,[Enables notification of a WHOSON daemon.])
+fi
+
+if test x"$enable_masshosting" = x"yes"
+then
+    AC_DEFINE(MASS_HOSTING,1,[Enable regex matching of inverse DNS results for domain names])
+fi
+    
 if test x"$enable_backtrace" = x"yes"
 then
     AC_DEFINE(APPALLING_BACKTRACE_HACK,1,[Produce a backtrace if the program crashes.])
@@ -371,8 +394,15 @@ fi
 dnl Checks for libraries.
 
 AC_SEARCH_LIBS(socket, socket)
+
 AC_CHECK_FUNC(gethostbyname, ,
 	[AC_CHECK_LIB(nsl, gethostbyname)] )
+
+# Some machines have regcomp in -lre.
+if test x"$enable_masshost" = x"yes"
+then
+    AC_SEARCH_LIBS(regcomp, re)
+fi
 
 if test x"$enable_efence" = x"yes"
 then
@@ -437,6 +467,11 @@ dnl    AC_SEARCH_LIBS(dracauth, drac)
     AC_CHECK_LIB(drac, dracauth, [], AC_MSG_ERROR([[DRAC support enabled, but no dracauth(3)]]))
 fi
 
+if test x"$enable_whoson" = x"yes"
+then
+    AC_CHECK_LIB(whoson, wso_login, [], AC_MSG_ERROR([[WHOSON support enabled, but no wso_login(3)]]))
+fi
+    
 dnl Checks for header files.
 AC_HEADER_STDC
 AC_HEADER_SYS_WAIT

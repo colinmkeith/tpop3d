@@ -52,6 +52,31 @@ To listen for connections on any interface and the default port, the directive
 .fi
 
 is sufficient. There is no default for this option.
+
+If \fBtpop3d\fP has been compiled with support for mass virtual hosting (which
+is the default), you may specify instead of a domain a POSIX extended regular
+expression enclosed in \fB//\fP; this should contain exactly one bracketed
+subexpression. In this mode, \fBtpop3d\fP will look up the host name of the
+address to which a client has connected, and will attempt to match it with the
+specified regular expression, and use the matched subexpression, if any, as the
+domain name. The match is evaluated in a case-insensitive sense. This feature
+only really makes sense if \fBtpop3d\fP is listening on address \fB0.0.0.0\fP
+(INADDR_ANY).
+
+For instance, on a host which has numerous interfaces with names
+\fBpop3.example.com\fP, \fBpop3.example.org\fP, etc., you could specify
+
+.nf
+  listen-address: 0.0.0.0/^pop3\.(.*)$/
+.Sp
+.fi
+
+to accept incoming connections and associate them with the proper domains.
+Note that for this to work, all interfaces on which connections are to be
+accepted must have functioning inverse name resolution; also, in this case,
+\fBtpop3d\fP will do a name lookup for each incoming connection, which may
+block in the event of a DNS failure. You may wish to create some other mapping
+-- perhaps in /etc/hosts -- to ensure that this does not occur.
 .TP
 \fBmax-children\fP: \fInumber\fP
 The maximum number of child processes which may be actively serving
@@ -191,6 +216,10 @@ specified, this will default to `tpop3d'. This feature is only available if
 \fBdrac-server\fP: \fIhostname\fP
 If specified, gives the name of a server to which \fBtpop3d\fP should send
 DRAC notifications about successful logins.
+.TP
+\fBwhoson-enable\fP: (\fByes\fP|\fBtrue\fP)
+Enable notification of successful logins to a WHOSON server as defined in
+/etc/whoson.conf.
 
 .SS Options relating to authentication
 
@@ -677,6 +706,9 @@ in this case.
 .BR hosts.allow (5),
 .BR hosts.deny (5),
 .BR TPOP3D::AuthDriver (1),
+.BR regex (7),
+.BR whosond (8),
+.BR whoson.conf (5),
 .BR RFC1939,
 .br
 .IR http://www.ex-parrot.com/~chris/tpop3d/ ,

@@ -48,6 +48,10 @@ static const char rcsid[] = "$Id$";
 #include "auth_passwd.h"
 #endif /* AUTH_PASSWD */
 
+#ifdef USE_WHOSON
+#include <whoson.h>
+#endif
+
 #include "authswitch.h"
 #include "config.h"
 #include "stringmap.h"
@@ -155,6 +159,9 @@ extern stringmap config;
 #ifdef USE_DRAC
 static char *drac_server;
 #endif
+#ifdef USE_WHOSON
+static int whoson_enable;
+#endif
     
 int authswitch_init(void) {
     const struct authdrv *aa;
@@ -184,6 +191,11 @@ int authswitch_init(void) {
         log_print(LOG_INFO, _("will notify DRAC server `%s' of logins"), drac_server);
 #endif
 
+#ifdef USE_WHOSON
+    if ((whoson_enable = config_get_bool("whoson-enable")))
+        log_print(LOG_INFO, _("will notify logins by WHOSON"));
+#endif
+    
     return ret;
 }
 
@@ -288,12 +300,22 @@ authcontext authcontext_new_user_pass(const char *user, const char *local_part, 
 void authswitch_onlogin(const authcontext A, const char *clienthost, const char *serverhost) {
     const struct authdrv *aa;
     int *aar;
+#ifdef USE_DRAC
+    /* in -ldrac */
+    int dracauth(char *server, unsigned long userip, char **errmsg);
+#endif
+
+#ifdef USE_WHOSON
+    char buf[128] = {0};
+    /* Notify whoson server the user has logged in correctly */
+    if (wso_login(clienthost, A->user, buf, sizeof(buf)) == -1)
+        log_print(LOG_ERR, "authswitch_onlogin: wso_login: %s", buf);
+#endif /* USE_WHOSON */
     
 #ifdef USE_DRAC
     /* Optionally, notify a DRAC -- dynamic relay authentication control -- 
      * server of the login. This uses some wacky RPC thing contained in
      * -ldrac. */
-    int dracauth(char *server, unsigned long userip, char **errmsg);
     if (drac_server) {
         char *errmsg;
         if (dracauth(drac_server, inet_addr(host), &errmsg))

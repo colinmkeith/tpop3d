@@ -1,6 +1,13 @@
 Changes for tpop3d
 $Id$
 
+1.5.1
+
+tpop3d now supports the WHOSON protocol (http://whoson.sourceforge.net) for
+POP-before-SMTP relaying, thanks to Arkadiusz Miski. Added support for `mass
+virtual hosting', where the domain name used for a connection is based upon
+the name associated with the address to which a client connects.
+
 1.4.2
 
 tpop3d now accepts passwords containing spaces. auth-pam now passes the client

@@ -127,7 +127,7 @@ void listeners_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfds)
             int s, a = MAX_DATA_IN_FLIGHT;
 
             /* XXX socklen_t mess... */
-            s = accept(L->s, (struct sockaddr*)&sin, (int *)&l);
+            s = accept(L->s, (struct sockaddr*)&sin, (int*)&l);
             
             if (s == -1) {
                 if (errno != EAGAIN) log_print(LOG_ERR, "net_loop: accept: %m");
@@ -157,7 +157,16 @@ void listeners_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfds)
                     log_print(LOG_INFO, _("listeners_post_select: rejected connection from %s owing to high load"), inet_ntoa(sin.sin_addr));
                 } else {
                     /* Find a free connection slot. */
+#ifdef MASS_HOSTING
+                    if (L->have_re) {
+                        char *domain;
+                        domain = listener_obtain_domain(L, s);
+                        *J = connection_new(s, &sin, domain);
+                        xfree(domain);
+                    } else
+#endif
                     *J = connection_new(s, &sin, L->domain);
+
                     if (*J)
                         log_print(LOG_INFO, _("listeners_post_select: client %s: connected"), (*J)->idstr);
                     else
@@ -633,22 +642,42 @@ retry_pid_file:
         for (J = t->toks; J < t->toks + t->num; ++J) {
             struct sockaddr_in sin = {0};
             listener L;
-            char *s = *J, *r = NULL, *domain = NULL;
+            char *s = *J, *r = NULL, *domain = NULL, *regex = NULL;
 
             sin.sin_family = AF_INET;
 
-            /* Specified domain. */
-            r = strchr(s, '(');
-            if (r) {
-                if (*(s + strlen(s) - 1) != ')') {
+            /* With MASS_HOSTING, the user may specify a regular expression to
+             * use against the return from gethostbyaddr on getsockaddr. */
+#ifdef MASS_HOSTING
+            if ((r = strchr(s, '/'))) {
+                if (*(s + strlen(s) - 1) != '/') {
                     log_print(LOG_ERR, _("%s: syntax for listen address `%s' is incorrect"), configfile, s);
                     continue;
                 }
-
+                
                 *r++ = 0;
                 *(r + strlen(r) - 1) = 0;
-                domain = r;
+                regex = r;
+            } else
+#endif /* MASS_HOSTING */
+                
+            /* ... or an explicit domain. Note that we must check in this
+             * order since the regular expression ought to contain ( ). */
+            {
+                /* Specified domain. */
+                r = strchr(s, '(');
+                if (r) {
+                    if (*(s + strlen(s) - 1) != ')') {
+                        log_print(LOG_ERR, _("%s: syntax for listen address `%s' is incorrect"), configfile, s);
+                        continue;
+                    }
+
+                    *r++ = 0;
+                    *(r + strlen(r) - 1) = 0;
+                    domain = r;
+                }
             }
+
             
             /* Port. */
             r = strchr(s, ':');
@@ -675,9 +704,18 @@ retry_pid_file:
                 } else memcpy(&(sin.sin_addr), he->h_addr, sizeof(struct in_addr));
             }
 
+#ifdef MASS_HOSTING
+            L = listener_new(&sin, domain, regex);
+#else
             L = listener_new(&sin, domain);
+#endif
             if (L) {
                 vector_push_back(listeners, item_ptr(L));
+#ifdef MASS_HOSTING
+                if (L->have_re)
+                    log_print(LOG_INFO, _("listening on address %s, port %d, regex /%s/"), inet_ntoa(L->sin.sin_addr), htons(L->sin.sin_port), L->regex);
+                else
+#endif
                 log_print(LOG_INFO, _("listening on address %s, port %d, domain %s"), inet_ntoa(L->sin.sin_addr), htons(L->sin.sin_port), (L->domain ? L->domain : _("(none)")));
             }
         }
