@@ -9,6 +9,9 @@ around PAM brokenness was made. A memory leak in auth-ldap was fixed. The
 amount of data transferred to/from the client is recorded. Fixed some bugs
 which caused crashes on old versions of Solaris.
 
+Added support for authentication against /etc/passwd-style flat text files,
+contributed by Angel Marin.
+
 1.4.1
 
 Hooks for POP-before-SMTP relaying support were implemented in tpop3d, and

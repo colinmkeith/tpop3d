@@ -550,6 +550,18 @@ int main(int argc, char **argv, char **envp) {
     config = read_config_file(configfile);
     if (!config) return 1;
 
+    /* The config file may specify that we aren't to run in daemon mode. */
+    if (config_get_bool("no-detach"))
+        nodaemon = 1;
+
+    /* ... or that we are to log to standard error. */
+    if (config_get_bool("log-stderr")) {
+        if (nodaemon)
+            log_stderr = 1;
+        else
+            fprintf(stderr, _("tpop3d: will not log to standard error when running detached"));
+    }
+
     /* Detach from controlling tty etc. */
     if (!nodaemon) daemon(0, 0);
 

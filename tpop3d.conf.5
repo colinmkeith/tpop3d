@@ -97,6 +97,15 @@ Possible values for \fIfacility\fP are: \fBmail\fP, \fBauthpriv\fP,
 (Although other possibilities are mentioned in \fBopenlog\fP(3), they don't
 make much sense for a POP3 server.)
 .TP
+\fBlog-stderr\fP: (\fByes\fP|\fBtrue\fP)
+Send log messages to standard error as well as the system log. This makes sense
+only when \fBtpop3d\fP is running with a controlling terminal.
+.TP
+\fBno-detach\fP: (\fByes\fP|\fBtrue\fP)
+Do not detach from controlling terminal. The \fB-d\fP command-line option to
+\fBtpop3d\fP is equivalent to combining this and the \fBlog-stderr\fP
+directives.
+.TP
 .nf
 \fBmailbox\fP: [\fImailbox-driver\fP:]\fIpath-spec\fP ...
 .fi
@@ -436,6 +445,32 @@ Information about the user's account, in particular, the user and group id
 to use for mailbox access, and the location and type of the mailbox,
 may be obtained either from the directory, or from values in the configuration
 file.
+
+.SS Flat file authentication options
+
+These are only available if you compiled \fBtpop3d\fP with support for
+\fBauth-flatfile\fP.
+
+.TP
+\fBauth-flatfile-enable\fP: (\fByes\fP | \fBtrue\fP)
+Enable flat file authentication.
+.TP
+\fBauth-flatfile-passwd-file\fP: \fIsubstitution string\fP
+Specify the file in which \fBtpop3d\fP will search for a user's password.
+.TP
+\fBauth-ldap-mail-user\fP: (\fIuser-name\fP | \fIuid\fP)
+.TP
+\fBauth-ldap-mail-group\fP: (\fIgroup-name\fP | \fIgid\fP)
+User and group under which access to the mailbox will take place.
+
+.SS A note on flat file authentication
+
+Flat files used for authentication must be in the format of /etc/passwd;
+\fBtpop3d\fP uses only the first (user name) and second (encrypted password)
+fields from each virtual password file. The user and group under which access
+to the mailbox takes place with \fBauth-flatfile\fP are always as specified in
+the configuration file. The file to be used is located by substituting for
+\fB$(domain)\fP in the \fBauth-flatfile-passwd-file\fP filename template.
 
 .SS External program (`other') authentication options
 

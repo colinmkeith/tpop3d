@@ -32,6 +32,10 @@ static const char rcsid[] = "$Id$";
 #include "auth_other.h"
 #endif /* AUTH_OTHER */
 
+#ifdef AUTH_FLATFILE
+#include "auth_flatfile.h"
+#endif /* AUTH_FLATFILE */
+
 #ifdef AUTH_PERL
 #include "auth_perl.h"
 #endif /* AUTH_PERL */
@@ -96,6 +100,13 @@ struct authdrv auth_drivers[] = {
             "perl",
             _X("Uses perl code")},
 #endif /* AUTH_PERL */
+
+#ifdef AUTH_FLATFILE
+        /* Authenticate against /etc/passwd-style flat files. */
+        {auth_flatfile_init, NULL, auth_flatfile_new_user_pass, NULL, NULL, NULL,
+            "flatfile",
+            _X("Uses /etc/passwd-style flat files")},
+#endif /* AUTH_FLATFILE */
 };
 
 int *auth_drivers_running;

@@ -24,10 +24,11 @@ mechanisms:
                             http://www.ex-parrot.com/~chris/vmail-sql/
                         or another database with user-specified SQL queries
     auth-ldap           an LDAP directory
+    auth-flatfile       /etc/passwd-style flat files
     auth-other          an external program
     auth-perl           embedded perl subroutines
 
-The latter four options provide virtual domain support; the first two are
+The latter five options provide virtual domain support; the first two are
 designed to authenticate local (Unix) users. The auth-mysql, auth-other
 and auth-perl drivers also contain support for event-driven POP-before-SMTP
 relaying; see README.POP-before-SMTP for more details.

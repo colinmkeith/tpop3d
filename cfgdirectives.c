@@ -26,8 +26,10 @@ char *cfgdirectives[] = {
     "strip-domain",
     "timeout-seconds",
     "log-facility",
+    "log-stderr",
     "apop-only",
     "mailbox",
+    "no-detach",
 
 #ifdef AUTH_PAM
     /* auth-pam options */
@@ -90,6 +92,13 @@ char *cfgdirectives[] = {
     "auth-perl-pass",
     "auth-perl-onlogin",
 #endif /* AUTH_PERL */
+
+#ifdef AUTH_FLATFILE
+    "auth-flatfile-enable",
+    "auth-flatfile-mail-user",
+    "auth-flatfile-mail-group",
+    "auth-flatfile-passwd-file",
+#endif /* AUTH_FLATFILE */
  
 #if defined(MBOX_BSD) && defined(MBOX_BSD_SAVE_INDICES)
     "mailspool-index",

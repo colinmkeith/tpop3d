@@ -61,6 +61,10 @@ also review the contents of README.darwin.
       must be installed on your system in order to compile tpop3d with
       auth-ldap support.
 
+    auth-flatfile
+    --enable-auth-flatfile
+      Uses /etc/passwd-style flat files, one per domain.
+
     auth-other
     --enable-auth-other
       Passes authentication requests to an external program; designed to allow
