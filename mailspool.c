@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.10  2000/10/31 23:17:29  chris
+ * More robust locking, with hitching posts.
+ *
  * Revision 1.9  2000/10/31 20:37:22  chris
  * Added cclient locking, flock locking.
  *
@@ -43,6 +46,7 @@ static const char rcsid[] = "$Id$";
 #include <stdio.h>
 #include <string.h>
 #include <syslog.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <sys/file.h>
@@ -50,6 +54,7 @@ static const char rcsid[] = "$Id$";
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <sys/utsname.h>
 
 #include "connection.h"
 #include "mailspool.h"
@@ -57,12 +62,9 @@ static const char rcsid[] = "$Id$";
 #include "util.h"
 
 /* File locking:
- * This is extremely simple, and therefore broken. In particular, it won't
- * work over NFS. Of course, IMO you'd be mad to want to put your mailspools
- * on an NFS-mounted filesystem anyway, but people do. To make this NFS-safe,
- * the obvious thing to do would be to steal the code from Exim which does it
- * (and is a contender for the prize in "most complicated code for something
- * which ought to be simple").
+ * This is probably not sufficiently robust to be used over NFS, but I don't
+ * guarantee it won't work! It is a partial implementation of the strategy
+ * which Exim uses; see exim_lock.c in the Exim distribution.
  * 
  * fcntl, flock and .lock locking are done, along with a rather comedy attempt
  * at cclient locking, which is only there so that PINE figures out when the
@@ -87,33 +89,45 @@ extern char *this_lockfile;
 
 int file_lock(const int fd, const char *name) {
     struct flock fl = {0};
-    char *lockfile = (char*)malloc(strlen(name) + 6);
+    struct stat st2 = {0};
     int fd2;
-    char pidstr[8];
-    struct stat st2;
+    int ret = 0, rc;
+    size_t l;
+    char *lockfile = (char*)malloc(l = (strlen(name) + 6)), *hitchfile;
+    struct utsname uts;
+#ifdef CCLIENT_LOCKING
     char cclient_lockfile[64];
     int fd_cclient_lock = -1;
-
+#endif /* CCLIENT_LOCKING */
+    
+    /* Set up flock structure. */
     fl.l_type   = F_WRLCK;
     fl.l_whence = SEEK_SET;
     fl.l_start  = 0;
     fl.l_len    = 0;
     
-    if (!lockfile) return 0;
-    sprintf(lockfile, "%s.lock", name);
+    if (!lockfile) goto fail;
+    snprintf(lockfile, l, "%s.lock", name);
 
-    if (fcntl(fd, F_SETLK, &fl) == -1) {
-        free(lockfile);
-        return 0;
-    }
+    if (uname(&uts) == -1) goto fail;
 
+    /* Make a name for a hitching-post file. */
+    hitchfile = (char*)malloc(l = (strlen(name) + strlen(uts.nodename) + 20));
+    if (!hitchfile) goto fail;
+    snprintf(hitchfile, l, "%s.%ld.%ld.%s", name, (long)getpid(), (long)time(NULL), uts.nodename);
+
+    /* Try to fcntl-lock the file. */
+    if (fcntl(fd, F_SETLK, &fl) == -1) goto fail;
+
+    /* Now change the flock structure so that a call to fcntl will unlock the
+     * file.
+     */
     fl.l_type = F_UNLCK;
-   
-    if (flock(fd, LOCK_EX | LOCK_NB) == -1) {
-        fcntl(fd, F_SETLK, &fl);
-        free(lockfile);
-        return 0;
-    }
+
+#ifdef FLOCK_LOCKING
+    /* Attempt to flock the file. */
+    if (flock(fd, LOCK_EX | LOCK_NB) == -1) goto fail;
+#endif /* FLOCK_LOCKING */
 
 #ifdef CCLIENT_LOCKING
     /* Comedy attempt at cclient-compatible locking. This is just here so that
@@ -121,9 +135,13 @@ int file_lock(const int fd, const char *name) {
      * hanging on exit if a session is concurrent with a tpop3d session.
      */
     fstat(fd, &st2);
-    sprintf(cclient_lockfile, "/tmp/.%lx.%lx", (unsigned long)st2.st_dev, (unsigned long)st2.st_ino);
+    snprintf(cclient_lockfile, sizeof(cclient_lockfile), "/tmp/.%lx.%lx", (unsigned long)st2.st_dev, (unsigned long)st2.st_ino);
     /* Open this with O_RDWR, even though we never write to it, since we need
-     * to flock it.
+     * to flock it in LOCK_EX mode.
+     *
+     * XXX exim_lock.c lstats the /tmp/... file to ensure that it is not a
+     * symbolic link. Since we don't actually write to the file, it is
+     * probably not necessary to make this check.
      */
     if ((fd_cclient_lock = open(cclient_lockfile, O_RDWR)) != -1) {
         syslog(LOG_DEBUG, "file_lock(%s): found cclient lock file %s", name, cclient_lockfile);
@@ -140,7 +158,7 @@ int file_lock(const int fd, const char *name) {
             read(fd_cclient_lock, other_pid, sizeof(other_pid));
             p = atoi(other_pid);
             if (p) {
-                syslog(LOG_DEBUG, "file_lock(%s): trying to grab cclient lock from process %d", name, p);
+                syslog(LOG_DEBUG, "file_lock(%s): trying to grab c-client lock from process %d", name, p);
                 kill(p, SIGUSR2);
             }
 
@@ -149,41 +167,49 @@ int file_lock(const int fd, const char *name) {
             /* Now have another go. */
             if (flock(fd_cclient_lock, LOCK_EX | LOCK_NB) == -1) {
                 /* OK, well that didn't work then. */
+                syslog(LOG_ERR, "file_lock(%s): failed to grab c-client lock from process %d", name, p);
                 close(fd_cclient_lock);
-                fcntl(fd, F_SETLK, &fl);
-                flock(fd, LOCK_UN | LOCK_NB);
-                free(lockfile);
-                return 0;
+                goto fail;
             }
         }
         close(fd_cclient_lock);
     }
 #endif /* CCLIENT_LOCKING */
 
-    /* Make lockfile; this is pretty naive, but that doesn't particularly
-     * matter as we will not be running as root at this stage.
-     *
-     * XXX This should create a hitching-post, then use a linking strategy to
-     * make the lockfile proper.
-     */
-    fd2 = open(lockfile, O_EXCL|O_CREAT|O_WRONLY, 0644); /* XXX NFS unsafe */
-    this_lockfile = lockfile; /* Store this so that we ensure that mailspool is unlocked if a signal is received. */
+    /* Make lockfile, going via a hitching post. */
+    fd2 = open(hitchfile, O_EXCL|O_CREAT|O_WRONLY, 0440);
     if (fd2 == -1) {
-        syslog(LOG_ERR, "file_lock(%s): unable to create lockfile: %m", name);
-        fcntl(fd, F_SETLK, &fl);
-        flock(fd, LOCK_UN);
-        if (fd_cclient_lock != -1) flock(fd_cclient_lock, LOCK_UN);
-        this_lockfile = NULL;
-        errno = EAGAIN;
-        return 0;
+        syslog(LOG_ERR, "file_lock(%s): unable to create hitching post: %m", name);
+        goto fail;
     }
 
-    sprintf(pidstr, "%05d\n", getpid()); /* XXX is this right? */
-    write(fd2, pidstr, 6);
-    
+    if ((rc = link(hitchfile, lockfile)) != 0) fstat(fd2, &st2);
     close(fd2);
+    fd2 = -1;
+    unlink(hitchfile);
 
-    return 1;
+    /* Were we able to link the hitching post to the lockfile, and if we were,
+     * did it have exactly 2 links when we were done?
+     */
+    if (rc != 0 && st2.st_nlink != 2) {
+        syslog(LOG_ERR, "file_lock(%s): unable to link hitching post to lock file: %m", name);
+        goto fail;
+    }
+    
+    /* OK, we succeeded. */
+    this_lockfile = lockfile; /* Store this so that we ensure that mailspool is unlocked if a signal is received. */
+    ret = 1;
+
+fail:
+    if (lockfile) free(lockfile);
+    if (hitchfile) free(hitchfile);
+    if (fl.l_type == F_UNLCK) fcntl(fd, F_SETLK, &fl);
+#ifdef FLOCK_LOCKING
+    flock(fd, LOCK_UN);
+#endif /* FLOCK_LOCKING */
+    if (fd2 != -1) close(fd2);
+
+    return ret;
 }
 
 /* file_unlock:
@@ -191,7 +217,8 @@ int file_lock(const int fd, const char *name) {
  */
 int file_unlock(const int fd, const char *name) {
     struct flock fl = {0};
-    char *lockfile = (char*)malloc(strlen(name) + 6);
+    size_t l;
+    char *lockfile = (char*)malloc(l = (strlen(name) + 6));
     int ret = 1;
 
     fl.l_type   = F_UNLCK;
@@ -200,7 +227,7 @@ int file_unlock(const int fd, const char *name) {
     fl.l_len    = 0;
  
     if (!lockfile) return 0;
-    sprintf(lockfile, "%s.lock", name);
+    snprintf(lockfile, l, "%s.lock", name);
 
     if (unlink(lockfile) == -1) {
         syslog(LOG_ERR, "file_unlock(%s): unlink: %m", name);
@@ -214,10 +241,12 @@ int file_unlock(const int fd, const char *name) {
         ret = 0;
     }
 
+#ifdef FLOCK_LOCKING
     if (flock(fd, LOCK_UN) == -1) {
         syslog(LOG_ERR, "file_unlock(%s): flock: %m", name);
         ret = 0;
     }
+#endif /* FLOCK_LOCKING */
 
     return ret;
 }
