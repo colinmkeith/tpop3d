@@ -1,0 +1,79 @@
+--- tpop3d	Fri Feb 16 11:47:45 2001
++++ tpop3d-mysql	Fri Feb 16 11:49:04 2001
+@@ -1,4 +1,4 @@
+-#!/bin/sh
++#!/bin/bash
+ #
+ # tpop3d:
+ # Init script for starting/stopping tpop3d.
+@@ -22,25 +22,53 @@
+ #
+ # Copyright (c) 2001 Chris Lightfoot. All rights reserved.
+ #
+-# $Id$
++# $Id$
++# 
++# Modified by Roberto Braga v 1.1.1 2001/02/16
++#   The script has been modified in order to give enought time to Mysqld to 
++#   create the sock file. I have this necessity because tpop3d verifies the 
++#   connection before starting and my system goes up quickly.
++#   This script tests the presence of mysql.sock file for 10 times with 1  
++#   second of pause betwen each retry.
++#   If the check fails it tries to start tpop3d anyway.
++#   If mysql.sock exists when the script starts, no pause occours.
++#   
++#
++#   A T T E N T I O N !!  
++#   
++#   USE THIS SCRIPT ONLY if you use a localhost connection with Mysqld
+ #
+ 
+ # Check that networking is up.
+ [ "${NETWORKING}" = "no" ] && exit 0
+ 
+-DAEMON=/software/sbin/tpop3d
+-
+-[ -f $DAEMON ] || exit 0
++[ -f /usr/tpop3d/tpop3d ] || exit 0
+ 
+ # See how we were called.
+ case "$1" in
+   start)
+         # Start daemons.
+         echo -n "Starting tpop3d: "
+-        $DAEMON -f /etc/tpop3d.conf
+-        echo -n "tpop3d "
+-        $DAEMON -f /etc/tpop3d-secure.conf
+-        echo "tpop3d-secure "
++        #modify the next line to increse or decrease the number of retry
++        for i in `seq 1 10`;
++        do
++          # modify the path in accordance with your mysql.sock file 
++          if [ -e /var/lib/mysql/mysql.sock ] ; then
++            #se Mysql è su allora parte anche tpop3d
++            /usr/tpop3d/tpop3d -f /usr/tpop3d/tpop3d.conf
++            echo "tpop3d started 
++            touch /var/lock/subsys/tpop3d
++            #/usr/tpop3d/tpop3d -f /usr/tpop3d/tpop3d-secure.conf
++            #echo "tpop3d-secure started"
++            exit 0 # exit the script
++          else
++            # modify the next line to increse the pause between each retry minimum is 1 second 
++            sleep 1s
++            echo -n "+"
++          fi
++        done
++        echo " NOT STARTED - no Mysqld sock found - try to start it anyway."
++        /usr/tpop3d/tpop3d -f /usr/tpop3d/tpop3d.conf
+         touch /var/lock/subsys/tpop3d
+         ;;
+   stop)
+@@ -48,7 +76,7 @@
+         echo -n "Shutting down tpop3d: "
+         if [ -e /var/lock/subsys/tpop3d ] ; then
+                 # we use pidof here; this is linux-specific
+-                kill -TERM `pidof tpop3d`
++                killall tpop3d
+                 echo tpop3d
+                 rm -f /var/lock/subsys/tpop3d
+         fi
