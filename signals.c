@@ -120,7 +120,7 @@ extern char *pidfile;    /* in main.c */
 extern int post_fork;    /* in main.c */
 
 void die_signal_handler(const int i) {
-    struct sigaction sa;
+    struct sigaction sa = {0};
 /*    log_print(LOG_ERR, "quit: %s", sys_siglist[i]); */
     log_print(LOG_ERR, _("quit: signal %d post_fork = %d"), i, post_fork); /* Some systems do not have sys_siglist. */
 #ifdef APPALLING_BACKTRACE_HACK
@@ -128,8 +128,7 @@ void die_signal_handler(const int i) {
 #endif /* APPALLING_BACKTRACE_HACK */
     if (this_child_connection) connection_delete(this_child_connection);
     if (!post_fork && pidfile)
-            remove_pid_file(pidfile);
-    memset(&sa, 0, sizeof(sa));
+        remove_pid_file(pidfile);
     sa.sa_handler = SIG_DFL;
     sigaction(i, &sa, NULL);
     raise(i);

@@ -221,20 +221,23 @@ void mailspool_delete(mailbox m) {
 
 /* memstr:
  * Locate needle, of length n_len, in haystack, of length h_len, returning
- * NULL if it is not found. */
-static char *memstr(const char *haystack, size_t h_len, const char *needle, size_t n_len)
-{
-    const char *p;
+ * NULL if it is not found. Uses the Boyer-Moore search algorithm. Cf.
+ *  http://www-igm.univ-mlv.fr/~lecroq/string/node14.html */
+static unsigned char *memstr(const unsigned char *haystack, const size_t hlen,
+                             const unsigned char *needle, const size_t nlen) {
+    int skip[256], k;
 
-    if (n_len > h_len)
-        return NULL;
+    if (nlen == 0) return (char*)haystack;
 
-    p = (const char*)memchr(haystack, *needle, h_len - n_len + 1);
-    while (p) {
-        if (!memcmp(p, needle, n_len))
-            return (char*)p;
-        else
-            p = (const char*)memchr(p + 1, *needle, h_len - n_len - (p - haystack));
+    /* Set up the finite state machine we use. */
+    for (k = 0; k < 255; ++k) skip[k] = nlen;
+    for (k = 0; k < nlen - 1; ++k) skip[needle[k]] = nlen - k - 1;
+
+    /* Do the search. */
+    for (k = nlen - 1; k < hlen; k += skip[haystack[k]]) {
+        int i, j;
+        for (j = nlen - 1, i = k; j >= 0 && haystack[i] == needle[j]; j--) i--;
+        if (j == -1) return (unsigned char*)(haystack + i + 1);
     }
 
     return NULL;
