@@ -10,6 +10,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.4  2000/10/10 00:05:36  chris
+ * Fixed various problems.
+ *
  * Revision 1.3  2000/10/09 23:39:48  chris
  * Fixed strclr(const string) bug.
  *
@@ -109,15 +112,15 @@ fail:
  *   SELECT domain.path, popbox.mbox_name, domain.unix_user,
  *          popbox.apop_password
  *           FROM popbox, domain
- *          WHERE popbox.mbox_user = $local_part
+ *          WHERE popbox.mbox_name = $local_part
  *            AND popbox.domain_name = $domain
  *            AND popbox.domain_name = domain.domain_name
  */
 const char apop_query_template[] =
     "SELECT domain.path, popbox.mbox_name, domain.unix_user, popbox.apop_password "
       "FROM popbox, domain "
-     "WHERE popbox.mbox_user = %s "
-       "AND popbox.domain_name = %s "
+     "WHERE popbox.mbox_name = '%s' "
+       "AND popbox.domain_name = '%s' "
        "AND popbox.domain_name = domain.domain_name";
 authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const unsigned char *digest) {
     char *query, *x, *y;
@@ -170,8 +173,8 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
     y = (char*)malloc(strlen(domain) * 2 + 1);
     if (!query || !x || !y) goto fail;
 
-    mysql_escape_string(x, local_part, strlen(local_part) * 2 + 1);
-    mysql_escape_string(y, domain, strlen(domain) * 2 + 1);
+    mysql_escape_string(x, local_part, strlen(local_part));
+    mysql_escape_string(y, domain, strlen(domain));
 
     sprintf(query, apop_query_template, x, y);
 
@@ -236,6 +239,8 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
                                     mailbox);
 
                 free(mailbox);
+
+		break;
             }
 
         default:
@@ -263,7 +268,7 @@ fail:
  * the form
  *   SELECT domain.path, popbox.mbox_name, domain.unix_user
  *          FROM popbox, domain
- *          WHERE popbox.mbox_user = $local_part
+ *          WHERE popbox.mbox_name = $local_part
  *            AND popbox.password_hash = $hash_of_password
  *            AND popbox.domain_name = $domain
  *            AND popbox.domain_name = domain.domain_name
@@ -271,8 +276,8 @@ fail:
 char user_pass_query_template[] =
     "SELECT domain.path, popbox.mbox_name, domain.unix_user "
       "FROM popbox, domain "
-     "WHERE popbox.mbox_user = %s "
-       "AND popbox.domain = %s "
+     "WHERE popbox.mbox_name = '%s' "
+       "AND popbox.domain_name = '%s' "
        "AND popbox.password_hash = '%s' "
        "AND popbox.domain_name = domain.domain_name";
 authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
@@ -337,10 +342,10 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
 
     for (p = hexdigest, q = digest; q < digest + 16; ++q, p += 2) sprintf(p, "%02x", (unsigned)*q);
 
-    mysql_escape_string(x, local_part, strlen(local_part) * 2 + 1);
-    mysql_escape_string(y, domain, strlen(domain) * 2 + 1);
+    mysql_escape_string(x, local_part, strlen(local_part));
+    mysql_escape_string(y, domain, strlen(domain));
 
-    sprintf(query, user_pass_query_template, x, hexdigest, y);
+    sprintf(query, user_pass_query_template, x, y, hexdigest);
 
     if (mysql_query(mysql, query) == 0) {
         MYSQL_RES *result = mysql_store_result(mysql);
@@ -390,6 +395,8 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
                                     mailbox);
 
                 free(mailbox);
+
+		break;
             }
 
         default:
