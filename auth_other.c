@@ -141,9 +141,11 @@ static int tvcmp(const struct timeval *t1, const struct timeval *t2) {
  * Returns 1 on success or 0 on failure. */
 int auth_other_start_child() {
     int p1[2], p2[2];
-    char *argv[2] = {auth_program, NULL};
+    char *argv[2] = {0};
     char *envp[3] = {"PATH=/bin",  /* XXX path? */
                      "TPOP3D_CONTEXT=auth_other", NULL};
+
+    argv[0] = auth_program;
 
     /* Generate pipes to talk to the child. */
     if (pipe(p1) == -1 || pipe(p2) == -1) {
@@ -237,17 +239,17 @@ void auth_other_kill_child() {
  * the user and group ids in auth-other-user and auth-other-group. */
 extern stringmap config;    /* in main.c */
 int auth_other_init() {
-    item *I;
+    char *s;
     float f;
 
-    if (!(I = stringmap_find(config, "auth-other-program"))) {
+    if (!(s = config_get_string("auth-other-program"))) {
         log_print(LOG_ERR, _("auth_other_init: no program specified"));
         return 0;
     } else {
         struct stat st;
-        auth_program = (char*)I->v;
+        auth_program = s;
         if (*auth_program != '/') {
-            log_print(LOG_ERR, _("auth_other_init: auth-program %s should be an absolute path"), auth_program);
+            log_print(LOG_ERR, _("auth_other_init: auth-program %s must be an absolute path"), auth_program);
             return 0;
         } else if (stat(auth_program, &st) == -1) {
             log_print(LOG_ERR, _("auth_other_init: auth-program %s: %m"), auth_program);
@@ -278,19 +280,19 @@ int auth_other_init() {
     authchild_timeout.tv_usec = (long)((f - floor(f)) * 1e6);
 
     /* Find out user and group under which program will run. */
-    if (!(I = stringmap_find(config, "auth-other-user"))) {
+    if (!(s = config_get_string("auth-other-user"))) {
         log_print(LOG_ERR, _("auth_other_init: no user specified"));
         return 0;
-    } else if (!parse_uid(I->v, &authchild_uid)) {
-        log_print(LOG_ERR, _("auth_other_init: auth-other-user directive `%s' does not make sense"), I->v);
+    } else if (!parse_uid(s, &authchild_uid)) {
+        log_print(LOG_ERR, _("auth_other_init: auth-other-user directive `%s' does not make sense"), s);
         return 0;
     }
 
-    if (!(I = stringmap_find(config, "auth-other-group"))) {
+    if (!(s = config_get_string("auth-other-group"))) {
         log_print(LOG_ERR, _("auth_other_init: no group specified"));
         return 0;
-    } else if (!parse_gid(I->v, &authchild_gid)) {
-        log_print(LOG_ERR, _("auth_other_init: auth-other-group directive `%s' does not make sense"), I->v);
+    } else if (!parse_gid(s, &authchild_gid)) {
+        log_print(LOG_ERR, _("auth_other_init: auth-other-group directive `%s' does not make sense"), s);
         return 0;
     }
 

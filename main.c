@@ -69,7 +69,7 @@ volatile int num_running_children = 0;  /* How many children are active. */
 
 char *pidfile = NULL;               /* The name of a PID file to use; if NULL, don't use one. */
 
-char *tcpwrappersname = "tpop3d";   /* The daemon name to give to TCP Wrappers. */
+char *tcpwrappersname;              /* The daemon name to give to TCP Wrappers. */
 
 /* Variables representing the state of the server. */
 int post_fork = 0;                  /* Is this a child handling a connection. */
@@ -129,9 +129,11 @@ void listeners_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfds)
         if (FD_ISSET(L->s, readfds)) {
             struct sockaddr_in sin;
             size_t l = sizeof(sin);
-            int s = accept(L->s, (struct sockaddr*)&sin, (int *)&l);
-            int a = MAX_DATA_IN_FLIGHT;
+            int s, a = MAX_DATA_IN_FLIGHT;
 
+            /* XXX socklen_t mess... */
+            s = accept(L->s, (struct sockaddr*)&sin, (int *)&l);
+            
             if (s == -1) {
                 if (errno != EAGAIN) log_print(LOG_ERR, "net_loop: accept: %m");
             }
@@ -507,9 +509,8 @@ extern int mailspool_save_indices;  /* in mailspool.c */
 #endif
 
 int main(int argc, char **argv, char **envp) {
-    item *I;
     int nodaemon = 0;
-    char *configfile = "/etc/tpop3d.conf";
+    char *configfile = "/etc/tpop3d.conf", *s;
     int na, c;
 
 #ifdef MTRACE_DEBUGGING
@@ -564,8 +565,7 @@ int main(int argc, char **argv, char **envp) {
 
     /* Perhaps we have been asked to save metadata caches for BSD mailspools? */
 #if defined(MBOX_BSD) && defined(MBOX_BSD_SAVE_INDICES)
-    I = stringmap_find(config, "mailspool-index");
-    if (I) {
+    if (config_get_string("mailspool-index")) {
         mailspool_save_indices = 1;
         log_print(LOG_INFO, _("experimental BSD mailbox metadata cache enabled"));
     }
@@ -573,9 +573,8 @@ int main(int argc, char **argv, char **envp) {
 
     /* We may have been compiled with TCP wrappers support. */
 #ifdef USE_TCP_WRAPPERS
-    I = stringmap_find(config, "tcp-wrappers-name");
-    if (I)
-        tcpwrappersname = I->v;
+    if (!(tcpwrappersname = config_get_string("tcp-wrappers-name")))
+        tcpwrappersname = "tpop3d";
     log_print(LOG_INFO, _("TCP Wrappers support enabled, using daemon name `%s'"), tcpwrappersname);
 #endif
     
@@ -618,11 +617,13 @@ retry_pid_file:
 
     /* Identify addresses on which to listen.
      * The syntax for these is <addr>[:port][(domain)]. */
-    I = stringmap_find(config, "listen-address");
+    s = config_get_string("listen-address");
     listeners = vector_new();
-    if (I) {
-        tokens t = tokens_new(I->v, " \t");
+    if (s) {
+        tokens t;
         char **J;
+
+        t = tokens_new(s, " \t");
 
         for (J = t->toks; J < t->toks + t->num; ++J) {
             struct sockaddr_in sin = {0};
@@ -702,8 +703,7 @@ retry_pid_file:
     }
 
     /* Should we automatically append domain names and retry authentication? */
-    I = stringmap_find(config, "append-domain");
-    if (I && (!strcmp(I->v, "yes") || !strcmp(I->v, "true"))) append_domain = 1;
+    if (config_get_bool("append-domain")) append_domain = 1;
 
     /* Find out how long we wait before timing out.... */
     switch (config_get_int("timeout-seconds", &timeout_seconds)) {
@@ -736,6 +736,7 @@ retry_pid_file:
 
     authswitch_close();
     if (listeners) {
+        item *I;
         vector_iterate(listeners, I) listener_delete((listener)I->v);
         vector_delete(listeners);
     }

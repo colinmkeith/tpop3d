@@ -16,10 +16,9 @@ static const char rcsid[] = "$Id$";
 #include <string.h>
 #include <syslog.h>
 
+#include "config.h"
 #include "util.h"
-#include "stringmap.h"
 
-extern stringmap config;    /* in main.c */
 extern int log_stderr;      /* in main.c */
 
 /* facil:
@@ -51,12 +50,12 @@ static struct logfac {
  * Start up logging. */
 void log_init(void) {
     int fac = LOG_MAIL, warn;
-    item *I;
-    if ((I = stringmap_find(config, "log-facility"))) {
+    char *s;
+    if ((s = config_get_string("log-facility"))) {
         struct logfac *l;
         warn = 1;
         for (l = facil; l < facil + NFACIL; ++l)
-            if (strcasecmp(l->name, (char*)I->v) == 0) {
+            if (strcasecmp(l->name, s) == 0) {
                 warn = 0;
                 fac = l->fac;
                 break;
@@ -65,7 +64,7 @@ void log_init(void) {
 
     openlog("tpop3d", LOG_PID | LOG_NDELAY, fac);
     if (warn == 1)
-        log_print(LOG_ERR, _("log_init: log-facility `%s' unknown, using `mail'"), (char*)I->v);
+        log_print(LOG_ERR, _("log_init: log-facility `%s' unknown, using `mail'"), s);
 }
 
 

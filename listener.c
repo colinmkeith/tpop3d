@@ -33,8 +33,7 @@ static const char rcsid[] = "$Id$";
 #include "util.h"
 
 /* listener_new:
- * Create a new listener object, listening on the specified address.
- */
+ * Create a new listener object, listening on the specified address. */
 listener listener_new(const struct sockaddr_in *addr, const char *domain) {
     listener L;
     struct hostent *he;
@@ -73,8 +72,7 @@ listener listener_new(const struct sockaddr_in *addr, const char *domain) {
         } else {
             /* We need to find out an appropriate domain suffix for the address.
              * FIXME we just take the first address with a "." in it, and use
-             * the part after the ".".
-             */
+             * the part after the ".". */
             char **a, *b;
             b = strchr(he->h_name, '.');
             if (b && *(b + 1)) {
@@ -115,8 +113,7 @@ fail:
 }
 
 /* listener_delete:
- * Delete a listener object, closing the associated socket.
- */
+ * Delete a listener object, closing the associated socket. */
 void listener_delete(listener L) {
     if (!L) return;
     if (L->s != -1) close(L->s); /* Do not shutdown(2). */

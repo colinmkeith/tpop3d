@@ -90,6 +90,7 @@ void *xmalloc(size_t n);
 void *xcalloc(size_t n, size_t m);
 void *xrealloc(void *w, size_t n);
 void xfree(void *v);
+char *xstrdup(const char *s);
 
 /* MD5 digests. */
 void md5_digest(const void *v, const size_t n, unsigned char *md5);

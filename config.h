@@ -18,5 +18,6 @@ int is_cfgdirective_valid(const char *s);
 int config_get_int(const char *directive, int *value);
 int config_get_float(const char *directive, float *value);
 char *config_get_string(const char *directive);
+int config_get_bool(const char *directive);
 
 #endif /* __CONFIG_H_ */

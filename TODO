@@ -76,10 +76,8 @@ $Id$
   there are advantages to implementing such support natively in tpop3d; in
   particular, it is more compatible with POP-before-SMTP relaying. There is
   example code in the OpenSSL distribution which would serve as the starting
-  point for an implementation.
-
-
-* Make the -lrt auth-other/Solaris thing work.
+  point for an implementation. However, there are issues with blocking and
+  non-blocking calls.
 
 
 * Obey --sysconfdir.

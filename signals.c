@@ -28,8 +28,7 @@ static const char rcsid[] = "$Id$";
 
 /* appalling_backtrace_hack:
  * Attempt to read a backtrace of the current stack; can be called from a
- * signal handler if the program dies unexpectedly.
- */
+ * signal handler if the program dies unexpectedly. */
 #define BT_LEVELS   16
 void appalling_backtrace_hack() {
     void *func_addr[BT_LEVELS];
@@ -48,8 +47,7 @@ void appalling_backtrace_hack() {
 #endif
 
 /* set_signals:
- * Set the relevant signals to be ignored/handled.
- */
+ * Set the relevant signals to be ignored/handled. */
 void set_signals() {
     int ignore_signals[]    = {SIGPIPE, SIGHUP, SIGALRM, SIGUSR1, SIGUSR2, SIGFPE,
 #ifdef SIGIO        
@@ -102,8 +100,7 @@ void set_signals() {
 }
 
 /* terminate_signal_handler:
- * Signal handler to handle orderly termination of the program.
- */
+ * Signal handler to handle orderly termination of the program. */
 extern int foad;                            /* in main.c */
 
 void terminate_signal_handler(const int i) {
@@ -116,8 +113,7 @@ void terminate_signal_handler(const int i) {
  * XXX This is bad, because we call out to functions which may use malloc or
  * file I/O or anything else. However, we quit immediately afterwards, so it's
  * probably OK. Alternatively we would have to siglongjmp out, but that would
- * be undefined behaviour too.
- */
+ * be undefined behaviour too. */
 extern connection this_child_connection;    /* in main.c */
 
 extern char * pidfile;    /* in main.c */
@@ -140,8 +136,7 @@ void die_signal_handler(const int i) {
 }
 
 /* child_signal_handler:
- * Signal handler to deal with SIGCHLD.
- */
+ * Signal handler to deal with SIGCHLD. */
 extern int num_running_children; /* in main.c */
 
 #ifdef AUTH_OTHER
@@ -177,8 +172,7 @@ void child_signal_handler(const int i) {
 }
 
 /* restart_signal_handler:
- * Signal handler to restart the server on receiving a SIGHUP.
- */
+ * Signal handler to restart the server on receiving a SIGHUP. */
 extern int restart, post_fork;              /* in main.c */
 
 void restart_signal_handler(const int i) {

@@ -35,23 +35,20 @@ static const char rcsid[] = "$Id$";
      
 #include "auth_passwd.h"
 #include "authswitch.h"
-#include "stringmap.h"
+#include "config.h"
 #include "util.h"
 #include "mailbox.h"
 
 /* auth_passwd_new_user_pass:
  * Attempt to authenticate user and pass using /etc/passwd or /etc/shadow,
- * as configured at compile-time.
- */
-extern stringmap config;
-
+ * as configured at compile-time. */
 authcontext auth_passwd_new_user_pass(const char *user, const char *pass, const char *host /* unused */) {
     struct passwd *pw;
 #ifdef AUTH_PASSWD_SHADOW
     struct spwd *spw;
 #endif /* AUTH_PASSWD_SHADOW */
     char *user_passwd;
-    item *I;
+    char *s;
     int use_gid = 0;
     gid_t gid = 99;
     authcontext a = NULL;
@@ -72,17 +69,16 @@ authcontext auth_passwd_new_user_pass(const char *user, const char *pass, const 
 #endif /* AUTH_PASSWD_SHADOW */
 
     /* Obtain gid to use */
-    if ((I = stringmap_find(config, "auth-passwd-mail-group"))) {
-        if (!parse_gid((char*)I->v, &gid)) {
-            log_print(LOG_ERR, _("auth_passwd_new_user_pass: auth-passwd-mail-group directive `%s' does not make sense"), (char*)I->v);
+    if ((s = config_get_string("auth-passwd-mail-group"))) {
+        if (!parse_gid(s, &gid)) {
+            log_print(LOG_ERR, _("auth_passwd_new_user_pass: auth-passwd-mail-group directive `%s' does not make sense"), s);
             return NULL;
         }
         use_gid = 1;
     }
 
     /* Now we need to authenticate the user; we will leave finding the
-     * mailspool for later.
-     */
+     * mailspool for later. */
     if (!strcmp(crypt(pass, user_passwd), user_passwd)) {
         a = authcontext_new(pw->pw_uid, use_gid ? gid : pw->pw_gid, NULL, NULL, pw->pw_dir, NULL);
     }

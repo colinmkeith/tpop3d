@@ -286,6 +286,15 @@ void xfree(void *v) {
     if (v) free(v);
 }
 
+/* xstrdup:
+ * Strdup, aborting on failure. */
+char *xstrdup(const char *s) {
+    char *t;
+    t = xmalloc(strlen(s) + 1);
+    strcpy(t, s);
+    return t;
+}
+
 /* md5_digest:
  * Make an MD5 digest of some data. */
 void md5_digest(const void *v, const size_t n, unsigned char *md5) {

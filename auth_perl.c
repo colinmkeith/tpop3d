@@ -132,12 +132,12 @@ void auth_perl_postfork() {
 void auth_perl_close() {
     if (perl_interp) {
         /* There may be code to execute on shutdown. */
-        item *I;
-        if ((I = stringmap_find(config, "auth-perl-finish"))) {
+        char *s;
+        if ((s = config_get_string("auth-perl-finish"))) {
             dSP;
             SV *sv;
             STRLEN len;
-            sv = newSVpv(I->v, 0);
+            sv = newSVpv(s, 0);
             PUSHMARK(SP);
             perl_eval_sv(sv, G_SCALAR | G_DISCARD | G_KEEPERR);
             SvREFCNT_dec(sv);

@@ -151,8 +151,7 @@ mailbox mailspool_new_from_file(const char *filename) {
     
     if (stat(filename, &(M->st)) == -1) {
         /* If the mailspool doesn't exist, fail silently, since this may be
-         * getting called from find_mailbox.
-         */
+         * getting called from find_mailbox. */
         if (errno == ENOENT) failM = MBOX_NOENT;
         else log_print(LOG_INFO, "mailspool_new_from_file: stat(%s): %m", filename);
         goto fail;
@@ -341,8 +340,7 @@ int mailspool_build_index(mailbox M, char *filemem) {
 }
 
 /* mailspool_send_message:
- * Front-end to write_file in util.c.
- */
+ * Front-end to write_file in util.c. */
 int mailspool_send_message(const mailbox M, int sck, const int i, int n) {
     struct indexpoint *x;
 
@@ -508,8 +506,7 @@ int mailspool_apply_changes(mailbox M) {
 
 /* mailspool_find_index:
  * Find the name of a mailspool's index file, using the spec in the config
- * file.
- */
+ * file. */
 extern stringmap config;
 
 char *mailspool_find_index(mailbox m) {
@@ -539,9 +536,7 @@ char *mailspool_find_index(mailbox m) {
      *
      * In either case, the path in which the index is saved needs to have
      * permissions which allow the user who owns the mailspool to write a new
-     * file to it. 1777 would be traditional.
-     *
-     */
+     * file to it. 1777 would be traditional. */
     path = strdup(m->name);
     p = strrchr(path, '/');
     if (p) *p = 0;

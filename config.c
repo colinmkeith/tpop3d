@@ -60,18 +60,16 @@ stringmap read_config_file(const char *f) {
 
         /* Strip comment. */
         key = strpbrk(line, "#\n");
-
         if (key) *key = 0;
+
         /*    foo  : bar baz quux
-         * key^    ^value
-         */
+         * key^    ^value          */
         key = line + strspn(line, " \t");
         value = strchr(line, ':');
 
         if (value) {
             /*    foo  : bar baz quux
-             * key^  ^r ^value
-             */
+             * key^  ^r ^value         */
             ++value;
 
             r = key + strcspn(key, " \t:");
@@ -80,8 +78,7 @@ stringmap read_config_file(const char *f) {
                 *r = 0;
 
                 /*    foo\0: bar baz quux
-                 * key^      ^value      ^r
-                 */
+                 * key^      ^value      ^r */
                 value += strspn(value, " \t");
                 r = value + strlen(value) - 1;
                 while (strchr(" \t", *r) && r > value) --r;
@@ -162,4 +159,16 @@ char *config_get_string(const char *directive) {
     I = stringmap_find(config, directive);
     if (I) return (char*)I->v;
     else return NULL;
+}
+
+/* config_get_bool:
+ * Get a boolean value from the config file. Returns false if not present. */
+int config_get_bool(const char *directive) {
+    char *s;
+
+    s = config_get_string(directive);
+    if (s && (strcmp(s, "yes") == 0 || strcmp(s, "true") == 0))
+        return 1;
+    else
+        return 0;
 }

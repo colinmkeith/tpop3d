@@ -18,16 +18,15 @@
 #include <unistd.h>
 
 #include "authswitch.h"
+#include "config.h"
 #include "mailbox.h"
-#include "stringmap.h"
 #include "tokenise.h"
 #include "util.h"
 
 /* mbox_drivers:
  * References various mailbox drivers, New ones should be added as below. Note
  * that the first driver in this list will be used if mailbox_new is called
- * with a NULL mailspool type, so it should be a sensible default.
- */
+ * with a NULL mailspool type, so it should be a sensible default. */
 #define _X(String) (String)
 
 struct mboxdrv mbox_drivers[] = {
@@ -191,25 +190,22 @@ mailbox try_mailbox_locations(const char *specs, const char *user, const char *d
  * mailbox names, both exist, and the former is locked. It is important that
  * the view of the mailbox presented to the user is consistent, so a failure
  * to lock a given mailspool must not cause the program to go off and use a
- * different one.
- */
-extern stringmap config;
-
+ * different one. */
 mailbox find_mailbox(authcontext a) {
     mailbox m = MBOX_NOENT;
     char *buffer;
-    item *I;
+    char *s;
  
     /* Try the driver-specific config option. */
     buffer = xmalloc(strlen("auth--mailbox") + strlen(a->auth) + 1);
     sprintf(buffer, "auth-%s-mailbox", a->auth);
-    if ((I = stringmap_find(config, buffer)))
-        m = try_mailbox_locations(I->v, a->user, a->domain, a->home);
+    if ((s = config_get_string(buffer)))
+        m = try_mailbox_locations(s, a->user, a->domain, a->home);
     xfree(buffer);
 
     /* Then the global one. */
-    if (m == MBOX_NOENT && (I = stringmap_find(config, "mailbox")))
-        m = try_mailbox_locations(I->v, a->user, a->domain, a->home);
+    if (m == MBOX_NOENT && (s = config_get_string("mailbox")))
+        m = try_mailbox_locations(s, a->user, a->domain, a->home);
     
 #ifdef MAILSPOOL_DIR
     /* Then the compiled-in default. */

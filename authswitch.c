@@ -41,13 +41,13 @@ static const char rcsid[] = "$Id$";
 #endif /* AUTH_PASSWD */
 
 #include "authswitch.h"
+#include "config.h"
 #include "stringmap.h"
 #include "util.h"
 
 /* auth_drivers:
  * References the various authentication drivers. New ones should be added as
- * below.
- */
+ * below. */
 #define _X(String) (String)
 
 struct authdrv auth_drivers[] = {
@@ -93,8 +93,7 @@ int *auth_drivers_running;
 #define auth_drivers_end    auth_drivers + NUM_AUTH_DRIVERS
 
 /* authswitch_describe:
- * Describe available authentication drivers.
- */
+ * Describe available authentication drivers. */
 void authswitch_describe(FILE *fp) {
     const struct authdrv *aa;
     fprintf(fp, _("Available authentication drivers:\n\n"));
@@ -105,8 +104,7 @@ void authswitch_describe(FILE *fp) {
 
 /* authswitch_init:
  * Attempt to initialise all the authentication drivers listed in
- * auth_drivers. Returns the number of drivers successfully started.
- */
+ * auth_drivers. Returns the number of drivers successfully started. */
 extern stringmap config;
     
 int authswitch_init() {
@@ -118,11 +116,10 @@ int authswitch_init() {
 
     for (aa = auth_drivers, aar = auth_drivers_running; aa < auth_drivers_end; ++aa, ++aar) {
         size_t l;
-        char *s = xmalloc(l = (13 + strlen(aa->name)));
-        item *I;
+        char *s;
+        s = xmalloc(l = (13 + strlen(aa->name)));
         snprintf(s, l, "auth-%s-enable", aa->name);
-        I = stringmap_find(config, s);
-        if (I && (!strcmp(I->v, "yes") || !strcmp(I->v, "true"))) {
+        if (config_get_bool(s)) {
             if (aa->auth_init && !aa->auth_init())
                 log_print(LOG_ERR, "failed to initialise %s authentication driver", aa->name);
             else {

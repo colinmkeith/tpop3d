@@ -323,7 +323,7 @@ fi
 # Some machines have crypt(3) in libcrypt; test for this.
 if test x"$enable_auth_passwd" = x"yes" || test x"$enable_shadow" = x"yes" || test x"$enable_auth_mysql" = x"yes"
 then
-    AC_SEARCH_LIBS(crypt, crypt, , )
+    AC_CHECK_LIB(crypt, crypt, , )
 fi
 
 # Some machines have dlopen etc. in libdl, and these are needed for PAM.

@@ -26,7 +26,7 @@ static const char rcsid[] = "$Id$";
 
 #include "auth_pam.h"
 #include "authswitch.h"
-#include "stringmap.h"
+#include "config.h"
 #include "util.h"
 
 /* auth_pam_conversation:
@@ -53,10 +53,7 @@ int auth_pam_conversation(int num_msg, const struct pam_message **msg, struct pa
 }
 
 /* auth_pam_new_user_pass:
- * Attempt to authenticate user and pass using PAM.
- */
-extern stringmap config;
-
+ * Attempt to authenticate user and pass using PAM. */
 authcontext auth_pam_new_user_pass(const char *user, const char *pass, const char *host /* unused */) {
     pam_handle_t *pamh = NULL;
     struct passwd pw, *pw2;
@@ -64,7 +61,7 @@ authcontext auth_pam_new_user_pass(const char *user, const char *pass, const cha
     authcontext a = NULL;
     struct pam_conv conv;
     char *facility;
-    item *I;
+    char *s;
     int use_gid = 0;
     gid_t gid = 99;
     const char *x;
@@ -74,21 +71,19 @@ authcontext auth_pam_new_user_pass(const char *user, const char *pass, const cha
     if (*x) return NULL;
 
     /* Copy the password structure, since it is in static storage and may
-     * get overwritten by calls in the PAM code.
-     */
+     * get overwritten by calls in the PAM code. */
     pw2 = getpwnam(user);
     if (!pw2) return NULL;
     else memcpy(&pw, pw2, sizeof(pw));
 
     /* Obtain facility name. */
-    I = stringmap_find(config, "auth-pam-facility");
-    if (I) facility = (char*)I->v;
-    else facility = AUTH_PAM_FACILITY;
+    if (!(facility = config_get_string("auth-pam-facility")))
+        facility = AUTH_PAM_FACILITY;
 
     /* Obtain gid to use */
-    if ((I = stringmap_find(config, "auth-pam-mail-group"))) {
-        if (!parse_gid((char*)I->v, &gid)) {
-            log_print(LOG_ERR, _("auth_pam_new_user_pass: auth-pam-mail-group directive `%s' does not make sense"), (char*)I->v);
+    if ((s = config_get_string("auth-pam-mail-group"))) {
+        if (!parse_gid(s, &gid)) {
+            log_print(LOG_ERR, _("auth_pam_new_user_pass: auth-pam-mail-group directive `%s' does not make sense"), s);
             return NULL;
         }
         use_gid = 1;
