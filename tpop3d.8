@@ -38,7 +38,7 @@ using facility \fBmail\fP.
 Print a brief usage summary.
 
 .TP
-.BI -f\  file
+.BI -f file
 Read configuration from \fIfile\fP, instead of from \fB/etc/tpop3d.conf\fP.
 
 .TP
@@ -51,6 +51,29 @@ and print log messages to standard error as well as the syslog
 Log traffic being sent to/from the server, for debugging purposes; tpop3d will
 log commands and responses sent, but not passwords or the actual content of
 messages.
+
+.SS SIGNALS
+
+.TP
+\fBSIGTERM\fP, \fBSIGINT\fP
+Cause the daemon to exit, closing any active connections.
+
+.TP
+\fBSIGHUP\fP
+Cause the daemon to restart, re-reading its configuration file. This will not close
+active connections which have already been authenticated.
+
+.TP
+other signals
+Most other signals are ignored, though some (\fBSIGSEGV\fP etc.) will cause the
+daemon to terminate prematurely. In these circumstances, \fBtpop3d\fP should
+clear up all of its lock files. However, if this happens, it indicates either
+a bug in \fBtpop3d\fP, or a hardware problem. In the former case, please
+contact me (see below for contact details) with information about your
+configuration and (if known) steps which may be taken to reproduce the bug.
+In particular, the contents of the \fBMakefile\fP you used to compile
+\fBtpop3d\fP and the operating system and version under which you are running
+it are essential information for a bug report.
 
 .SH CONFIGURATION FILE
 
