@@ -304,7 +304,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
     if (domain == name || !*domain) return NULL;
     ++domain;
     
-    local_part = (char*)malloc(domain - name);
+    local_part = xmalloc(domain - name);
     if (!local_part) return NULL;
     memset(local_part, 0, domain - name);
     strncpy(local_part, name, domain - name - 1);
@@ -401,8 +401,8 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
     }
 
 fail:
-    if (local_part) free(local_part);
-    if (query) free(query);
+    if (local_part) xfree(local_part);
+    if (query) xfree(query);
 
     return a;
 }
@@ -442,7 +442,7 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const c
     if (domain == user || !*domain) return NULL;
     ++domain;
     
-    local_part = (char*)malloc(domain - user);
+    local_part = xmalloc(domain - user);
     if (!local_part) return NULL;
     memset(local_part, 0, domain - user);
     strncpy(local_part, user, domain - user - 1);
@@ -550,8 +550,8 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *pass, const c
     }
 
 fail:
-    if (local_part) free(local_part);
-    if (query) free(query);
+    if (local_part) xfree(local_part);
+    if (query) xfree(query);
 
     return a;
 }
@@ -572,12 +572,12 @@ static char *substitute_query_params(const char *template, const char *local_par
     struct sverr err;
 
     /* Form escaped copies of the user and domain. */
-    if (!(l = (char*)malloc(strlen(local_part) * 2 + 1)))
+    if xmalloc(strlen(local_part) * 2 + 1)))
 	return NULL;
     mysql_escape_string(l, local_part, strlen(local_part));
 
-    if (!(d = (char*)malloc(strlen(domain) * 2 + 1))) {
-	free(l);
+    if xmalloc(strlen(domain) * 2 + 1))) {
+	xfree(l);
 	return NULL;
     }
     mysql_escape_string(d, domain, strlen(domain));
@@ -587,8 +587,8 @@ static char *substitute_query_params(const char *template, const char *local_par
     if (!query)
         print_log(LOG_ERR, _("substitute_query_params: %s near `%.16s'"), err.msg, template + err.offset);
     
-    free(l);
-    free(d);
+    xfree(l);
+    xfree(d);
     return query;
 }
 

@@ -129,18 +129,18 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 
                 if (!c->a && append_domain && c->domain && strcspn(name, "@%!") == strlen(name)) {
                     /* OK, if we have a domain name, try appending that. */
-                    char *nn = (char*)malloc(strlen(name) + strlen(c->domain) + 2);
+                    char *nn = xmalloc(strlen(name) + strlen(c->domain) + 2);
                     strcpy(nn, name);
                     strcat(nn, "@");
                     strcat(nn, c->domain);
                     c->a = authcontext_new_apop(nn, c->timestamp, digest, c->domain, inet_ntoa(c->sin.sin_addr));
-                    free(nn);
+                    xfree(nn);
                 }
 
                 if (c->a) {
                     /* Now save a new ID string for this client. */
-                    free(c->idstr);
-                    c->idstr =(char*)malloc(strlen(c->a->user) + 2 + strlen(inet_ntoa(c->sin.sin_addr)) + 16);
+                    xfree(c->idstr);
+                    c->idstr =xmalloc(strlen(c->a->user) + 2 + strlen(inet_ntoa(c->sin.sin_addr)) + 16);
                     sprintf(c->idstr, "[%d]%s(%s)", c->s, c->a->user, inet_ntoa(c->sin.sin_addr));
 
                     c->state = transaction;
@@ -194,28 +194,28 @@ enum connection_action connection_do(connection c, const pop3command p) {
             c->a = authcontext_new_user_pass(c->user, c->pass, c->domain, inet_ntoa(c->sin.sin_addr));
             if (!c->a && append_domain && c->domain && strcspn(c->user, "@%!") == strlen(c->user)) {
                 /* OK, if we have a domain name, try appending that. */
-                char *nn = (char*)malloc(strlen(c->user) + strlen(c->domain) + 2);
+                char *nn = xmalloc(strlen(c->user) + strlen(c->domain) + 2);
                 strcpy(nn, c->user);
                 strcat(nn, "@");
                 strcat(nn, c->domain);
                 c->a = authcontext_new_user_pass(nn, c->pass, c->domain, inet_ntoa(c->sin.sin_addr));
-                free(nn);
+                xfree(nn);
             }
 
             if (c->a) {
                 /* Now save a new ID string for this client. */
-                free(c->idstr);
-                c->idstr =(char*)malloc(strlen(c->a->user) + 2 + strlen(inet_ntoa(c->sin.sin_addr)) + 16);
+                xfree(c->idstr);
+                c->idstr =xmalloc(strlen(c->a->user) + 2 + strlen(inet_ntoa(c->sin.sin_addr)) + 16);
                 sprintf(c->idstr, "[%d]%s(%s)", c->s, c->a->user, inet_ntoa(c->sin.sin_addr));
 
                 memset(c->pass, 0, strlen(c->pass));
                 c->state = transaction;
                 return fork_and_setuid; /* Code in main.c sends response in case of error. */
             } else {
-                free(c->user);
+                xfree(c->user);
                 c->user = NULL;
                 memset(c->pass, 0, strlen(c->pass));
-                free(c->pass);
+                xfree(c->pass);
                 c->pass = NULL;
 
                 ++c->n_auth_tries;

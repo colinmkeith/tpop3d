@@ -25,11 +25,11 @@ static const char rcsid[] = "$Id$";
  * Allocate memory for a new stringmap.
  */
 stringmap stringmap_new() {
-    stringmap S = (stringmap)malloc(sizeof(struct _stringmap));
-
+    stringmap S;
+    
+    S = xcalloc(1, sizeof *S);
     if (!S) return NULL;
 
-    memset(S, 0, sizeof(struct _stringmap));
     return S;
 }
 
@@ -41,22 +41,22 @@ void stringmap_delete(stringmap S) {
     if (S->l) stringmap_delete(S->l);
     if (S->g) stringmap_delete(S->g);
 
-    free(S->key);
-    free(S);
+    xfree(S->key);
+    xfree(S);
 }
 
 /* stringmap_delete_free:
  * Free memory for a stringmap, and the objects contained in it, assuming that
- * they are pointers to memory allocated by malloc(3).
+ * they are pointers to memory allocated by xmalloc(3).
  */
-void stringmap_delete_free(stringmap S) {
+void stringmap_delete_xfree(stringmap S) {
     if (!S) return;
     if (S->l) stringmap_delete(S->l);
     if (S->g) stringmap_delete(S->g);
 
-    free(S->key);
-    free(S->d.v);
-    free(S);
+    xfree(S->key);
+    xfree(S->d.v);
+    xfree(S);
 }
 
 /* stringmap_insert:

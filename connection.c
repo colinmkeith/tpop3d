@@ -53,7 +53,7 @@ static char *make_timestamp(const char *domain) {
         domain = u.nodename;
     }
 
-    s = (char*)malloc(l = 1 + TIMESTAMP_LEN + 1 + strlen(domain) + 2);
+    s = xmalloc(l = 1 + TIMESTAMP_LEN + 1 + strlen(domain) + 2);
     if (!s) return NULL;
     memset(s, 0, l);
     *s = '<';
@@ -93,21 +93,19 @@ static char *make_timestamp(const char *domain) {
  */
 connection connection_new(int s, const struct sockaddr_in *sin, const char *domain) {
     connection c = 0;
-    c = (connection)malloc(sizeof(struct _connection));
+    c = xcalloc(1, sizeof *c);
     if (!c) return NULL;
-
-    memset(c, 0, sizeof(struct _connection));
 
     c->s = s;
     memcpy(&(c->sin), sin, sizeof(struct sockaddr_in));
 
     if (domain) c->domain = strdup(domain);
 
-    c->idstr = (char*)malloc(strlen(inet_ntoa(sin->sin_addr)) + 1 + (domain ? strlen(domain) : 0) + 16);
+    c->idstr = xmalloc(strlen(inet_ntoa(sin->sin_addr)) + 1 + (domain ? strlen(domain) : 0) + 16);
     if (domain) sprintf(c->idstr, "[%d]%s/%s", s, inet_ntoa(sin->sin_addr), domain);
     else sprintf(c->idstr, "[%d]%s", s, inet_ntoa(sin->sin_addr));
 
-    c->p = c->buffer = (char*)malloc(c->bufferlen = MAX_POP3_LINE);
+    c->p = c->buffer = xmalloc(c->bufferlen = MAX_POP3_LINE);
     if (!c->buffer) goto fail;
 
     c->timestamp = make_timestamp(c->domain);
@@ -143,13 +141,13 @@ void connection_delete(connection c) {
     if (c->a) authcontext_delete(c->a);
     if (c->m) (c->m)->delete(c->m);
 
-    if (c->domain)    free(c->domain);
-    if (c->idstr)     free(c->idstr);
-    if (c->buffer)    free(c->buffer);
-    if (c->timestamp) free(c->timestamp);
-    if (c->user)      free(c->user);
-    if (c->pass)      free(c->pass);
-    free(c);
+    if (c->domain)    xfree(c->domain);
+    if (c->idstr)     xfree(c->idstr);
+    if (c->buffer)    xfree(c->buffer);
+    if (c->timestamp) xfree(c->timestamp);
+    if (c->user)      xfree(c->user);
+    if (c->pass)      xfree(c->pass);
+    xfree(c);
 }
 
 /* connection_read:
@@ -232,7 +230,7 @@ pop3command connection_parsecommand(connection c) {
         int i, l;
         l = strlen(_("connection_parsecommand: client %s: received `")) + 2 + strlen(c->idstr);
         for (i = 0; i < pc->toks->num; ++i) l += strlen((char*)(pc->toks->toks[i])) + 6;
-        s = (char*)malloc(l);
+        s = xmalloc(l);
         sprintf(s, _("connection_parsecommand: client %s: received `"), c->idstr);
         for (i = 0; i < pc->toks->num; ++i) {
             if (i == 0 || pc->cmd != PASS) strcat(s, (char*)(pc->toks->toks[i]));
@@ -241,7 +239,7 @@ pop3command connection_parsecommand(connection c) {
         }
         strcat(s, "'");
         print_log(LOG_DEBUG, "%s", s);
-        free(s);
+        xfree(s);
     }
                 
     /* now update the buffer */
@@ -258,7 +256,7 @@ pop3command pop3command_new(const char *s) {
     pop3command p;
     int i;
     
-    p = (pop3command)malloc(sizeof(struct _pop3command));
+    p = xcalloc(1, sizeof *p);
 
     p->cmd = UNKNOWN;
     p->toks = tokens_new(s, " \t");
@@ -283,7 +281,7 @@ pop3command pop3command_new(const char *s) {
 void pop3command_delete(pop3command p) {
     if (!p) return;
     if (p->toks) tokens_delete(p->toks);
-    free(p);
+    xfree(p);
 }
 
 /* connection_sendresponse:
@@ -293,11 +291,11 @@ void pop3command_delete(pop3command p) {
 int connection_sendresponse(connection c, const int success, const char *s) {
     char *x;
     size_t l, m;
-    x = (char*)malloc(l = (4 + strlen(s) + 3 + 1));
+    x = xmalloc(l = (4 + strlen(s) + 3 + 1));
     if (!x) return 0;
     snprintf(x, l, "%s %s\r\n", success ? "+OK" : "-ERR", s);
     m = xwrite(c->s, x, l = strlen(x));
-    free(x);
+    xfree(x);
     if (verbose)
         print_log(LOG_DEBUG, _("connection_sendresponse: client %s: sent `%s %s'"), c->idstr, success? "+OK" : "-ERR", s);
     return (m == l);
@@ -310,11 +308,11 @@ int connection_sendresponse(connection c, const int success, const char *s) {
 int connection_sendline(connection c, const char *s) {
     char *x;
     size_t l, m;
-    x = (char*)malloc(l = (3 + strlen(s)));
+    x = xmalloc(l = (3 + strlen(s)));
     if (!x) return 0;
     snprintf(x, l, "%s\r\n", s);
     m = xwrite(c->s, x, l = strlen(x));
-    free(x);
+    xfree(x);
     return (m == l);
 }
 

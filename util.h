@@ -84,6 +84,12 @@ char *hex_digest(const unsigned char *u);
 /* Vice versa. */
 int unhex_digest(const char *from, unsigned char *to);
 
+/* Memory allocation wrappers. */
+void *xmalloc(size_t n);
+void *xcalloc(size_t n, size_t m);
+void *xrealloc(void *w, size_t n);
+void xfree(void *v);
+
 /* Optional internationalisation support. */
 #ifdef WITH_I18N
 #   include <gettext.h>

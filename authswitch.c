@@ -114,12 +114,11 @@ int authswitch_init() {
     int *aar;
     int ret = 0;
 
-    auth_drivers_running = (int*)malloc(NUM_AUTH_DRIVERS * sizeof(int));
-    memset(auth_drivers_running, 0, NUM_AUTH_DRIVERS * sizeof(int));
+    auth_drivers_running = xcalloc(NUM_AUTH_DRIVERS, sizeof *auth_drivers_running);
 
     for (aa = auth_drivers, aar = auth_drivers_running; aa < auth_drivers_end; ++aa, ++aar) {
         size_t l;
-        char *s = (char*)malloc(l = (13 + strlen(aa->name)));
+        char *s = xmalloc(l = (13 + strlen(aa->name)));
         item *I;
         snprintf(s, l, "auth-%s-enable", aa->name);
         I = stringmap_find(config, s);
@@ -131,7 +130,7 @@ int authswitch_init() {
                 ++ret;
             }
         }
-        free(s);
+        xfree(s);
     }
 
     return ret;
@@ -189,7 +188,7 @@ void authswitch_close() {
     for (aa = auth_drivers, aar = auth_drivers_running; aa < auth_drivers_end; ++aa, ++aar)
         if (*aar && aa->auth_close) aa->auth_close();
 
-    free(auth_drivers_running);
+    xfree(auth_drivers_running);
 }
 
 /* authcontext_new:
@@ -197,9 +196,8 @@ void authswitch_close() {
  */
 authcontext authcontext_new(const uid_t uid, const gid_t gid, const char *mboxdrv, const char *mailbox, const char *home, const char *domain) {
     authcontext a;
-    a = (authcontext)malloc(sizeof(struct _authcontext));
+    a = xcalloc(1, sizeof *a);
     if (!a) return NULL;
-    memset(a, 0, sizeof(struct _authcontext));
 
     a->uid = uid;
     a->gid = gid;
@@ -224,20 +222,20 @@ extern int post_fork;   /* in main.c */
 void authcontext_delete(authcontext a) {
     if (!a) return;
 
-    if (a->mboxdrv) free(a->mboxdrv);
-    if (a->mailbox) free(a->mailbox);
+    if (a->mboxdrv) xfree(a->mboxdrv);
+    if (a->mailbox) xfree(a->mailbox);
 
     /* Only log if this is the end of the session, not the parent freeing its
      * copy of the data. (This is a hack, and I am ashamed.)
      */
     if (post_fork) print_log(LOG_INFO, _("authcontext_delete: finished session for `%s' with %s"), a->user, a->auth);
 
-    if (a->auth) free(a->auth);
-    if (a->user) free(a->user);
-    if (a->domain) free(a->domain);
-    if (a->home) free(a->home);
+    if (a->auth) xfree(a->auth);
+    if (a->user) xfree(a->user);
+    if (a->domain) xfree(a->domain);
+    if (a->home) xfree(a->home);
     
-    free(a);
+    xfree(a);
 }
 
 

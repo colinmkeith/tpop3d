@@ -142,16 +142,15 @@ mailbox mailspool_new_from_file(const char *filename) {
     struct timeval tv1, tv2;
     float f;
     
-    M = (mailbox)malloc(sizeof(struct _mailbox));
+    M = xcalloc(1, sizeof *M);
     if (!M) return NULL;
 
-    memset(M, 0, sizeof(struct _mailbox));
     M->delete = mailspool_delete;
     M->apply_changes = mailspool_apply_changes;
     M->send_message = mailspool_send_message;
 
     /* Allocate space for the index. */
-    M->index = (struct indexpoint*)calloc(32, sizeof(struct indexpoint));
+    M->index = (struct indexpoint*)xcalloc(32, sizeof(struct indexpoint));
     M->size = 32;
     
     if (stat(filename, &(M->st)) == -1) {
@@ -567,7 +566,7 @@ char *mailspool_find_index(mailbox m) {
     p = strrchr(path, '/');
     if (p) *p = 0;
     file = strdup(p + 1);
-    escaped_name = calloc(strlen(m->name) * 3 + 2, 1);
+    escaped_name = xcalloc(strlen(m->name) * 3 + 2, 1);
 
     /* Form HTTP-style escaped version of name. Only escape % and /, though. */
     for (p = m->name, q = escaped_name; *p; ++p) {
@@ -584,9 +583,9 @@ char *mailspool_find_index(mailbox m) {
     }
 
 fail:
-    if (path) free(path);
-    if (file) free(file);
-    if (escaped_name) free(escaped_name);
+    if (path) xfree(path);
+    if (file) xfree(file);
+    if (escaped_name) xfree(escaped_name);
 
     return indexname;
 }
@@ -671,7 +670,7 @@ int mailspool_save_index(mailbox m) {
     ret = 1;
 
 fail:
-    if (indexfile) free(indexfile);
+    if (indexfile) xfree(indexfile);
     if (fp) fclose(fp);
     else if (fd != -1) close(fd);
     
@@ -778,7 +777,7 @@ int mailspool_load_index(mailbox m) {
 fail:
     if (fp) fclose(fp);
 
-    if (indexfile) free(indexfile);
+    if (indexfile) xfree(indexfile);
 
     /* Whatever happens, have a go at indexing the rest of the file. */
     num = m->num;

@@ -41,7 +41,7 @@ int auth_pam_conversation(int num_msg, const struct pam_message **msg, struct pa
 
     if (!num_msg || !msg || !appdata_ptr) return PAM_CONV_ERR;
     
-    *resp = (struct pam_response*)calloc(num_msg, sizeof(struct pam_response));
+    *resp = (struct pam_response*)xcalloc(num_msg, sizeof(struct pam_response));
     if (!*resp) return PAM_CONV_ERR;
 
     /* Assume that any prompt is asking for a password */

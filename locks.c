@@ -105,7 +105,7 @@ int flock_unlock(int fd) {
  * file with ".lock" appended. Returns 0 on success or -1 on failure.
  */
 int dotfile_lock(const char *name) {
-    char *lockfile = (char*)malloc(strlen(name) + 6), *hitchfile = NULL;
+    char *lockfile = xmalloc(strlen(name) + 6), *hitchfile = NULL;
     char pidstr[16];
     struct utsname uts;
     int fd = -1, rc, r = -1;
@@ -119,7 +119,7 @@ int dotfile_lock(const char *name) {
 
     /* Make a name for a hitching-post file. */
     if (uname(&uts) == -1) goto fail;
-    hitchfile = (char*)malloc(strlen(name) + strlen(uts.nodename) + 24);
+    hitchfile = xmalloc(strlen(name) + strlen(uts.nodename) + 24);
     if (!hitchfile) goto fail;
     sprintf(hitchfile, "%s.%ld.%ld.%s", name, (long)getpid(), (long)time(NULL), uts.nodename);
 
@@ -152,8 +152,8 @@ int dotfile_lock(const char *name) {
     r = 0;
 
 fail:
-    if (lockfile) free(lockfile);
-    if (hitchfile) free(hitchfile);
+    if (lockfile) xfree(lockfile);
+    if (hitchfile) xfree(hitchfile);
     if (fd != -1) close(fd);
     return r;
 }
@@ -166,7 +166,7 @@ fail:
  */
 int dotfile_unlock(const char *name) {
     char pidstr[16], pidstr2[16] = {0};
-    char *lockfile = (char*)malloc(strlen(name) + 6);
+    char *lockfile = xmalloc(strlen(name) + 6);
     int fd = -1, r = -1;
 
     sprintf(pidstr, "%d\n", (int)getpid());
@@ -201,7 +201,7 @@ int dotfile_unlock(const char *name) {
     r = 0;
 
 fail:
-    if (lockfile) free(lockfile);
+    if (lockfile) xfree(lockfile);
     if (fd != -1) close(fd);
     return r;
 }

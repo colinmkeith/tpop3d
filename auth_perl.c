@@ -113,7 +113,7 @@ int auth_perl_init() {
     if (SvTRUE(ERRSV)) {
         print_log(LOG_ERR, _("auth_perl_init: error executing perl start code: %s"), SvPV(ERRSV, len));
         perl_destruct(auth_perl_interp);
-        perl_free(auth_perl_interp);
+        perl_xfree(auth_perl_interp);
         auth_perl_interp = NULL;
         return 0;
     }
@@ -140,7 +140,7 @@ void auth_perl_close() {
                 print_log(LOG_ERR, _("auth_perl_close: error executing perl finish code: %s"), SvPV(ERRSV, len));
         }
         perl_destruct(auth_perl_interp);
-        perl_free(auth_perl_interp);
+        perl_xfree(auth_perl_interp);
         auth_perl_interp = NULL;
     }
 }
@@ -210,7 +210,7 @@ stringmap auth_perl_callfn(const char *perlfn, const int nvars, ...) {
         /* Transfer contents of hash into s. */
         hv_iterinit(hash_out);
         while ((val = hv_iternextsv(hash_out, &key, &len))) {
-            char *k = (char*)malloc(len + 1);
+            char *k = xmalloc(len + 1);
             STRLEN len2;
             strcpy(k, key);
             stringmap_insert(s, k, item_ptr(strdup(SvPV(val, len2))));
@@ -279,7 +279,7 @@ authcontext auth_perl_new_apop(const char *name, const char *timestamp, const un
     } else if (strcmp((char*)I->v, "NO") != 0) INVALID("result", (char*)I->v);
         
 fail:
-    stringmap_delete_free(S);
+    stringmap_delete_xfree(S);
     return a;
 #undef MISSING
 #undef INVALID
@@ -333,7 +333,7 @@ authcontext auth_perl_new_user_pass(const char *user, const char *pass, const ch
     } else if (strcmp((char*)I->v, "NO") != 0) INVALID("result", (char*)I->v);
         
 fail:
-    stringmap_delete_free(S);
+    stringmap_delete_xfree(S);
     return a;
 #undef MISSING
 #undef INVALID

@@ -87,7 +87,7 @@ volatile int authchild_wr = -1, authchild_rd = -1;
 void dump(unsigned char *b, size_t len) {
     unsigned char *p;
     char *q;
-    char *str = malloc(len * 4 + 1);
+    char *str = xmalloc(len * 4 + 1);
     for (p = b, q = str; p < b + len; ++p)
         if (*p >= 32 && *p <= 127) *q++ = *p;
         else {
@@ -96,7 +96,7 @@ void dump(unsigned char *b, size_t len) {
         }
     *q = 0;
     print_log(LOG_INFO, "dump %s", str);
-    free(str);
+    xfree(str);
 }
 
 /* tvadd:
@@ -460,7 +460,7 @@ stringmap auth_other_recv_response() {
 
 formaterror:
         print_log(LOG_ERR, _("auth_other_recv_response: response data not correctly formatted; killing child"));
-        stringmap_delete_free(S);
+        stringmap_delete_xfree(S);
         S = NULL;
     }
 
@@ -526,7 +526,7 @@ authcontext auth_other_new_apop(const char *name, const char *timestamp, const u
     } else if (strcmp((char*)I->v, "NO") != 0) INVALID("result", (char*)I->v);
         
 fail:
-    stringmap_delete_free(S);
+    stringmap_delete_xfree(S);
     return a;
 #undef MISSING
 #undef INVALID
@@ -584,7 +584,7 @@ authcontext auth_other_new_user_pass(const char *user, const char *pass, const c
     } else if (strcmp((char*)I->v, "NO") != 0) INVALID("result", (char*)I->v);
         
 fail:
-    stringmap_delete_free(S);
+    stringmap_delete_xfree(S);
     return a;
 #undef MISSING
 #undef INVALID

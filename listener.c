@@ -39,8 +39,9 @@ listener listener_new(const struct sockaddr_in *addr, const char *domain) {
     listener L;
     struct hostent *he;
     
-    L = (listener)malloc(sizeof(struct _listener));
-    memset(L, 0, sizeof(struct _listener));
+    L = xcalloc(1, sizeof *L);
+    if (!L) return NULL;
+
     memcpy(&(L->sin), addr, sizeof(struct sockaddr_in));
     L->s = socket(PF_INET, SOCK_STREAM, 0);
     if (L->s == -1) {
@@ -119,8 +120,8 @@ fail:
 void listener_delete(listener L) {
     if (!L) return;
     if (L->s != -1) close(L->s); /* Do not shutdown(2). */
-    if (L->domain) free(L->domain);
-    free(L);
+    if (L->domain) xfree(L->domain);
+    xfree(L);
 }
 
 

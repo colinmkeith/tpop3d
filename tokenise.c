@@ -34,27 +34,28 @@ tokens tokens_new(const char *str, const char *seps) {
     tokens T;
     char *p, *r;
     int nn = 4;
-    T = (tokens)malloc(sizeof(struct _tokens));
-    memset(T, 0, sizeof(struct _tokens));
+    
+    T = xcalloc(1, sizeof *T);
     if (!T) return NULL;
+
     T->str = strdup(str);
     if (!(T->str)) {
-        free(T);
+        xfree(T);
         return NULL;
     }
-    T->toks = (char**)malloc(sizeof(char*) * nn);
+    
+    T->toks = xcalloc(nn, sizeof *T->toks);
     if (!(T->toks)) {
-        free(T);
-        free(T->str);
+        xfree(T);
+        xfree(T->str);
         return NULL;
     }
-    memset(T->toks, 0, sizeof(char*) * nn);
     
     p = strtok_r(T->str, seps, &r);
     while (p) {
         T->toks[T->num++] = p;
         if (T->num == nn) {
-            T->toks = (char**)realloc(T->toks, sizeof(char*) * nn * 2);
+            T->toks = (char**)xrealloc(T->toks, sizeof(char*) * nn * 2);
             memset(T->toks + nn, 0, sizeof(char*) * nn);
             nn *= 2;
         }
@@ -69,8 +70,7 @@ tokens tokens_new(const char *str, const char *seps) {
  */
 void tokens_delete(tokens T) {
     if (!T) return;
-    if (T->str) free(T->str);
-    if (T->toks) free(T->toks);
-    free(T);
-    
+    if (T->str) xfree(T->str);
+    if (T->toks) xfree(T->toks);
+    xfree(T);
 }

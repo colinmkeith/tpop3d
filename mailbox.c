@@ -98,11 +98,11 @@ void mailbox_delete(mailbox m) {
     if (m->index) {
         struct indexpoint *i;
         for (i = m->index; i < m->index + m->num; ++i)
-            if (i->filename) free(i->filename);     /* should this be in a maildir-specific destructor? */
-        free(m->index);
+            if (i->filename) xfree(i->filename);     /* should this be in a maildir-specific destructor? */
+        xfree(m->index);
     }
-    if (m->name) free(m->name);
-    free(m);
+    if (m->name) xfree(m->name);
+    xfree(m);
 }
 
 /* mailbox_add_indexpoint:
@@ -110,7 +110,7 @@ void mailbox_delete(mailbox m) {
  */
 void mailbox_add_indexpoint(mailbox m, const struct indexpoint *i) {
     if (m->num == m->size) {
-        m->index = realloc(m->index, m->size * sizeof(struct indexpoint) * 2);
+        m->index = xrealloc(m->index, m->size * sizeof(struct indexpoint) * 2);
         m->size *= 2;
     }
     m->index[m->num++] = *i;
@@ -121,9 +121,8 @@ void mailbox_add_indexpoint(mailbox m, const struct indexpoint *i) {
  */
 mailbox emptymbox_new(const char *unused) {
     mailbox M;
-    M = (mailbox)malloc(sizeof(struct _mailbox));
+    M = xcalloc(1, sizeof *M);
     if (!M) return NULL;
-    memset(M, 0, sizeof(struct _mailbox));
 
     M->delete = mailbox_delete;                 /* generic destructor */
     M->apply_changes = emptymbox_apply_changes;
@@ -168,7 +167,7 @@ mailbox try_mailbox_locations(const char *specs, const char *user, const char *d
             print_log(LOG_ERR, _("try_mailbox_locations: %s near `%.16s'"), err.msg, subspec + err.offset);
         else {
             m = mailbox_new(path, mdrv);
-            free(path);
+            xfree(path);
             if (!m || m != MBOX_NOENT) break; /* Return in case of error or if we found the mailspool. */
         }
     }
@@ -202,11 +201,11 @@ mailbox find_mailbox(authcontext a) {
     item *I;
  
     /* Try the driver-specific config option. */
-    buffer = (char*)malloc(strlen("auth--mailbox") + strlen(a->auth) + 1);
+    buffer = xmalloc(strlen("auth--mailbox") + strlen(a->auth) + 1);
     sprintf(buffer, "auth-%s-mailbox", a->auth);
     if ((I = stringmap_find(config, buffer)))
         m = try_mailbox_locations(I->v, a->user, a->domain, a->home);
-    free(buffer);
+    xfree(buffer);
 
     /* Then the global one. */
     if (m == MBOX_NOENT && (I = stringmap_find(config, "mailbox")))
@@ -215,10 +214,10 @@ mailbox find_mailbox(authcontext a) {
 #ifdef MAILSPOOL_DIR
     /* Then the compiled-in default. */
     if (m == MBOX_NOENT) {
-        buffer = (char*)malloc(strlen(MAILSPOOL_DIR) + 1 + strlen(a->user) + 1);
+        buffer = xmalloc(strlen(MAILSPOOL_DIR) + 1 + strlen(a->user) + 1);
         sprintf(buffer, MAILSPOOL_DIR "/%s", a->user);
         m = mailbox_new(buffer, NULL);
-        free(buffer);
+        xfree(buffer);
     }
 #endif
 

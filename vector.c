@@ -19,27 +19,29 @@ static const char rcsid[] = "$Id$";
 #include "util.h"
 
 vector vector_new() {
-    vector v = (vector)malloc(sizeof(struct _vector));
+    vector v;
+    
+    v = xcalloc(1, sizeof *v);
     if (!v) return NULL;
-    memset(v, 0, sizeof(struct _vector));
-    v->ary = (item*)malloc(16 * sizeof(item));
+
+    v->ary = xcalloc(16, sizeof *v->ary);
     v->n = 16;
     v->n_used = 0;
     return v;
 }
 
 void vector_delete(vector v) {
-    free(v->ary);
-    free(v);
+    xfree(v->ary);
+    xfree(v);
 }
 
-void vector_delete_free(vector v) {
+void vector_delete_xfree(vector v) {
     item *i;
     vector_iterate(v, i) {
-        free(i->v);
+        xfree(i->v);
     }
-    free(v->ary);
-    free(v);
+    xfree(v->ary);
+    xfree(v);
 }
 
 void vector_push_back(vector v, const item t) {
@@ -73,7 +75,7 @@ item *vector_remove(vector v, item *t) {
 
 void vector_reallocate(vector v, const size_t n) {
     if (n < v->n_used || n <= 0) return;
-    v->ary = realloc(v->ary, n * sizeof(item));
+    v->ary = xrealloc(v->ary, n * sizeof(item));
     memset(v->ary + v->n_used, 0, (v->n - v->n_used) * sizeof(item));
     v->n = n;
 }

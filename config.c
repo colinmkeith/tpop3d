@@ -33,7 +33,7 @@ static const char rcsid[] = "$Id$";
 stringmap read_config_file(const char *f) {
     stringmap S = NULL;
     FILE *fp;
-    char *line = (char*)malloc(MAX_CONFIG_LINE);
+    char *line = xmalloc(MAX_CONFIG_LINE);
     int i = 1;
     if (!line) return NULL;
 
@@ -104,7 +104,7 @@ stringmap read_config_file(const char *f) {
 
 fail:
     if (fp) fclose(fp);
-    if (line) free(line);
+    if (line) xfree(line);
 
     return S;
 }

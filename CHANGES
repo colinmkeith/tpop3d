@@ -5,7 +5,8 @@ $Id$
 
 A bug in the log printing code which caused trouble on some architectures was
 fixed. A bug in the maildir code which caused the STAT command to claim that
-the size of the mailbox was 0 was also fixed.
+the size of the mailbox was 0 was also fixed. The code was cleaned up slightly
+in a comp.lang.c sense.
 
 Authenticators are now passed the IP address of the connected client, which
 makes writing POP-before-SMTP authenticators easier.

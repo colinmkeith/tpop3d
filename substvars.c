@@ -26,11 +26,11 @@ static const char rcsid[] = "$Id$";
  */
 char *xstrncat(char *pfx, const char *sfx, const size_t n) {
     char *s;
-    s = (char*)malloc(strlen(pfx) + n + 1);
+    s = xmalloc(strlen(pfx) + n + 1);
     if (!s) return NULL;
     strcpy(s, pfx);
     strncat(s, sfx, n);
-    free(pfx);
+    xfree(pfx);
     return s;
 }
 
@@ -42,7 +42,7 @@ char *xstrncat(char *pfx, const char *sfx, const size_t n) {
                                         err->msg = txt;              \
                                         err->offset = (off_t)(off);  \
                                     }                                \
-                                    free(res);                       \
+                                    xfree(res);                       \
                                     res = NULL;                      \
                                 } while (0)
 
@@ -53,8 +53,8 @@ char *substitute_variables(const char *spec, struct sverr *err, const int nvars,
     va_list ap;
     char *res;
     
-    var = (const char**)malloc(nvars * sizeof(char*));
-    val = (const char**)malloc(nvars * sizeof(char*));
+    var = xcalloc(nvars, sizeof *var);
+    val = xcalloc(nvars, sizeof *val);
     res = strdup("");
 
     va_start(ap, nvars);
@@ -131,8 +131,8 @@ char *substitute_variables(const char *spec, struct sverr *err, const int nvars,
     } while (*s);
 
 fail:
-    free(var);
-    free(val);
+    xfree(var);
+    xfree(val);
 
     return res;
 }

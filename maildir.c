@@ -72,7 +72,7 @@ int maildir_build_index(mailbox M, const char *subdir, time_t time) {
         char *filename;
         
         if (d->d_name[0] == '.') continue;
-        filename = (char*)malloc(strlen(subdir) + strlen(d->d_name) + 2);
+        filename = xmalloc(strlen(subdir) + strlen(d->d_name) + 2);
         sprintf(filename, "%s/%s", subdir, d->d_name);
         if (!filename) return -1;
         if (stat(filename, &st) == 0 && st.st_mtime < time) {
@@ -83,7 +83,7 @@ int maildir_build_index(mailbox M, const char *subdir, time_t time) {
             /* Hack: accumulate size of messages. */
             M->st.st_size += st.st_size;
         }
-        free(filename);
+        xfree(filename);
     }
     closedir(dir);
     
@@ -115,16 +115,15 @@ mailbox maildir_new(const char *dirname) {
     struct timeval tv1, tv2;
     float f;
     
-    M = (mailbox)malloc(sizeof(struct _mailbox));
+    M = xcalloc(1, sizeof *M);
     if (!M) return NULL;
-    memset(M, 0, sizeof(struct _mailbox));
     
     M->delete = mailbox_delete;                 /* generic destructor */
     M->apply_changes = maildir_apply_changes;
     M->send_message = maildir_send_message;
 
     /* Allocate space for the index. */
-    M->index = (struct indexpoint*)calloc(32, sizeof(struct indexpoint));
+    M->index = (struct indexpoint*)xcalloc(32, sizeof(struct indexpoint));
     M->size = 32;
     
     if (chdir(dirname) == -1) {
@@ -155,8 +154,8 @@ mailbox maildir_new(const char *dirname) {
 
 fail:
     if (M) {
-        if (M->name) free(M->name);
-        free(M);
+        if (M->name) xfree(M->name);
+        xfree(M);
     }
     return failM;
 }
@@ -204,11 +203,11 @@ int maildir_apply_changes(mailbox M) {
             /* Mark message read. */
             if (strncmp(m->filename, "new/", 4) == 0) {
                 char *cur;
-                cur = (char*)malloc(6 + strlen(m->filename) - 4);
+                cur = xmalloc(6 + strlen(m->filename) - 4);
                 sprintf(cur, "cur/%s", m->filename + 4);
                 if (!cur) return 0;
                 rename(m->filename, cur);    /* doesn't matter if it can't */
-                free(cur);
+                xfree(cur);
             }
         }
     }

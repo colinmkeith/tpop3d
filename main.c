@@ -407,7 +407,7 @@ void net_loop() {
 
     /* 2 * max_running_children is a reasonable ball-park figure. */
     max_connections = 2 * max_running_children;
-    connections = (connection*)calloc(max_connections, sizeof(connection*));
+    connections = (connection*)xcalloc(max_connections, sizeof(connection*));
 
     print_log(LOG_INFO, _("net_loop: tpop3d version %s successfully started"), TPOP3D_VERSION);
     
@@ -458,7 +458,7 @@ void net_loop() {
     if (connections) {
         for (J = connections; J < connections + max_connections; ++J)
             if (*J) connection_delete(*J);
-        free(connections);
+        xfree(connections);
     }
 }
 
@@ -752,36 +752,3 @@ int main(int argc, char **argv, char **envp) {
     EXIT_REMOVING_PIDFILE(0);
 }
 
-#if 0
-/* Primitive memory-leak debugging. */
-#undef malloc
-#undef free
-#undef realloc
-
-char *mystrdup(char *f, int l, const char *s) {
-    char *p = malloc(strlen(s) + 1);
-    strcpy(p, s);
-    fprintf(stderr, "[%d] %s:%d: %p = strdup(\"%s\")\n", getpid(), f, l, p, s);
-    return p;
-}
-
-void *mymalloc(char *f, int l, const size_t n) {
-    void *p = malloc(n);
-    if (!p) return NULL;
-    fprintf(stderr, "[%d] %s:%d: %p = malloc(%d)\n", getpid(), f, l, p, n);
-    return p;
-}
-
-void myfree(char *f, int l, void *p) {
-    free(p);
-    fprintf(stderr, "[%d] %s:%d: free(%p)\n", getpid(), f, l, p);
-}
-
-void *myrealloc(char *f, int l, void *p, const size_t n) {
-    void *q = realloc(p, n);
-    fprintf(stderr, "[%d] %s:%d: free(%p)          (actually realloc)\n", getpid(), f, l, p);
-    fprintf(stderr, "[%d] %s:%d: malloc(%p, %d)    (actually realloc)\n", getpid(), f, l, p, n);
-    return q;
-}
-
-#endif 
