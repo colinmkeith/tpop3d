@@ -1,0 +1,281 @@
+#!/usr/bin/perl -w -T
+#
+# Sample smtp/pop3 authentication code to look up in a qpopper style
+# database file.  Expects berkeley db file, will only work with the
+# version(s) of db that your perl DB_File can talk to.
+#
+# (c) 2002 Dave Baker <dave@dsb3.com>
+#
+# Can be distributed and modified - I'd appreciate the credit if you do.
+# This is still a work in progress.  Bugs may exist.  Yadda Yadda Yadda.
+#
+#
+# ***********************************************************************
+#         BE CAREFUL - this code may get executed with root privs 
+# ***********************************************************************
+#
+#
+# Mail authentication extensions, written in perl.  Single file shared
+# between exim and tpop3d (both have libperl hooks), although each one
+# only uses it's own functions.  
+#
+# If there are syntax errors in this file, tpop3d will only report
+# "Undefined subroutine" when it tries to call it's function instead
+# of reporting the real problem.  I believe exim behaves slightly better
+# in this regard.
+# 
+# Even though we're no longer uses qpopper, I maintain a semblence of
+# qpopper compatability with the "xor 0xff" obfuscation.  The passwords
+# are needed in plaintext for both cram-md5 and apop authentication so 
+# it makes sense to help avoid accidental viewing within the db file.
+#
+# This file is 'loaded' with a perl-hook in the config file that reads:
+#      do '/etc/mail/mail.auth.pl';
+# 
+#
+# MODIFICATION HISTORY:
+#
+# 2002-06-01  Dave Baker  "exim.pl" created
+# 2002-06-03  Dave Baker  "tpop3d.pl" created
+# 2002-06-04  Dave Baker  Merged together into "mail.auth.pl"
+# 2002-06-12  Dave Baker  Bug fix for tpop3d virtual domain think-o
+#
+#
+#
+# TODO: 
+# - Still need to generalize read/write interface to avoid code duplication
+# - Need to write hooks to also replace 'qpopauth' to allow users
+#   to set their own passwords, and passwords for the virtual domains
+#   they 'own'
+#
+# - Additional error checking, full code audit.
+#
+#
+
+# Required modules.  If significantly large modules are needed by only
+# some of the functions, they can be 'require'd instead of forcing all
+# applications to load them into memory.
+#
+use strict;
+use DB_File;
+use Digest::MD5;
+
+
+# constants
+use vars qw/ $authdb /;
+$authdb = "/etc/mail/mail.auth.db";
+
+
+# Exim: cram_md5()
+#
+# Takes username, and looks it up in our configured (constant) auth
+# berkeley DB file.  If found, password is deobfuscated and returned.
+# Otherwise 'undef' is returned.
+#
+# Example usage:
+#   # in main configuration settings
+#   perl_startup = do '/etc/mail/mail.auth.pl'
+#   
+#   # in authentication configuration settings
+#   cram_md5:
+#     driver = cram_md5
+#     public_name = CRAM-MD5
+#     server_secret = ${perl{cram_md5}{$1}}
+#
+#
+sub cram_md5() {
+
+  # Some exim's will pass a 'zeroth' dummy parameter that needs to be ignored
+  # my ($dummy, $user) = @_;
+  my ($user) = @_;
+
+  my $password = undef;
+
+  # undef is plain 'fail' - we don't want to give hints as to filename
+  #die "DEBUG: file $file not there" unless -e $file;
+  return undef unless -e $authdb;
+
+  my $dbh = tie my %DB, 'DB_File', $authdb, O_RDONLY, 0660, $DB_HASH;
+  #die "DEBUG: file $authdb not opened $!" unless $dbh;
+  return undef unless $dbh;
+
+  # Install database filters - needed to handle \0 line endings.
+  # Note that the value field will have multiple \0 on the end
+  # depending on what was used to create the file.
+  #
+  $dbh->filter_fetch_key  ( sub { s/\0$//    } ) ;
+  $dbh->filter_store_key  ( sub { $_ .= "\0" } ) ;
+  $dbh->filter_fetch_value( sub { s/\0+$//    } ) ;
+  $dbh->filter_store_value( sub { $_ .= "\0" } ) ;
+
+  # Need to xor stored password with 0xff, per qpopper's default
+  # obfuscation
+  $password = join("", map { $_ ^ chr(255) } split (/|/, $DB{$user}));
+
+  # close up
+  undef $dbh;
+  untie %DB;
+
+  # Return password or undef if not found.
+  return $password ? $password : undef;
+
+}
+
+
+
+
+
+
+# tpop3d_apop()
+#
+# Given APOP login credentials, look up password in our mail.auth.db 
+# and return accordingly.
+#
+# Example usage (trivial):
+#   auth-perl-enable: yes
+#   auth-perl-start:  do '/etc/mail/mail.auth.pl';
+#   auth-perl-apop:   tpop3d_apop
+#
+#
+
+sub tpop3d_apop {
+
+  my ($packet) = @_;
+
+  # logmsg doesn't get sent to user, so it's safe to include as long as
+  # suitable permissions are in place on the log file itself.  We check
+  # if the password file is there, a file, and readable. 
+  return { "result" => "NO", logmsg => "File not there or unreadable" } 
+  	unless (-e $authdb && -f $authdb && -r $authdb);
+
+
+  # start in known 'safe' position
+  my $password = undef;
+
+
+  # squidge into shorter variable names
+  my $user = $packet->{user} || "";
+  my $domain = $packet->{domain} || "";
+
+  # hack domain off of $user if it's there
+  # TODO: handling user/domain input should be done a little smarter
+  # rather than disassembling and then reassembling the strings.
+  $user =~ s/[@%].*$//;
+
+  # perform sanity checks on data collected from user
+  if ($user =~ /[^a-zA-Z0-9._-]/o ||
+      $domain =~ /[^a-zA-Z0-9.-]/o ||
+      $packet->{digest} =~ /[^a-fA-F0-9]/o) {
+    return { "result" => "NO", logmsg => "Unclean input data" };
+    # return { "result" => "NO", logmsg => "Unclean input data $packet->{user} $packet->{domain} $packet->{digest}" };
+  }
+
+  # todo - also perform sanity checks on tpop3d provided data
+
+
+  my $mailbox = "/dev/null";
+
+  
+  # given our user and domain information, work out what password
+  # we need to look up in the password file
+
+  # No domain - take 'raw' user.
+  if (! $packet->{domain}) {
+    $mailbox = "/var/mail/$user";
+  }
+  # Have domain - use 'user@domain' (just tack domain back on)
+  # todo - lookup domain in /etc/mail/local-domains to make sure 
+  # we should even be considering it, also grab "owner" data so we
+  # know what uid to run as
+  else {
+    # Note: build mailbox before we break user contents
+    $mailbox = "/var/mail/$domain/$user";
+    $user .=  '@' . $domain;
+  }
+
+  
+
+  my $dbh = tie my %DB, 'DB_File', $authdb, O_RDONLY, 0660, $DB_HASH;
+  return { "result" => "NO", "logmsg" => "File $authdb failed with $!" } 
+  	unless $dbh;
+
+
+  # Install database filters - needed to handle \0 line endings.
+  # Note that the value field will have multiple \0 on the end
+  #
+  $dbh->filter_fetch_key  ( sub { s/\0$//    } ) ;
+  $dbh->filter_store_key  ( sub { $_ .= "\0" } ) ;
+  $dbh->filter_fetch_value( sub { s/\0+$//    } ) ;
+  $dbh->filter_store_value( sub { $_ .= "\0" } ) ;
+
+  # Need to xor stored password with 0xff, per qpopper's default
+  # obfuscation
+  $password = join("", map { $_ ^ chr(255) } split (/|/, $DB{$user}));
+
+
+  # close up
+  undef $dbh;
+  untie %DB;
+
+  # Fail if we have a blank password, or have no password
+  return { "result" => "NO", "logmsg" => "Blank or no password" } 
+  	unless $password;
+
+
+  # password not match?
+  if (lc($packet->{digest}) ne 
+      lc(Digest::MD5::md5_hex($packet->{timestamp} . $password))) {
+    return { "result" => "NO", "logmsg" => "Password does not match" };
+  }
+
+
+  # we made it?!
+
+  # we have a couple of alternatives here for uid/gid.  Either the main
+  # server can be running with root privs, in which case at this point
+  # we either drop to pop:mail or work out what end-user ID we should be
+  # running as and drop to that.  Alternatively, the main server just runs
+  # as pop:mail (the mail group ownership is what we need to read/write
+  # the maildrop files) and setting this uid/gid will have no effect.
+  #
+  # As a todo, we should determine what UID/EUID we're running as and
+  # make a determination at that point as to what uid/gid to return to
+  # the calling program.
+  # 
+  my ($uid, $gid) = ("pop", "mail");
+
+  my ($domain) = $packet->{domain} || "";
+  my ($mboxtype) = ("bsd");
+
+  return {
+	  result => "YES",
+	  uid    => $uid,
+	  gid    => $gid,
+	  domain => $domain,
+	  mailbox => $mailbox,
+	  mboxtype => $mboxtype,
+  };
+
+
+}
+
+
+# tpop3d_pass()
+#
+# Always returns failure since USER/PASS authentication is not supported.
+# TODO: We actually want to avoid calling this procedure since that means
+# the user *attempted* user/pass and thus sent their password over the
+# network.  tpop3d should be able to intercept the 'user' line and fail
+# immediately.
+#
+
+sub tpop3d_pass {
+  return { "result" => "NO" };
+}
+
+
+
+# habitual
+1;
+
+

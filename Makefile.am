@@ -43,7 +43,7 @@ EXTRA_DIST = bootstrap \
              $(man_MANS) \
              tpop3d.cat tpop3d.conf.cat \
              scripts/dotapopfile scripts/nasty scripts/oraclevmail \
-             scripts/ruby-sample scripts/relaydbm \
+             scripts/ruby-sample scripts/relaydbm scripts/authdbm \
              TPOP3D-AuthDriver/AuthDriver.pm TPOP3D-AuthDriver/Changes \
              TPOP3D-AuthDriver/MANIFEST TPOP3D-AuthDriver/Makefile.PL \
              TPOP3D-AuthDriver/test.pl \
