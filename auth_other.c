@@ -55,6 +55,7 @@ static const char rcsid[] = "$Id$";
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <sys/time.h>
@@ -498,7 +499,7 @@ authcontext auth_other_new_apop(const char *name, const char *timestamp, const u
         uid_t uid;
         gid_t gid;
         struct passwd *pw;
-        char *mailbox, *mboxdrv, *domain;
+        char *mailbox = NULL, *mboxdrv = NULL, *domain = NULL;
 
         I = stringmap_find(S, "uid");
         if (!I) MISSING("uid");
@@ -556,7 +557,7 @@ authcontext auth_other_new_user_pass(const char *user, const char *pass) {
         uid_t uid;
         gid_t gid;
         struct passwd *pw;
-        char *mailbox, *mboxdrv, *domain;
+        char *mailbox = NULL, *mboxdrv = NULL, *domain = NULL;
 
         I = stringmap_find(S, "uid");
         if (!I) MISSING("uid");

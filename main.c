@@ -229,6 +229,11 @@ void fork_child(connection *C, listitem *i) {
                 _exit(0);
             }
 
+            /* Began session; log something useful in case of POP-before-SMTP
+             * relaying.
+             */
+            print_log(LOG_INFO, _("fork_child: %s: successfully authenticated with auth_%s"), c->idstr, c->a->auth);
+
             I = NULL;
 
             break;

@@ -264,9 +264,9 @@ const char apop_query_template[] =
        "AND popbox.domain_name = '%s' "
        "AND popbox.domain_name = domain.domain_name";
 authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const unsigned char *digest) {
-    char *query, *x, *y;
+    char *query = NULL, *x = NULL, *y = NULL;
     authcontext a = NULL;
-    char *local_part;
+    char *local_part = NULL;
     const char *domain;
     item *I;
     int use_gid = 0;
@@ -411,9 +411,9 @@ char user_pass_query_template[] =
        "AND popbox.domain_name = '%s' "
        "AND popbox.domain_name = domain.domain_name";
 authcontext auth_mysql_new_user_pass(const char *user, const char *pass) {
-    char *query, *x, *y;
+    char *query = NULL, *x = NULL, *y = NULL;
     authcontext a = NULL;
-    char *local_part;
+    char *local_part = NULL;
     const char *domain;
     char *p;
     unsigned char *q;

@@ -23,14 +23,15 @@ static const char rcsid[] = "$Id$";
 #include <syslog.h>
 #include <unistd.h>
 
-/* Include files for perl integration. */
-#include <EXTERN.h>
-#include <perl.h>
-#include <XSUB.h>
-
 #include "auth_perl.h"
 #include "stringmap.h"
 #include "util.h"
+
+/* Include files for perl integration. */
+#undef PACKAGE      /* work around bad perl/autoconf interaction */
+#include <EXTERN.h>
+#include <perl.h>
+#include <XSUB.h>
 
 static PerlInterpreter *auth_perl_interp;
 char *auth_perl_apop, *auth_perl_pass;      /* Names of functions we call. */
@@ -59,7 +60,7 @@ XS(xs_print_log)
  */
 extern void boot_DynaLoader(CV *cv);
 
-static void xs_init(void) {
+void xs_init(void) {
     char *file = __FILE__;
     newXS("DynaLoader::boot_DynaLoader", boot_DynaLoader, file);
     newXS("TPOP3D::print_log", xs_print_log, file);
@@ -74,7 +75,7 @@ int auth_perl_init() {
     dSP;
     int argc = 2;
     char *argv[3] = {"auth_perl", "/dev/null", NULL};
-//    char *argv[4] = {"auth_perl", "-e", "$ENV{TPOP3D_CONTEXT} = 'auth_perl';", NULL};
+/*   char *argv[4] = {"auth_perl", "-e", "$ENV{TPOP3D_CONTEXT} = 'auth_perl';", NULL}; */
     item *I;
     char *startupcode;
     SV *sv;
@@ -252,7 +253,7 @@ authcontext auth_perl_new_apop(const char *name, const char *timestamp, const un
         uid_t uid;
         gid_t gid;
         struct passwd *pw;
-        char *mailbox, *mboxdrv, *domain;
+        char *mailbox = NULL, *mboxdrv = NULL, *domain = NULL;
 
         I = stringmap_find(S, "uid");
         if (!I) MISSING("uid");
@@ -306,7 +307,7 @@ authcontext auth_perl_new_user_pass(const char *user, const char *pass) {
         uid_t uid;
         gid_t gid;
         struct passwd *pw;
-        char *mailbox, *mboxdrv, *domain;
+        char *mailbox = NULL, *mboxdrv = NULL, *domain = NULL;
 
         I = stringmap_find(S, "uid");
         if (!I) MISSING("uid");

@@ -60,7 +60,7 @@ noinst_HEADERS = auth_mysql.h \
                  vector.h \
                  util.h
 
-tpop3d_LDFLAGS = -L@mysql_root@/lib/mysql
+#tpop3d_LDFLAGS = -L@mysql_root@/lib/mysql
 
 CFLAGS = -Wall -g
 

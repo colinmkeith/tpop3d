@@ -500,7 +500,7 @@ int connection_start_transaction(connection c) {
     }
     
     if (c->a->mailbox) {
-        c->m = mailbox_new(c->a->mailbox, NULL);
+        c->m = mailbox_new(c->a->mailbox, c->a->mboxdrv);
         if (c->m == MBOX_NOENT) c->m = emptymbox_new(NULL);
     } else
         c->m = find_mailbox(c->a);
