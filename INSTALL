@@ -56,6 +56,7 @@ move it.
           {plaintext}...    plain text password used for APOP
           {mysql}...        password hashed using MySQL's PASSWORD()
           {md5}...          straight MD5 hash
+          {sha1}...         straight SHA1 hash
 
       Note that to use APOP, the plaintext password type must be specified for
       a user, but this does not stop them logging in via any other method with

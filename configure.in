@@ -108,7 +108,7 @@ AC_ARG_WITH(pgsql-include-dir,
     [pgsql_include_dir="/usr/include"])
 
 AC_ARG_WITH(pgsql-lib-dir,
-        [    --with-pgsql-lib-dir=DIR  Set Postgreslibrary directory, which should
+        [    --with-pgsql-lib-dir=DIR  Set Postgres library directory, which should
                               contain libpq.so. [default=/usr/lib]
 ],
     [pgsql_lib_dir=$withval],
@@ -283,6 +283,16 @@ AC_ARG_ENABLE(mass-hosting,
     [enable_masshosting=$enableval],
     [enable_masshosting=yes])
 
+dnl SHA1 passwords
+AC_ARG_ENABLE(sha1-passwords,
+        [  --disable-sha1-passwords
+                          Don't allow the SHA1 message digest algorithm to to
+                          be used for password hashes. The only reason to do so
+                          is if you don't want tpop3d to be linked against
+                          OpenSSL.
+],
+    [enable_sha1_passwords=$enableval],
+    [enable_sha1_passwords=yes])
 
 dnl Some options mainly useful for development/debugging.
 
@@ -452,6 +462,11 @@ if test x"$enable_masshosting" = x"yes"
 then
     AC_DEFINE(MASS_HOSTING,1,[Enable regex matching of inverse DNS results for domain names])
 fi
+
+if test x"$enable_sha1_passwords" = x"yes"
+then
+    AC_DEFINE(SHA1_PASSWORDS,1,[Enable SHA1-format password hashes])
+fi
     
 if test x"$enable_backtrace" = x"yes"
 then
@@ -556,9 +571,9 @@ then
 fi
 
 # OpenSSL
-if test x"$enable_tls" = x"yes"
+if test x"$enable_tls" = x"yes" || test x"$enable_sha1_passwords" = x"yes"
 then
-    AC_CHECK_LIB2(ssl, SSL_new, [], AC_MSG_ERROR([[TLS enabled, but can't find libssl]]), -lcrypto)
+    AC_CHECK_LIB2(ssl, SSL_new, [], AC_MSG_ERROR([[TLS/SHA1 passwords enabled, but can't find libssl]]), -lcrypto)
 fi
 
 # Where is nanosleep?

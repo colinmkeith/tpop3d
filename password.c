@@ -31,6 +31,10 @@
 #define _XOPEN_SRC      /* crypt(3), on some systems */
 #include <unistd.h>
 
+#ifdef SHA1_PASSWORDS
+#include <openssl/sha.h>
+#endif /* SHA1_PASSWORDS */
+
 #include "md5.h"
 #include "util.h"
 
@@ -272,13 +276,37 @@ int check_password(const char *who, const char *pwhash, const char *pass, const 
                 log_print(LOG_ERR, _("password: %s has password type mysql, but hash is of incorrect length %d (expecting 8 or 16)"), who, n);
                 return 0;
         }
+#ifdef SHA1_PASSWORDS
+    } else if (IS_SCHEME(pwhash, "{sha1}", default_crypt_scheme)) {
+        /* XXX Messy. We should generalise hashing, probably by just using
+         * OpenSSL's code for it. Further, this only supports hex-encoded
+         * passwords, not base64 as well, because the base64 code is tied to
+         * the MD5 code.... */
+        unsigned char h[20], hh[41];
+        SHA_CTX c;
+        int i;
+
+        if (strlen(realhash) != 40) {
+            log_print(LOG_ERR, _("password: %s has password type sha1, but has is of incorrect length"), who);
+            return 0;
+        }
+        
+        SHA1_Init(&c);
+        SHA1_Update(&c, pass, strlen(pass));
+        SHA1_Final(h, &c);
+
+        for (i = 0; i < 20; ++i)
+            sprintf(hh + 2 * i, "%02x", (unsigned int)h[i]);
+
+        return strcasecmp(realhash, hh) == 0;
+#endif /* SHA1_PASSWORDS */
     } else if (IS_SCHEME(pwhash, "{md5}", default_crypt_scheme)) {
         /* Straight MD5 password. But this might be either in hex or base64
          * encoding. */
         if (strlen(realhash) == 32) {
             /* Hex. */
             return strcasecmp(realhash, md5_digest_str(pass, strlen(pass), 0)) == 0;
-        } else if (strlen(pwhash) == 24) {
+        } else if (strlen(realhash) == 24) {
             /* Base 64. */
             return strcmp(realhash, md5_digest_str(pass, strlen(pass), 1)) == 0;
         } else
