@@ -37,7 +37,7 @@ move it.
       authenticate local users.
 
     auth-mysql
-    --enable-auth-mysql, --with-mysql-root
+    --enable-auth-mysql, --with-mysql-lib-dir, --with-mysql-include-dir
       Uses a MySQL database, allowing authentication of users in virtual
       domains.
 
