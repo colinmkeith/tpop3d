@@ -4,6 +4,9 @@
  * Copyright (c) 2000 Chris Lightfoot-> All rights reserved.
  *
  * $Log$
+ * Revision 1.3  2000/10/02 18:21:25  chris
+ * SIGCHLD handling etc.
+ *
  * Revision 1.2  2000/09/26 22:23:36  chris
  * Various changes.
  *
@@ -16,14 +19,17 @@
 static char rcsid[] = "$Id$";
 
 #include <errno.h>
+#include <fcntl.h>
 #include <netdb.h>
 #include <signal.h>
 #include <string.h>
 #include <syslog.h>
+#include <unistd.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 
 #include "config.h"
 #include "connection.h"
@@ -31,16 +37,53 @@ static char rcsid[] = "$Id$";
 #include "stringmap.h"
 #include "vector.h"
 
+/* daemon:
+ * Become a daemon. From "The Unix Programming FAQ", Andrew Gierth et al.
+ */
+int daemon(int nochdir, int noclose) {
+    switch (fork()) {
+        case 0:  break;
+        case -1: return -1;
+        default: _exit(0);          /* exit the original process */
+    }
+
+    if (setsid() < 0)               /* shoudn't fail */
+        return -1;
+
+    switch (fork()) {
+        case 0:  break;
+        case -1: return -1;
+        default: _exit(0);
+    }
+
+    if (!nochdir) chdir("/");
+
+    if (!noclose) {
+        int i, j = sysconf(_SC_OPEN_MAX); /* getdtablesize()? */
+        for (i = 0; i < j; ++i) close(i);
+        open("/dev/null",O_RDWR);
+        dup(0); dup(0);
+    }
+
+    return 0;
+}
+
 /* net_loop:
  * Accept connections and put them into an appropriate state, calling
  * setuid() and fork() when appropriate. listen_addrs is a NULL-terminated
  * list of addresses on which to listen.
  */
+int num_running_children = 0;   /* How many children are active. */
+int max_running_children = 16;  /* How many children may exist at once. */
+
+connection this_child_connection; /* Stored here so that if a signal terminates the child, the mailspool will still get unlocked. */
+
 void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
     int s;
     struct sockaddr_in **sin;
     vector listen_sockets = vector_new();
     list connections = list_new();
+    int post_fork = 0;
 
     /* Set up the listening connections */
     for (sin = listen_addrs; sin < listen_addrs + num_listen; ++sin) {
@@ -95,9 +138,16 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
                     int s = accept(t->l, &sin, &l);
                     if (s == -1) syslog(LOG_ERR, "accept: %m");
                     else {
-                        connection c = connection_new(s, &sin);
-                        if (c) list_push_back(connections, item_ptr(c));
-                        syslog(LOG_INFO, "net_loop: connection from %s", inet_ntoa(sin.sin_addr));
+                        if (num_running_children >= max_running_children) {
+                            char m[] = "-ERR Sorry, I'm too busy right now\r\n";
+                            write(s, m, strlen(m));
+                            shutdown(s, 2);
+                            syslog(LOG_INFO, "net_loop: rejected connection from %s owing to high load", inet_ntoa(sin.sin_addr));
+                        } else {
+                            connection c = connection_new(s, &sin);
+                            if (c) list_push_back(connections, item_ptr(c));
+                            syslog(LOG_INFO, "net_loop: connection from %s", inet_ntoa(sin.sin_addr));
+                        }
                     }
                 }
             }
@@ -113,6 +163,7 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
                         syslog(LOG_INFO, "net_loop: connection_read: peer %s closed connection", inet_ntoa(c->sin.sin_addr));
                         connection_delete(c);
                         I = list_remove(connections, I);
+                        if (post_fork) exit(0);
                         if (!I) break;
                     } else if (n < 0) {
                         /* Some sort of error occurred, and we should close
@@ -121,6 +172,7 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
                         syslog(LOG_ERR, "net_loop: connection_read: %m");
                         connection_delete(c);
                         I = list_remove(connections, I);
+                        if (post_fork) exit(0);
                         if (!I) break;
                     } else {
                         /* We read some data and should try to interpret
@@ -128,18 +180,25 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
                          */
                         pop3command p;
                         while (p = connection_parsecommand(c)) {
-                            syslog(LOG_INFO, "%d %s", p->cmd, p->tail);
-
                             switch(connection_do(c, p)) {
                             case close_connection:
                                 connection_delete(c);
                                 I = list_remove(connections, I);
+                                if (post_fork) exit(0);
                                 break;
                                 
                             case fork_and_setuid:
-                                switch(fork()) {
+                                if (num_running_children >= max_running_children) {
+                                    connection_sendresponse(c, 0, "Sorry, I'm too busy right now");
+                                    syslog(LOG_INFO, "net_loop: rejected login by %s owing to high load", c->a->credential);
+                                    connection_delete(c);
+                                    I = list_remove(connections, I);
+                                    break;
+                                } else switch(fork()) {
                                 case 0:
                                     /* Child. */
+                                    post_fork = 1;
+
                                     vector_iterate(listen_sockets, t) close(t->l);
                                     vector_delete(listen_sockets);
                                     listen_sockets = NULL;
@@ -148,6 +207,7 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
                                         if (!J) break;
                                     }
 
+                                    /* Set our gid and uid to that appropriate for the mailspool, as decided by the auth switch. */
                                     if (setgid(c->a->gid) == -1) {
                                         syslog(LOG_ERR, "net_loop: setuid(%d): %m", c->a->uid);
                                         connection_sendresponse(c, 0, "Everything was fine until now, but suddenly I realise I just can't go on. Sorry.");
@@ -158,9 +218,10 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
                                         exit(0);
                                     }
 
-                                    if (connection_start_transaction(c))
+                                    if (connection_start_transaction(c)) {
                                         connection_sendresponse(c, 1, "Welcome aboard!");
-                                    else {
+                                        this_child_connection = c;
+                                    } else {
                                         connection_sendresponse(c, 0,
                                                 errno == EAGAIN ? "Mailspool locked; do you have another concurrent session?"
                                                                 : "Oops. Something went wrong.");
@@ -183,6 +244,7 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
                                     c->s = -1;
                                     connection_delete(c);
                                     I = list_remove(connections, I);
+                                    ++num_running_children;
                                 }
 
                             default:;
@@ -206,11 +268,22 @@ void net_loop(struct sockaddr_in **listen_addrs, const size_t num_listen) {
  */
 void die_signal_handler(const int i) {
     char buffer[1024];
+    if (this_child_connection) connection_delete(this_child_connection);
     syslog(LOG_ERR, "quit: %s", sys_siglist[i]);
     syslog(LOG_ERR, "calling debugger to make stack trace...");
     sprintf(buffer, "/bin/echo 'bt\ndetach' | /usr/bin/gdb /proc/%d/exe %d 2>&1 | /bin/grep '^[# ]' | /usr/bin/logger -s -t 'tpop3d[%d]' -p mail.error", getpid(), getpid(), getpid());
     system(buffer);
     exit(i + 127);
+}
+
+/* child_signal_handler:
+ * Signal handler to deal with SIGCHLD.
+ */
+void child_signal_handler(const int i) {
+    int status;
+    
+    if (waitpid(-1, &status, WNOHANG) != -1)
+        --num_running_children;
 }
 
 /* set_signals:
@@ -233,8 +306,12 @@ void set_signals() {
         sa.sa_handler = die_signal_handler;
         sigaction(*i, &sa, NULL);
     }
-}
 
+    /* SIGCHLD is special. */
+    sa.sa_handler = child_signal_handler;
+    sa.sa_flags = SA_NOCLDSTOP;
+    sigaction(SIGCHLD, &sa, NULL);
+}
 
 /* main:
  * Read config file, set up authentication and proceed to main loop.
@@ -300,6 +377,21 @@ int main(int argc, char **argv) {
         memset(sin, 0, sizeof(struct sockaddr_in));
         sin->sin_port = htons(1201);
         vector_push_back(listeners, item_ptr(sin));
+    }
+
+    if (listeners->n_used == 0) {
+        syslog(LOG_ERR, "no listen addresses obtained; exiting");
+        exit(1);
+    }
+
+    /* Find out the maximum number of children we may spawn at once. */
+    I = stringmap_find(config, "max-children");
+    if (I) {
+        max_running_children = atoi((char*)I->v);
+        if (!max_running_children) {
+            syslog(LOG_ERR, "value of `%s' for max-children does not make sense; exiting", I->v);
+            exit(1);
+        }
     }
 
     /* Start the authentication drivers */
