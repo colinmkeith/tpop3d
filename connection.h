@@ -116,7 +116,7 @@ struct ioabs_tcp *ioabs_tcp_create(void);
 
 #ifdef TPOP3D_TLS
 /* TLS support through OpenSSL. */
-#include <openssl.h>
+#include <openssl/ssl.h>
 
 /* struct ioabs_tls:
  * I/O abstraction for TLS. */

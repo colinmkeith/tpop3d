@@ -11,12 +11,16 @@
 #ifndef __LISTENER_H_ /* include guard */
 #define __LISTENER_H_
 
+#include <sys/types.h>
+
 #ifdef MASS_HOSTING
 #include <regex.h>
 #endif
 
 #ifdef TPOP3D_TLS
-enum { none, immediate, stls } tls_mode;
+#include <openssl/err.h>
+#include <openssl/ssl.h>
+enum tls_mode { none, immediate, stls };
 #endif
 
 /* For virtual-domains support, we need to find the address and domain name

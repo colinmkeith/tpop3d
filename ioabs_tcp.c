@@ -107,6 +107,7 @@ static int ioabs_tcp_post_select(connection c, fd_set *readfds, fd_set *writefds
 
     if (FD_ISSET(c->s, writefds) && buffer_available(c->wrb) > 0) {
         /* Can write data. */
+        n = 1;
         do {
             char *w;
             size_t wlen;

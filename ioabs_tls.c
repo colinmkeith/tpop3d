@@ -266,6 +266,7 @@ static int ioabs_tls_post_select(connection c, fd_set *readfds, fd_set *writefds
     /* Write from the buffer to the connection, if necessary. */
     if (((!io->write_blocked_on_read && canwrite) || (io->write_blocked_on_read && canread)) && buffer_available(c->wrb) > 0) {
         io->write_blocked_on_read = 0;
+        n = 1;
         do {
             char *w;
             size_t wlen;
