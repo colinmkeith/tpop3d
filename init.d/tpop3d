@@ -1,0 +1,63 @@
+#!/bin/sh
+#
+# tpop3d:
+# Init script for starting/stopping tpop3d.
+#
+# This is a SysV-style init script suitable for use with linux.  You will need
+# the pidof(8) command, since tpop3d does not save its PID in a lockfile;
+# alternatively, you could use killall(1), but I have avoided putting this in
+# this example script in case somebody tries to run it on Solaris.
+#
+# This init script is used to start tpop3d with two servers running, one for
+# "secure" connections proxied via sslproxy, and which listens only on a local
+# port; and another which listens to the wider network. This is useful if you
+# want to prevent Unix users (whose passwords are relatively sensitive
+# information) from logging in over an insecure link, but are happy to allow
+# virtual-domain users to log in from anywhere they like.
+#
+# chkconfig: 345 86 14
+# description: tpop3d is a small, fast, extensible POP3 server
+# processname: tpop3d
+# config: /etc/tpop3d.conf /etc/tpop3d-secure.conf
+#
+# Copyright (c) 2001 Chris Lightfoot. All rights reserved.
+#
+# $Id$
+#
+
+# Check that networking is up.
+[ "${NETWORKING}" = "no" ] && exit 0
+
+[ -f /software/sbin/tpop3d ] || exit 0
+
+# See how we were called.
+case "$1" in
+  start)
+        # Start daemons.
+        echo -n "Starting tpop3d: "
+        /software/sbin/tpop3d -f /etc/tpop3d.conf
+        echo -n "tpop3d "
+        /software/sbin/tpop3d -f /etc/tpop3d-secure.conf
+        echo "tpop3d-secure "
+        touch /var/lock/subsys/tpop3d
+        ;;
+  stop)
+        # Stop daemons.
+        echo -n "Shutting down tpop3d: "
+        if [ -e /var/lock/subsys/tpop3d ] ; then
+                # we use pidof here; this is linux-specific
+                kill -TERM `pidof tpop3d`
+                echo tpop3d
+                rm -f /var/lock/subsys/tpop3d
+        fi
+        ;;
+  restart|reload)
+	$0 stop
+	$0 start
+	;;
+  *)
+        echo "Usage: tpop3d {start|stop|restart|reload}"
+        exit 1
+esac
+
+exit 0
