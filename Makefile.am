@@ -14,6 +14,7 @@ tpop3d_SOURCES = auth_mysql.c \
                  mailspool.c \
                  main.c \
                  md5c.c \
+                 pidfile.c \
                  pop3.c	\
                  signals.c \
                  stringmap.c \
@@ -35,6 +36,7 @@ noinst_HEADERS = auth_mysql.h \
                  mailspool.h \
                  main.h \
                  md5.h \
+                 pidfile.h \
                  signals.h \
                  stringmap.h \
                  tokenise.h \
@@ -43,7 +45,7 @@ noinst_HEADERS = auth_mysql.h \
 
 tpop3d_LDFLAGS = -L@mysql_root@/lib/mysql
 
-CFLAGS = -Wall
+CFLAGS = -Wall -g
 
 man_MANS = tpop3d.8
 

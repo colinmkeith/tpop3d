@@ -20,6 +20,7 @@ static const char rcsid[] = "$Id$";
 #include <stdio.h>
 #include <string.h>
 #include <syslog.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <netinet/in.h>
@@ -36,6 +37,7 @@ static const char rcsid[] = "$Id$";
 #include "errprintf.h"
 #include "list.h"
 #include "listener.h"
+#include "pidfile.h"
 #include "signals.h"
 #include "stringmap.h"
 #include "vector.h"
@@ -57,6 +59,7 @@ int log_stderr;                     /* Are log messages also sent to standard er
 int verbose;                        /* Should we be verbose about data going to/from the client? */
 int timeout_seconds = 30;           /* How long a period of inactivity may elapse before a client is dropped. */
 int max_running_children = 16;      /* How many children may exist at once. */
+char * pidfile = NULL;              /* The name of a PID file to use; if NULL, don't use one. */
 
 /* net_loop:
  * Accept connections and put them into an appropriate state, calling
@@ -287,7 +290,7 @@ void net_loop(vector listen_addrs) {
     }
 }
 
-
+#define EXIT_REMOVING_PIDFILE( n ) { if( pidfile ) remove_pid_file( pidfile ); exit( (n) ); }
 
 /* usage:
  * Print usage information.
@@ -298,7 +301,8 @@ void usage(FILE *fp) {
                 "tpop3d [options]\n"
                 "\n"
                 "  -h       display this message\n"
-                "  -f file  read configuration from file\n"
+                "  -f file  read configuration from file (default: /etc/tpop3d.conf)\n"
+                "  -p file  write PID to file (default: don't use a PID file)\n"
                 "  -d       do not detach from controlling terminal\n"
                 "  -v       log traffic to/from server for debugging purposes\n"
                 "\n"
@@ -334,7 +338,7 @@ int config_get_int(const char *directive, int *value) {
 /* main:
  * Read config file, set up authentication and proceed to main loop.
  */
-char optstring[] = "+hdvf:";
+char optstring[] = "+hdvf:p:";
 
 int main(int argc, char **argv, char **envp) {
     vector listeners;
@@ -364,10 +368,16 @@ int main(int argc, char **argv, char **envp) {
                 configfile = optarg;
                 break;
 
+            case 'p':
+                pidfile = optarg;
+                break;
+
             case '?':
             default:
                 if (optopt == 'f' && !optarg)
                     fprintf(stderr, "tpop3d: option -f requires an argument\n");
+                else if (optopt == 'p' && !optarg)
+                    fprintf(stderr, "tpop3d: option -p requires an argument\n");
                 else
                     fprintf(stderr, "tpop3d: unrecognised option -%c\n", optopt);
                 usage(stderr);
@@ -384,6 +394,42 @@ int main(int argc, char **argv, char **envp) {
 
     /* Start logging. */
     openlog("tpop3d", LOG_PID | LOG_NDELAY, LOG_MAIL);
+
+    /* Try to write PID file. */
+    if( pidfile ) {
+        
+        switch (write_pid_file(pidfile)) {
+
+        case pid_file_success:
+            break;
+
+        case pid_file_existence:
+        {
+            pid_t pid;
+            switch (read_pid_file(pidfile, &pid)) {
+            case pid_file_success:
+                if (kill(pid, 0)) {
+                    print_log(LOG_ERR, "There seems to be a stale PID file leftover: %s", pidfile);
+                    print_log(LOG_ERR, "Remove it and restart; exiting.");
+                    return 1;
+                } else {
+                    print_log(LOG_ERR, "There seems to be a tpop3d already running, with process ID %lu.  Exiting.", pid);
+                    return 1;
+                }
+                break;
+            default:
+                print_log(LOG_ERR, "There was an existing PID file %s", pidfile);
+                print_log(LOG_ERR, "but it seemed to be invalid.  Exiting.");
+                return 1;
+            }
+            break;
+        }
+
+        case pid_file_error:
+            print_log(LOG_ERR, "Couldn't write PID file %s; exiting.", pidfile);
+            return 1;
+        }
+    }
 
     /* Identify addresses on which to listen.
      * The syntax for these is <addr>[:port][(domain)].
@@ -451,7 +497,7 @@ int main(int argc, char **argv, char **envp) {
 
     if (listeners->n_used == 0) {
         print_log(LOG_ERR, "%s: no listen addresses obtained; exiting\n", configfile);
-        return 1;
+        EXIT_REMOVING_PIDFILE(1);
     }
 
     /* Find out the maximum number of children we may spawn at once. */
@@ -460,7 +506,7 @@ int main(int argc, char **argv, char **envp) {
         max_running_children = atoi((char*)I->v);
         if (!max_running_children) {
             print_log(LOG_ERR, "%s: value of `%s' for max-children does not make sense; exiting\n", configfile, (char *)I->v);
-            return 1;
+            EXIT_REMOVING_PIDFILE(1);
         }
     }
 
@@ -476,7 +522,7 @@ int main(int argc, char **argv, char **envp) {
 
         case -1:
             print_log(LOG_ERR, "%s: value given for timeout-seconds does not make sense; exiting\n", configfile);
-            return 1;
+            EXIT_REMOVING_PIDFILE(1);
 
         case 1:
             if (timeout_seconds < 1) {
@@ -495,7 +541,7 @@ int main(int argc, char **argv, char **envp) {
     if (!na) {
         print_log(LOG_ERR, "no authentication drivers were loaded; aborting.");
         print_log(LOG_ERR, "you may wish to check your config file %s", configfile);
-        return 1;
+        EXIT_REMOVING_PIDFILE(1);
     } else print_log(LOG_INFO, "%d authentication drivers successfully loaded", na);
    
     net_loop(listeners);
@@ -512,7 +558,7 @@ int main(int argc, char **argv, char **envp) {
         print_log(LOG_ERR, "%s: %m", argv[0]);
     }
     
-    return 0;
+    EXIT_REMOVING_PIDFILE(0);
 }
 
 #undef malloc
