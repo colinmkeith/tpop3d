@@ -140,7 +140,8 @@ int tvcmp(const struct timeval *t1, const struct timeval *t2) {
 int auth_other_start_child() {
     int p1[2], p2[2];
     char *argv[2] = {auth_program, NULL};
-    char *envp[2] = {"PATH=/bin", NULL};    /* Very restrictive path. */
+    char *envp[2] = {"PATH=/bin",  /* XXX path? */
+                     "TPOP3D_CONTEXT=auth_other", NULL};
 
     /* Generate pipes to talk to the child. */
     if (pipe(p1) == -1 || pipe(p2) == -1) {

@@ -93,6 +93,9 @@ int auth_perl_init() {
         print_log(LOG_ERR, _("auth_perl_init: auth_perl enabled but no authenticator subroutines supplied"));
         return 0;
     }
+
+    /* Put a useful string into the environment. */
+    putenv("TPOP3D_CONTEXT=auth_perl");
     
     auth_perl_interp = perl_alloc();
     perl_construct(auth_perl_interp);

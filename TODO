@@ -17,7 +17,8 @@ $Id$
   Virtual-domain schemes which use /etc/passwd-style flat text files seem to be
   popular, but I do not make use of anything like this. However, it would be
   relatively easy to implement such a thing. (This can now be done with
-  auth_other, but it might be desirable to have it in the main program.)
+  auth_other or auth_perl, but it might be desirable to have it in the main
+  program.)
 
 
 * A proper code audit
@@ -71,3 +72,11 @@ $Id$
   means that thread-unsafe functions such as strtok should be avoided in new
   code.
 
+
+* More example scripts and configs
+
+  These would be handy, especially for answering user questions. In
+  particular, some configurations are quite common in practice but not
+  directly addressed by examples here; for instance, POP-before-SMTP relaying.
+
+  Also, not everyone likes perl; some non-perl examples would be good.

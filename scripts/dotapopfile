@@ -67,6 +67,16 @@ sub apop ($$) {
 package MAIN;
 
 my $auth = new DotApopFile();
-$auth->run();
 
-exit 42;
+# subroutine for auth_perl compatibility.
+sub apopauth ($) {
+    return $auth->apop($_[0]);
+}
+
+# if running under auth_other, start main loop.
+if ($ENV{TPOP3D_CONTEXT} = 'auth_other') {
+    $auth->run();
+    exit 0;
+}
+
+1;

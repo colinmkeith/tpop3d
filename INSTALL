@@ -65,8 +65,8 @@ standard configure options such as --prefix.)
 * Mailbox formats
 
   tpop3d supports traditional BSD-format mailboxes (with messages separated by
-  lines beginning `From '), and the maildir format of Qmail. You can select
-  these using:
+  lines beginning `From '), and the maildir format of Qmail. Maildir support
+  was contributed by Paul Makepeace. You can select these using:
 
     --enable-mbox-bsd
     --enable-mbox-maildir
