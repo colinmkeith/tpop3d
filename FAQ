@@ -91,7 +91,8 @@ $Id$
    authenticator in a scripting language such as Perl or Python, and have
    tpop3d call it through the auth-perl or auth-other mechanisms. There is a
    perl example for Oracle (contributed by Paul Makepeace) in the scripts/
-   subdirectory of the distribution.
+   subdirectory of the distribution. From version 1.5.1, tpop3d also supports
+   Postgres, through auth-pgsql.
 
 
 5. I'm using auth-mysql, but authentication doesn't seem to work....

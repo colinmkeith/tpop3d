@@ -18,9 +18,9 @@ for this:
     # Deliver any bulletins which are pending for the authenticated user
     # identified in the REQUEST. This subroutine is called by tpop3d, which
     # will set REQUEST->{local_part} and REQUEST->{domain} to the proper
-    # values. Bulletins should be complete RFC822 messages stored in flat
-    # text files under /etc/mail/bulletins, each with the extension .msg.
-    # This function will use a GDBM database for each bulletin to record the
+    # values. Bulletins should be complete RFC822 messages stored in flat text
+    # files under /etc/mail/bulletins, each with the extension .msg. This
+    # function will use a GDBM database for each bulletin to record the
     # addresses of users to whom it has been delivered, so as to ensure that
     # each user receives only one copy of each bulletin. Bulletins are
     # delivered to user mailboxes using the local mail transport agent, though

@@ -11,19 +11,7 @@
 .SH NAME
 tpop3d \- small, fast, extensible POP3 server
 .SH SYNOPSIS
-.B tpop3d
-.B \-h
-| [
-.B \-f
-.I file
-] [
-.B \-p
-.I file
-] [
-.B \-d
-] [
-.B \-v
-]
+\fBtpop3d\fP \fB-h\fP | [ \fB-f\fP \fIfile\fP ] [ \fB-p\fP \fIfile\fP ] [ \fB-dvP\fP ]
 .SH DESCRIPTION
 \fBtpop3d\fP is a server which implements the RFC1939 POP3 protocol, including
 UIDL support. \fBtpop3d\fP supports virtual domain authentication via a number
@@ -59,6 +47,12 @@ and print log messages to standard error as well as the syslog
 Log traffic being sent to/from the server, for debugging purposes; \fBtpop3d\fP
 will log commands and responses sent, but not passwords or the actual content
 of messages.
+.TP
+.B -P
+If \fBtpop3d\fP is compiled with TLS support, and is configured to use a key
+protected by a passphrase, \fBtpop3d\fP will wait to read the passphrase at
+startup. Do not use this option when starting \fBtpop3d\fP from a boot
+script; it might wait forever for input on the console.
 
 .SH SIGNALS
 

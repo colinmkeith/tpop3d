@@ -276,7 +276,7 @@ AC_ARG_ENABLE(whoson,
     [enable_whoson=no])
 
 dnl Disable support for mass hosting.
-AC_ARG_ENABLE(masshosting,
+AC_ARG_ENABLE(mass-hosting,
         [  --disable-mass-hosting  Switch off support for inferring domain names by
                           inverse name resolution
 ],

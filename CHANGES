@@ -1,6 +1,9 @@
 Changes for tpop3d
 $Id$
 
+Fixed some omissions in the man page. Fixed a bug which caused bind(2) to fail
+on some systems.
+
 1.5.1
 
 tpop3d now supports the WHOSON protocol (http://whoson.sourceforge.net/) for

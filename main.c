@@ -167,6 +167,8 @@ int parse_listeners(const char *stmt) {
         char *regex = NULL;
 #endif
 
+        sin.sin_family = AF_INET;
+        
         s = *ll;
         
         /* Address. */

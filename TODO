@@ -47,6 +47,12 @@ $Id$
   (such as database connections) must be disowned by the parent and
   reacquired. This is feasible, but would require careful thought.
 
+* More sophisticated configuration model
+
+  Something like Exim's text substitution language would probably make life a
+  bit easier in complex configurations, at the risk of making tpop3d's code
+  much more complicated.
+
 * Optionally, run as nonprivileged user
 
 * Optionally, don't log to syslog
@@ -54,6 +60,8 @@ $Id$
 * Better control over logging verbosity
 
 * POP3 extended response codes (RFC2449)
+
+  I suspect nobody cares about these.
 
 * setproctitle
 
@@ -63,3 +71,9 @@ $Id$
 
 * Non-constant UID in auth-flatfile
 
+* Undefine IGNORE_CCLIENT_METADATA when we don't have BSD mailspool support.
+
+* Warn if configuration files or private keys are world-readable.
+
+* Fix the libcrypt/libcrypto/crypt(3) linking-order issue identified by
+  Travis Miller (emails of 20030820)
