@@ -1,0 +1,233 @@
+README for MySQL authentication in tpop3d
+$Id$
+
+The auth_mysql authentication driver was developed for use with the vmail-sql
+database schema for virtual domains, though it is easy to adjust for a
+different one. If you don't intend to use vmail-sql (or are impatient to find
+out how it works), these notes should help:
+
+tpop3d communicates with the database using the standard libmysqlclient
+interface. The database name, username and password are set in the
+configuration file -- see tpop3d.conf(5) for more information. In the given
+database, there are two tables relecant to POP3 operations:
+
+# this is the table which holds information about this domain
+create table domain (
+        domain_name varchar(255) primary key, # domain name
+        unix_user varchar(255),               # which Unix user owns files etc.
+        password_hash varchar(255),           # admin password for this domain
+        path varchar(255),                    # base path for this domain
+        max_popbox int                        # maximum number of popboxes in
+) ;                                           # this domain
+
+# local POP boxes (virtual)
+create table popbox (
+        domain_name varchar(255) not null,    # domain this refers to
+        local_part varchar(255) not null,     # username for this POP box
+        password_hash varchar(255),           # hash of this user's password
+        mbox_name varchar(255),               # appended to domain.path
+        primary key (domain_name(8), local_part(8))
+) ;
+
+(Only the fields domain_name, unix_user and path in the domain table are used
+directly by tpop3d.)
+
+The model of use here is that a virtual email domain is owned by a single unix
+user. This is so that you can apply, for instance, file quotas to the domain
+using the standard mechanisms. Within the domain, there exist a number of
+`popboxes', i.e., mail spools; these are desribed by rows in the popbox table.
+
+Each domain has a path associated with it. In our configuration, this is
+something like /var/spool/mail/SERVERS/$domain. Under this path, mailspools
+reside in names given by mbox_name in the popbox table. This is probably more
+general than is necessary, since there is no reason to have mbox_name not
+equal to the local_part. 
+
+To authenticate a user and set her mailspool, auth_mysql performs the
+following steps (for USER/PASS authentication -- APOP is conceptually
+similar):
+
+1. Check that the connection to the database is live.
+
+2. Perform a SELECT statement of the form
+
+   SELECT domain.path, popbox.mbox_name, popbox.password_hash, domain.unix_user
+      FROM popbox, domain
+      WHERE popbox.local_part = $local_part
+      AND popbox.domain_name = $domain
+      AND popbox.domain_name = domain.domain_name
+
+   where $local_part and $domain represent the local-part and domain name
+   which the user has given. (Note that if the configuration option
+   append-domain is switched on, the domain name may be inferred from the IP
+   address to which the connection was made, rather than one explicitly
+   specified in the form USER fred@example.com. See tpop3d.conf(5) for more
+   information on this.)
+
+3. If the statement returned no rows, then the user does not exist; if it
+   returned more than one row, then there is a database inconsistency (this is
+   a `can't happen' condition). Otherwise, we have a row with which to
+   authenticate the user.
+
+4. Obtain the password hash, which must be the third column returned by the
+   above query. Look at the first part of it, and use this to determine the
+   format of the password hash:
+
+      {crypt}...          crypt(3) hash
+      {crypt_md5}...      crypt_md5 hash
+      {plaintext}...      plaintext password
+      {md5} or no prefix  old-style simple MD5 password
+
+   {crypt} is the format of the system crypt(3) function-- two salt characters
+   and a password hash produced using DES. {crypt_md5} is the new-style BSD
+   MD5 password (also used on Linux) which looks like $1$<salt>$<password
+   hash>$; on BSD/linux systems, the libc will automatically detect this case
+   in crypt(3), but for portability it is included as a separate case.
+   {plaintext} is a password saved in plain text; this format is useful if you
+   want to support authentication by the APOP shared-secret mechanism. {md5}
+   is a simple MD5 hash of the password, without salt, saved as a 32-character
+   hex string. This is the historical format for vmail-sql, and so is the
+   default if no prefix is used. This may go away at some point.
+
+   Now, we compare the user's password against the stored hash or password,
+   and decide whether to authenticate the user or not. If this does not
+   succeed, log a message.
+
+5. If authentication has succeeded, we need to figure out which user and group
+   to use, and the location of the user's mail spool. The latter is formed by
+   catenating domain.path and popbox.mbox_name; the Unix user is
+   domain.unix_user, and the group is either that user's primary group (i.e.,
+   the one specified in /etc/passwd or equivalent), or, if specified, the
+   value of the auth-mysql-mail-group configuration directive. These results
+   are stored in an authcontext structure, which is returned to the main
+   program.
+
+Most people who want to modify auth_mysql seem to want to change the names of
+database columns. This is trivial and should not present any difficulties. If
+you want to make more sophisticated changes to the schema, for instance to
+remove the redundancy between mbox_name and local_part or to remove the
+per-domain mailspool path, then you could always use something like
+
+SELECT '',
+       popbox.mbox_name, # now an absolute path
+       popbox.password_hash, domain.unix_user
+   FROM popbox, domain
+   WHERE popbox.local_part = $local_part
+   AND popbox.domain_name = $domain
+   AND popbox.domain_name = domain.domain_name
+
+... i.e., don't mess with the C code unless necessary. Actually, the code is
+very simple and easy to modify, but I am fully aware that lots of people would
+rather write SQL than C!
+
+If you want to do something more complex, you might want to consider using
+auth_other or auth_perl; these make it easier to prototype new designs, and
+don't require you to mess around with writing database code in C, which isn't
+much fun all told. In particular, I strongly recommend that if you want to use
+a database other than MySQL, you use the perl DBI/DBD support to implement an
+authenticator, rather than writing a new driver. This will be far quicker to
+develop and much easier to debug; in addition, it avoids pointless duplication
+of effort. perl and DBI/DBD present an excellent interface for communicating
+with relational databases, and there is no purpose in duplicating it.
+
+
+        }
+
+        switch (i = mysql_num_rows(result)) {
+        case 0:
+            break;
+        case 1: {
+                MYSQL_ROW row = mysql_fetch_row(result);
+                unsigned long *lengths;
+                char *pwhash;
+                char *mailbox;
+                struct passwd *pw;
+                int authok = 0;
+                uid_t uid;
+
+                /* These are "can't happen" errors */
+                if (!row || !(lengths = mysql_fetch_lengths(result))) break;
+
+                /* Verify the password. There are several possibilities here. */
+                pwhash = (char*)row[2];
+
+                if (strncmp(pwhash, "{crypt}", 7) == 0) {
+                    /* Password hashed by system crypt function. */
+                    if (strcmp(crypt(pass, pwhash + 7), pwhash + 7) == 0) authok = 1;
+                } else if (strncmp(pwhash, "{crypt_md5}", 11) == 0) {
+                    /* Password hashed by crypt_md5. */
+                    if (strcmp(crypt_md5(pass, pwhash + 11), pwhash + 11) == 0) authok = 1;
+                } else if (strncmp(pwhash, "{plaintext}", 11) == 0) {
+                    /* Plain text password, as used for APOP. */
+                    if (strcmp(pass, pwhash + 11) == 0) authok = 1;
+                } else if (strncmp(pwhash, "{md5}", 4) == 0 || *pwhash != '{') {
+                    /* Straight MD5 password. */
+                    MD5_CTX ctx;
+                    unsigned char digest[16];
+                    char hexhash[33] = {0};
+                    MD5Init(&ctx);
+                    MD5Update(&ctx, (unsigned char*)pass, strlen(pass));
+                    MD5Final(digest, &ctx);
+
+                    for (p = hexhash, q = digest; q < digest + 16; ++q, p += 2) snprintf(p, 3, "%02x", (unsigned)*q);
+
+                    if (strcasecmp(hexhash, pwhash + 5) == 0 || strcasecmp(hexhash, pwhash) == 0) authok = 1;
+                } else {
+                    /* Unknown format. */
+                    print_log(LOG_ERR, _("auth_mysql_new_user_pass: %s@%s has unknown password format `%.*s'"), local_part, domain, 2 + strcspn(pwhash + 1, "}"), pwhash);
+                    break;
+                }
+
+                if (!authok) {
+                    print_log(LOG_ERR, _("auth_mysql_new_user_pass: %s@%s failed login with wrong password"), local_part, domain);
+                    break;
+                }
+
+                if (!parse_uid((const char*)row[3], &uid)) {
+                    print_log(LOG_ERR, _("auth_mysql_new_user_pass: unix user `%s' for %s@%s does not make sense"), row[3], local_part, domain);
+                    break;
+                }
+
+                pw = getpwuid(uid);
+
+                if (!pw) {
+                    print_log(LOG_ERR, "auth_mysql_new_user_pass: getpwuid(%d): %m", (int)uid);
+                    break;
+                }
+
+                mailbox = (char*)malloc(l = (lengths[0] + lengths[1] + 2));
+                snprintf(mailbox, l, "%s/%s", row[0], row[1]);
+                a = authcontext_new(pw->pw_uid, use_gid ? gid : pw->pw_gid,
+                                    NULL, mailbox, NULL, domain); /* note default mailbox type. */
+                free(mailbox);
+
+                break;
+            }
+
+        default:
+            print_log(LOG_ERR, _("auth_mysql_new_user_pass: database inconsistency: query for %s@%s returned %d rows"), local_part, domain, i);
+            break;
+        }
+
+        mysql_free_result(result);
+    } else {
+        print_log(LOG_ERR, "auth_mysql_new_user_pass: mysql_query: %s", mysql_error(mysql));
+    }
+
+fail:
+    if (local_part) free(local_part);
+    if (x) free(x);
+    if (y) free(y);
+    if (query) free(query);
+
+    return a;
+}
+
+/* auth_mysql_close:
+ * Close the database connection.
+ */
+void auth_mysql_close() {
+    if (mysql) mysql_close(mysql);
+}
+
+#endif /* AUTH_MYSQL */
