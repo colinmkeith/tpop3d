@@ -39,7 +39,7 @@ CFLAGS += -DAUTH_PAM
 # Linux, you need -ldl for dynamic linking support; on other systems (e.g.
 # FreeBSD) this is not the case. If you are not using PAM at all, comment
 # this out.
-LDLIBS+= -lpam -ldl
+LDLIBS += -lpam -ldl
 
 # On some systems you will need to link with additional libraries, or define
 # additional flags.
