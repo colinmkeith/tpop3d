@@ -53,6 +53,8 @@ char *cfgdirectives[] = {
     
 #ifdef MBOX_MAILDIR
     "maildir-exclusive-lock",
+    "maildir-recursion",
+    "maildir-ignore-folders",
 #endif
 
 #ifdef USE_TLS

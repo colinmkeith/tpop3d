@@ -246,6 +246,21 @@ exclusive access, so that it more closely follows the behaviour described in
 RFC1939. Even if not specified, \fBtpop3d\fP behaves intelligently when a
 message in a maildir is moved or deleted, so this option is not necessary.
 .TP
+\fBmaildir-recursion\fP: (\fByes\fP|\fBtrue\fP)
+Tells \fBtpop3d\fP to display messages in IMAP folders as if they were in the
+INBOX. Useful if you mix POP3 with IMAP clients such as webmail systems.
+.TP
+\fBmaildir-ignore-folders\fP: [foldername [...]]
+Specifies IMAP folders (without the leading dot) that should be excluded from
+\fBmaildir-recursion\fP. May be empty; more than one folder should be separated
+by spaces (not tabs).
+
+The default is:
+.nf
+  maildir-ignore-folders: Trash Sent
+.fi
+
+.TP
 .nf
 \fBtcp-wrappers-name\fP: \fIname\fP
 .fi

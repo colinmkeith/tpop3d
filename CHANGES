@@ -11,7 +11,8 @@ the transmission of messages which may improve performance for clients on very
 fast networks, and added a tcp-send-buffer configuration option to control the
 SO_SNDBUF socket parameter. Fixed a couple of memory leaks; thanks to Richard
 Fuchs and Daniel Tiefnig from Inode for identifying those and supplying a
-patch.
+patch. The same authors also supplied code to enable recursion into subfolders
+of a maildir mailbox (maildir-recursion config option).
 
 1.5.3
 

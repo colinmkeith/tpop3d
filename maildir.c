@@ -145,9 +145,9 @@ static void maildir_make_indexpoint(struct indexpoint *m, const char *filename, 
 }
 
 /* maildir_build_index MAILDIR SUBDIR TIME
- * Build an index of the MAILDIR; SUBDIRis one of cur, tmp or new; TIME is the
+ * Build an index of the MAILDIR; SUBDIR is one of cur, tmp or new; TIME is the
  * time at which the operation started, used to ignore messages delivered
- * during processes. Returns 0 on success, -1 otherwise. */
+ * during processing. Returns 0 on success, -1 otherwise. */
 int maildir_build_index(mailbox M, const char *subdir, time_t T) {
     DIR *dir;
     struct dirent *d;
@@ -200,6 +200,86 @@ int maildir_build_index(mailbox M, const char *subdir, time_t T) {
     return 0;
 }
 
+/* maildir_recurse MAILBOX DIRECTORY TIME
+ * Recurses through IMAP folders to search for messages.  Returns 0 on success
+ * and minor errors, -1 on fatal errors. */
+static int maildir_recurse(mailbox M, char *current, time_t time) {
+    DIR *dir;
+    struct dirent *d;
+    char *folder, *ignorefolders, *match, *recursefolder;
+    int foldersl, dirl;
+    struct stat st;
+
+    if (!M) return -1;
+
+    dir = opendir(current);
+    if (!dir) {
+        /* We ignore subdirectories with errors, therefor we return 0 here. */
+        log_print(LOG_ERR, "maildir_recurse: opendir(.): %m");
+        return 0;
+    }
+
+    if (!(ignorefolders = config_get_string("maildir-ignore-folders")))
+        ignorefolders = "Trash Sent";
+
+    while ((d = readdir(dir))) {
+        if (d->d_name[0] != '.')
+            continue;
+
+        folder = d->d_name + 1;
+        if (!*folder || !strcmp(".", folder))
+            continue;
+
+        foldersl = strlen(folder);
+
+        for (match = ignorefolders;; match++) {
+            match = strstr(match, folder);
+            if (!match) {
+                dirl = strlen(current) + foldersl + 3;
+
+                recursefolder = xmalloc(dirl);
+                if (!recursefolder)
+                    return -1;
+
+                sprintf(recursefolder, "%s/.%s", current, folder);
+
+                if(stat(recursefolder, &st) == 0 && S_ISDIR(st.st_mode)) {
+                    if(maildir_recurse(M, recursefolder, time) != 0) {
+                        xfree(recursefolder);
+                        return -1;
+                    }
+
+                    recursefolder = xrealloc(recursefolder, dirl + 4);
+                    if (!recursefolder)
+                        return -1;
+
+                    /* We ignore subdirectories with errors, therefore we don't
+                     * fail on maildir_build_index problems here. */
+                    sprintf(recursefolder, "%s/.%s/new", current, folder);
+                    if (stat(recursefolder, &st) == 0 && S_ISDIR(st.st_mode))
+                        maildir_build_index(M, recursefolder, time);
+
+                    sprintf(recursefolder, "%s/.%s/cur", current, folder);
+                    if (stat(recursefolder, &st) == 0 && S_ISDIR(st.st_mode))
+                        maildir_build_index(M, recursefolder, time);
+                }
+
+                xfree(recursefolder);
+                break;
+            }
+            if (match != ignorefolders && match[-1] != ' ')
+                continue;
+            if (match[foldersl] && match[foldersl] != ' ')
+                continue;
+            break;
+        }
+    }
+
+    closedir(dir);
+    return 0;
+}
+
+
 /* maildir_sort_callback A B
  * qsort(3) callback for ordering messages in a maildir. */
 int maildir_sort_callback(const void *a, const void *b) {
@@ -243,6 +323,7 @@ mailbox maildir_new(const char *dirname) {
     /* Build index of maildir. */
     if (maildir_build_index(M, "new", tv1.tv_sec) != 0) goto fail;
     if (maildir_build_index(M, "cur", tv1.tv_sec) != 0) goto fail;
+    if (config_get_bool("maildir-recursion") && maildir_recurse(M, ".", tv1.tv_sec) != 0) goto fail;
 
     /* Now sort the messages. */
     qsort(M->index, M->num, sizeof(struct indexpoint), maildir_sort_callback);
