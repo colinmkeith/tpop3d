@@ -56,6 +56,11 @@ authcontext auth_passwd_new_user_pass(const char *user, const char *pass) {
     int use_gid = 0;
     gid_t gid = 99;
     authcontext a = NULL;
+    const char *x;
+
+    /* Check the this isn't a virtual-domain user. */
+    x = user + strcspn(user, "@%!");
+    if (*x) return NULL;
 
     pw = getpwnam(user);
     if (!pw) return NULL;

@@ -70,7 +70,15 @@ authcontext auth_pam_new_user_pass(const char *user, const char *pass) {
     item *I;
     int use_gid = 0;
     gid_t gid = 99;
+    const char *x;
 
+    /* Check the this isn't a virtual-domain user. */
+    x = user + strcspn(user, "@%!");
+    if (*x) return NULL;
+
+    /* Copy the password structure, since it is in static storage and may
+     * get overwritten by calls in the PAM code.
+     */
     pw2 = getpwnam(user);
     if (!pw2) return NULL;
     else memcpy(&pw, pw2, sizeof(pw));

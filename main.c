@@ -112,11 +112,11 @@ void listeners_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfds)
             } else if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, &a, sizeof(a)) == -1) {
                 /* Set a small send buffer so that we get usefully blocking
                  * writes. */
-                print_log(LOG_ERR, "handle_listeners: setsockopt: %m");
+                print_log(LOG_ERR, "listeners_post_select: setsockopt: %m");
                 close(s);
             } else if (fcntl(s, F_SETFL, 0) == -1) {
                 /* Switch off non-blocking mode, in case it is inherited. */
-                print_log(LOG_ERR, "handle_listeners: fcntl(F_SETFL): %m");
+                print_log(LOG_ERR, "listeners_post_select: fcntl(F_SETFL): %m");
                 close(s);
             } else {
                 if (num_running_children >= max_running_children) {
@@ -124,11 +124,15 @@ void listeners_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfds)
                     xwrite(s, m, strlen(m));
                     shutdown(s, 2);
                     close(s);
-                    print_log(LOG_INFO, _("handle_listeners: rejected connection from %s owing to high load"), inet_ntoa(sin.sin_addr));
+                    print_log(LOG_INFO, _("listeners_post_select: rejected connection from %s owing to high load"), inet_ntoa(sin.sin_addr));
                 } else {
                     connection c = connection_new(s, &sin, L->domain);
-                    if (c) list_push_back(connections, item_ptr(c));
-                    print_log(LOG_INFO, _("handle_listeners: client %s: connected"), c->idstr);
+                    if (c) {
+                        list_push_back(connections, item_ptr(c));
+                        print_log(LOG_INFO, _("listeners_post_select: client %s: connected"), c->idstr);
+                    } else
+                        /* This could be really bad, but all we can do is log the failure. */
+                        print_log(LOG_ERR, _("listeners_post_select: unable to set up connection from %s: %m"), inet_ntoa(sin.sin_addr));
                 }
             }
         }
@@ -158,6 +162,7 @@ void fork_child(connection *C, listitem *i) {
     listitem J;
     item *t;
     post_fork = 1; /* This is right. See below. */
+    muntrace();
     switch(fork()) {
         case 0:
             /* Child. Dispose of listeners and connections other than this
@@ -181,7 +186,7 @@ void fork_child(connection *C, listitem *i) {
                 print_log(LOG_ERR, _("fork_child: client %s: authentication context has UID of 0"), c->idstr);
                 connection_sendresponse(c, 0, _("Everything's really bad"));
                 connection_delete(c);
-                exit(0);
+                _exit(0);
             }
 
             /* Set our gid and uid to that appropriate for the mailspool, as decided by the auth switch. */
@@ -189,12 +194,12 @@ void fork_child(connection *C, listitem *i) {
                 print_log(LOG_ERR, "fork_child: setgid(%d): %m", c->a->gid);
                 connection_sendresponse(c, 0, _("Something bad happened, and I just can't go on. Sorry."));
                 connection_delete(c);
-                exit(0);
+                _exit(0);
             } else if (setuid(c->a->uid) == -1) {
                 print_log(LOG_ERR, "fork_child: setuid(%d): %m", c->a->uid);
                 connection_sendresponse(c, 0, _("Something bad happened, and I just can't go on. Sorry."));
                 connection_delete(c);
-                exit(0);
+                _exit(0);
             }
 
             /* Get in to the `transaction' state, opening the mailbox. */
@@ -221,7 +226,7 @@ void fork_child(connection *C, listitem *i) {
             } else {
                 connection_sendresponse(c, 0, _("Unable to open mailbox; it may be locked by another concurrent session."));
                 connection_delete(c);
-                exit(0);
+                _exit(0);
             }
 
             I = NULL;
@@ -270,25 +275,27 @@ void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfd
                 print_log(LOG_INFO, _("connections_post_select: connection_read: client %s: closed connection"), c->idstr);
                 connection_delete(c);
                 I = list_remove(connections, I);
-                if (post_fork) exit(0);
+                if (post_fork) _exit(0);
                 if (!I) break;
             } else if (n < 0 && errno != EINTR) {
                 /* Some sort of error occurred, and we should close the connection. */
                 print_log(LOG_ERR, _("connections_post_select: connection_read: client %s: disconnected: %m"), c->idstr);
                 connection_delete(c);
                 I = list_remove(connections, I);
-                if (post_fork) exit(0);
+                if (post_fork) _exit(0);
                 if (!I) break;
             } else {
                 /* We read some data and should try to interpret command/s. */
                 pop3command p;
                 while (c && (p = connection_parsecommand(c))) {
-                    switch(connection_do(c, p)) {
+                    enum connection_action act = connection_do(c, p);
+                    pop3command_delete(p);
+                    switch (act) {
                         case close_connection:
                             connection_delete(c);
                             c = NULL;
                             I = list_remove(connections, I);
-                            if (post_fork) exit(0);
+                            if (post_fork) _exit(0);
                             break;
 
                         case fork_and_setuid:
@@ -304,8 +311,6 @@ void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfd
                         default:;
                     }
 
-                    pop3command_delete(p);
-
                     if (!I) break;
                 }
 
@@ -320,7 +325,7 @@ void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfd
 #endif
             print_log(LOG_INFO, "net_loop: timed out client %s", ((connection)I->d.v)->idstr);
             connection_delete((connection)(I->d.v));
-            if (post_fork) exit(0);
+            if (post_fork) _exit(0);
             I = list_remove(connections, I);
             if (!I) break;
         }
@@ -446,6 +451,8 @@ int main(int argc, char **argv, char **envp) {
     int nodaemon = 0;
     char *configfile = "/etc/tpop3d.conf", c;
     int na;
+
+    mtrace();
 
     /* Read the options. */
     opterr = 0;
@@ -659,18 +666,20 @@ int main(int argc, char **argv, char **envp) {
     EXIT_REMOVING_PIDFILE(0);
 }
 
+#if 0
+/* Primitive memory-leak debugging. */
 #undef malloc
 #undef free
+#undef realloc
 
-#if 0
-char *mystrdup(char *f, int l, char *s) {
+char *mystrdup(char *f, int l, const char *s) {
     char *p = malloc(strlen(s) + 1);
     strcpy(p, s);
     fprintf(stderr, "[%d] %s:%d: %p = strdup(\"%s\")\n", getpid(), f, l, p, s);
     return p;
 }
 
-void *mymalloc(char *f, int l, size_t n) {
+void *mymalloc(char *f, int l, const size_t n) {
     void *p = malloc(n);
     if (!p) return NULL;
     fprintf(stderr, "[%d] %s:%d: %p = malloc(%d)\n", getpid(), f, l, p, n);
@@ -681,4 +690,12 @@ void myfree(char *f, int l, void *p) {
     free(p);
     fprintf(stderr, "[%d] %s:%d: free(%p)\n", getpid(), f, l, p);
 }
+
+void *myrealloc(char *f, int l, void *p, const size_t n) {
+    void *q = realloc(p, n);
+    fprintf(stderr, "[%d] %s:%d: free(%p)          (actually realloc)\n", getpid(), f, l, p);
+    fprintf(stderr, "[%d] %s:%d: malloc(%p, %d)    (actually realloc)\n", getpid(), f, l, p, n);
+    return q;
+}
+
 #endif 

@@ -14,9 +14,11 @@ by a prefixed token enclosed in { }. Presently supported are:
 
 This facility replaces the old apop_password field in the database; instead,
 APOP users should arrange for their passwords to be recorded in the plaintext
-format as above.
+format as above.  The new vmail-sql will work in the same way, when it is
+released.
 
-The new vmail-sql will work in the same way, when it is released.
+In addition, there are a couple of fixes: a small memory leak was removed, and
+code was added to work around some bugs in old GNU libc versions.
 
 1.3.1
 

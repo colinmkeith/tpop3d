@@ -46,6 +46,7 @@ static char *make_timestamp(const char *domain) {
     struct utsname u;
     char *s, *p;
     size_t l;
+    ssize_t n = 0;
 
     if (!domain) {
         if (uname(&u) == -1) return NULL;
@@ -60,12 +61,13 @@ static char *make_timestamp(const char *domain) {
     /* Get random "timestamp" data. */
     fd = open("/dev/urandom", O_RDONLY);
     if (fd != -1) {
-        if (read(fd, buffer, sizeof(buffer)) != sizeof(buffer)) {
-            free(s);
-            return NULL;
-        }
+        do
+            n = read(fd, buffer, sizeof(buffer));
+        while (n == -1 && errno == EINTR);
         close(fd);
-    } else {
+    }
+        
+    if (n != sizeof(buffer)) {
         /* OK, we need to get some pseudo-random data from rand(3).
          * FIXME This is bad from a security PoV, and should be replaced by
          * hashing some rapidly-changing data.
@@ -115,7 +117,10 @@ connection connection_new(int s, const struct sockaddr_in *sin, const char *doma
 
     c->idlesince = time(NULL);
 
-    if (!connection_sendresponse(c, 1, c->timestamp)) goto fail;
+    if (!connection_sendresponse(c, 1, c->timestamp)) {
+        print_log(LOG_ERR, "connection_new: could not send timestamp to `%s'", c->idstr);
+        goto fail;
+    }
 
     return c;
 
@@ -130,8 +135,10 @@ connection connection_new(int s, const struct sockaddr_in *sin, const char *doma
 void connection_delete(connection c) {
     if (!c) return;
 
-    shutdown(c->s, 2);
-    close(c->s);
+    if (c->s != -1) {
+        shutdown(c->s, 2);
+        close(c->s);
+    }
 
     if (c->a) authcontext_delete(c->a);
     if (c->m) (c->m)->delete(c->m);

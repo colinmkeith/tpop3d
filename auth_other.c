@@ -164,10 +164,10 @@ int auth_other_start_child() {
         case 0:
             if (setgid(authchild_gid) == -1) {
                 print_log(LOG_ERR, "auth_other_start_child: setgid(%d): %m", (int)authchild_gid);
-                exit(1);
+                _exit(1);
             } else if (setuid(authchild_uid) == -1) {
                 print_log(LOG_ERR, "auth_other_start_child: setuid(%d): %m", (int)authchild_uid);
-                exit(1);
+                _exit(1);
             }
             
             /* Child. */
@@ -180,7 +180,7 @@ int auth_other_start_child() {
             execve(auth_program, argv, envp);
 
             /* Failed. */
-            exit(1);
+            _exit(1);
 
             break;
             

@@ -186,6 +186,8 @@ enum connection_action connection_do(connection c, const pop3command p) {
 #else
                         connection_sendresponse(c, 0, _("Too many authentication attempts."));
 #endif
+
+                        print_log(LOG_ERR, _("connection_do: client `%s' failed to log in after %d attempts"), c->idstr, MAX_AUTH_TRIES);
                         return close_connection;
                     } else {
                         ++c->n_auth_tries;
@@ -253,6 +255,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
 #else
                     connection_sendresponse(c, 0, _("Too many authentication attempts."));
 #endif
+                    print_log(LOG_ERR, _("connection_do: client `%s' failed to log in after %d attempts"), c->idstr, MAX_AUTH_TRIES);
                     return close_connection;
                 } else {
 #ifndef NO_SNIDE_COMMENTS

@@ -18,6 +18,8 @@ static const char rcsid[] = "$Id$";
 #include <stdlib.h>
 #include <string.h>
 
+#include "util.h"
+
 /* verrprintf:
  * Returns a malloc'd string with the appropriate arguments printed into it.
  */

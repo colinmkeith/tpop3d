@@ -23,6 +23,19 @@
 
 #define PAGESIZE        getpagesize()
 
+#if 0
+/* Primitive memory-leak debugging. */
+char *mystrdup(char *f, int l, const char *s);
+void *mymalloc(char *f, int l, const size_t n);
+void myfree(char *f, int l, void *p);
+void *myrealloc(char *f, int l, void *p, const size_t n);
+
+#define strdup(a)       mystrdup(__FILE__, __LINE__, a)
+#define malloc(a)       mymalloc(__FILE__, __LINE__, a)
+#define free(a)         myfree(__FILE__, __LINE__, a)
+#define realloc(a, b)   myrealloc(__FILE__, __LINE__, a, b)
+#endif
+
 /* Function for substituting $(...) in strings. */
 struct sverr {
     char *msg;
