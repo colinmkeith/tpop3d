@@ -33,6 +33,9 @@ designed to authenticate local (Unix) users. The auth-mysql, auth-other
 and auth-perl drivers also contain support for event-driven POP-before-SMTP
 relaying; see README.POP-before-SMTP for more details.
 
+tpop3d also provides the means to cache authentication results for higher
+performance under heavy load. This feature should be considered experimental.
+
 The following mailbox formats are supported:
 
     bsd             for BSD (`Unix') mailspools

@@ -16,6 +16,7 @@ listen-address: 0.0.0.0
 # the certificate /usr/local/etc/tpop3d-cert:
 #listen-address: 0.0.0.0;tls=stls,/usr/local/etc/tpop3d-cert
 
+# max-children: number
 # maximum number of connections to serve at any given time. [default: 100]
 #max-children: 100
 
@@ -85,7 +86,6 @@ mailbox: bsd:/var/mail/$(user)
 #tls-no-bug-workarounds: true
 
 
-
 #
 # Authentication options
 #
@@ -98,6 +98,31 @@ mailbox: bsd:/var/mail/$(user)
 # If the authenticator offers an `onlogin' action, the user's mailbox won't
 # be opened until after the onlogin action completes. See man page for info.
 #onlogin-child-wait: true
+
+# log-bad-passwords: (yes|true)
+# If switched on, wrong passwords will be recorded in the logs. This is an
+# invasion of privacy, but may help in debugging problems.
+#log-bad-passwords: true
+
+# authcache-enable: (yes|true)
+# If switched on, tpop3d will cache the results of successful authentications.
+# This feature is experimental, and is only likely to be useful for very busy
+# sites. [default: no]
+#authcache-enable: true
+
+# authcache-entry-lifetime: number
+# How long a successful authentication is cached for, in seconds. To be useful,
+# this must be much longer than the interval between POP3 logins. [default:
+# 3600 (1 hour)]
+#authcache-entry-lifetime: 3600
+
+# authcache-use-client-host: (yes|true)
+# If you have authenticators which use the $(clienthost) substitution variable
+# (so that authentication depends on the IP address from which a client
+# connects) you must switch this on, since otherwise tpop3d may use for a new
+# connection a cached authentication result for a client who connected from
+# a different address. [default: no]
+#authcache-use-client-host: true
 
 
 #

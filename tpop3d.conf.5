@@ -342,6 +342,36 @@ bulletins and similar features.
 Log incorrect passwords supplied by users who fail to log in. Use of this
 option is an invasion of privacy, but may be useful for debugging client
 configuration problems.
+.PP
+
+\fBtpop3d\fP can cache the results of successful login attempts, and re-use
+them when the same user logs in again. This is probably not useful except
+for servers which run under very heavy load. Authentication cacheing can only
+be used for USER/PASS authentication; it has no effect on APOP authentications.
+The following options control the authentication cache:
+.TP
+\fBauthcache-enable\fP: (\fByes\fP|\fBtrue\fP)
+Enable the cache. It is off by default.
+.TP
+\fBauthcache-entry-lifetime\fP: \fInumber\fP
+The number of seconds for which the results of a successful authentication are
+cached. The default value is 1 hour (3600 seconds). In order to be useful, this
+value must be much larger than the mean interval between POP sessions by a
+given client. For instance, if clients check mail every five minutes, then
+setting the lifetime to ten minutes will mean that, on average, half of
+authentications come from the cache and are fast. Setting it to one hour means
+that eleven out of twelve authentications come from the cache, and so forth.
+\fIBut note that this value also controls how long it takes for password
+changes to take effect!\fP
+.TP
+\fBauthcache-use-client-host\fP: (\fByes\fP|\fBtrue\fP)
+Some authenticators allow you to control authentication based on the IP address
+of the connected client. By default, the authentication cache ignores this
+information, so that a client which connects from more than one IP address (for
+instance, if their DHCP lease changes) can still be authenticated from the
+cache. But if you have authenticators whose behaviour varies based on client IP
+address, you must switch this option on, since otherwise the cache will give
+incorrect results in some cases.
 
 .SS PAM authentication options
 

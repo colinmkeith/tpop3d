@@ -75,6 +75,17 @@ size_t max_connections;             /* Number of connection slots allocated. */
  * connections are used to handle this procedure.
  */
 
+/* Because the main loop is single-threaded, under high load the server could
+ * alternate between accepting a large number of backlogged connections, and
+ * processing commands from and authenticating a large number of connected
+ * clients. In order to avoid this, we define a maximum time which the server
+ * may spend either (a) accepting new connections; or (b) processing commands
+ * from existing connections. (Obviously the same amount of work must be done
+ * in either case, but we can choose when to do it.) Effectively this should
+ * set how long any client could wait for a banner or response from the
+ * server. */
+#define LATENCY     2 /* seconds */
+
 /* find_free_connection
  * Find a free connection slot. */
 static connection *find_free_connection(void) {
@@ -114,48 +125,55 @@ static void listeners_post_select(fd_set *readfds, fd_set *writefds, fd_set *exc
             struct sockaddr_in sin, sinlocal;
             size_t l = sizeof(sin);
             int s, a = MAX_DATA_IN_FLIGHT;
+            time_t start;
 
+            time(&start);
+            errno = 0;
+            
             /* XXX socklen_t mess... */
-            s = accept(L->s, (struct sockaddr*)&sin, (int*)&l);
-            
-            l = sizeof(sin);
-            if (s != -1) getsockname(s, (struct sockaddr*)&sinlocal, (int*)&l);
-
-            if (s == -1) {
-                if (errno != EAGAIN) log_print(LOG_ERR, "net_loop: accept: %m");
-            }
-            
-#ifdef USE_TCP_WRAPPERS
-            else if (!hosts_ctl(tcpwrappersname, STRING_UNKNOWN, inet_ntoa(sin.sin_addr), STRING_UNKNOWN)) {
-                log_print(LOG_ERR, "net_loop: tcp_wrappers: connection from %s to local address %s:%d refused", inet_ntoa(sin.sin_addr), inet_ntoa(sinlocal.sin_addr), htons(sinlocal.sin_port));
-                close(s);
-            }
-#endif
-            else if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, &a, sizeof(a)) == -1) {
-                /* Set a small send buffer so that we get EAGAIN if the client
-                 * isn't acking our data. */
-                log_print(LOG_ERR, "listeners_post_select: setsockopt: %m");
-                close(s);
-            } else if (fcntl(s, F_SETFL, O_NONBLOCK) == -1) {
-                /* Ensure that non-blocking operation is switched on, even if
-                 * it isn't inherited. */
-                log_print(LOG_ERR, "listeners_post_select: fcntl(F_SETFL): %m");
-                close(s);
-            } else {
-                connection *J;
-                if (num_running_children >= max_running_children || !(J = find_free_connection())) {
-                    shutdown(s, 2);
+            while (time(NULL) < start + LATENCY && -1 != (s = accept(L->s, (struct sockaddr*)&sin, (int*)&l))) {
+                l = sizeof(sin);
+                if (-1 == getsockname(s, (struct sockaddr*)&sinlocal, (int*)&l)) {
+                    log_print(LOG_ERR, "net_loop: getsockname: %m");
                     close(s);
-                    log_print(LOG_WARNING, _("listeners_post_select: rejected connection from %s to local address %s:%d owing to high load"), inet_ntoa(sin.sin_addr), inet_ntoa(sinlocal.sin_addr), htons(sinlocal.sin_port));
+                }
+
+#ifdef USE_TCP_WRAPPERS
+                else if (!hosts_ctl(tcpwrappersname, STRING_UNKNOWN, inet_ntoa(sin.sin_addr), STRING_UNKNOWN)) {
+                    log_print(LOG_ERR, "net_loop: tcp_wrappers: connection from %s to local address %s:%d refused", inet_ntoa(sin.sin_addr), inet_ntoa(sinlocal.sin_addr), htons(sinlocal.sin_port));
+                    close(s);
+                }
+#endif
+                else if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, &a, sizeof(a)) == -1) {
+                    /* Set a small send buffer so that we get EAGAIN if the client
+                     * isn't acking our data. */
+                    log_print(LOG_ERR, "listeners_post_select: setsockopt: %m");
+                    close(s);
+                } else if (fcntl(s, F_SETFL, O_NONBLOCK) == -1) {
+                    /* Ensure that non-blocking operation is switched on, even if
+                     * it isn't inherited. */
+                    log_print(LOG_ERR, "listeners_post_select: fcntl(F_SETFL): %m");
+                    close(s);
                 } else {
-                    /* Create connection object. */
-                    if ((*J = connection_new(s, &sin, L)))
-                        log_print(LOG_INFO, _("listeners_post_select: client %s: connected to local address %s:%d"), (*J)->idstr, inet_ntoa(sinlocal.sin_addr), htons(sinlocal.sin_port));
-                    else
-                        /* This could be really bad, but all we can do is log the failure. */
-                        log_print(LOG_ERR, _("listeners_post_select: unable to set up connection from %s to local address %s:%d: %m"), inet_ntoa(sin.sin_addr), inet_ntoa(sinlocal.sin_addr), htons(sinlocal.sin_port));
+                    connection *J;
+                    if (num_running_children >= max_running_children || !(J = find_free_connection())) {
+                        shutdown(s, 2);
+                        close(s);
+                        log_print(LOG_WARNING, _("listeners_post_select: rejected connection from %s to local address %s:%d owing to high load"), inet_ntoa(sin.sin_addr), inet_ntoa(sinlocal.sin_addr), htons(sinlocal.sin_port));
+                    } else {
+                        /* Create connection object. */
+                        if ((*J = connection_new(s, &sin, L)))
+                            log_print(LOG_INFO, _("listeners_post_select: client %s: connected to local address %s:%d"), (*J)->idstr, inet_ntoa(sinlocal.sin_addr), htons(sinlocal.sin_port));
+                        else
+                            /* This could be really bad, but all we can do is log the failure. */
+                            log_print(LOG_ERR, _("listeners_post_select: unable to set up connection from %s to local address %s:%d: %m"), inet_ntoa(sin.sin_addr), inet_ntoa(sinlocal.sin_addr), htons(sinlocal.sin_port));
+                    }
                 }
             }
+
+            if (errno != EAGAIN)
+                log_print(LOG_ERR, "net_loop: accept: %m");
+            
         }
     }
 }
@@ -228,8 +246,10 @@ static int fork_child(connection c) {
                     *J = NULL;
                 }
             
-            /* Do any post-fork cleanup defined by authenticators. */
+            /* Do any post-fork cleanup defined by authenticators, and drop any
+             * cached data. */
             authswitch_postfork();
+            authcache_close();
 
             /* We never access mailspools as root. */
             if (c->a->uid == 0) {
@@ -349,14 +369,18 @@ static int fork_child(connection c) {
  * parse commands when it's indicated that data have been read, and react to the
  * changed state of any connection. */
 static void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
-    connection *I;
+    static size_t i;
+    size_t i0;
+    time_t start;
 
-    for (I = connections; I < connections + max_connections; ++I) {
+    time(&start);
+
+    for (i0 = (i + max_connections - 1) % max_connections; time(NULL) < start + LATENCY && i != i0; i = (i + 1) % max_connections) {
         connection c;
         int r;
 
-        c = *I;
-        if (!c) continue;
+        if (!(c = connections[i]))
+            continue;
 
         /* Handle all post-select I/O. */
         r = c->io->post_select(c, readfds, writefds, exceptfds);
@@ -442,7 +466,8 @@ static void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *e
                 log_print(LOG_INFO, _("connections_post_select: client %s: finished session for `%s' with %s"), c->idstr, c->a->user, c->a->auth);
             log_print(LOG_INFO, _("connections_post_select: client %s: disconnected; %d/%d bytes read/written"), c->idstr, c->nrd, c->nwr);
 
-            remove_connection(c);
+/*            remove_connection(c);*/
+            connections[i] = NULL;
             connection_delete(c);
             /* If this is a child process, we exit now. */
             if (post_fork)

@@ -290,6 +290,9 @@ authcontext authcontext_new_user_pass(const char *user, const char *local_part, 
             l = NULL;
     }
 
+    if ((a = authcache_new_user_pass(user, l, d, pass, clienthost, serverhost)))
+        return a;
+
     for (aa = auth_drivers, aar = auth_drivers_running; aa < auth_drivers_end; ++aa, ++aar)
         if (*aar && aa->auth_new_user_pass && (a = aa->auth_new_user_pass(user, l, d, pass, clienthost, serverhost))) {
             a->auth = xstrdup(aa->name);
@@ -302,6 +305,7 @@ authcontext authcontext_new_user_pass(const char *user, const char *local_part, 
             }
             if (!a->domain && d)
                 a->domain = xstrdup(d);
+            authcache_save(a, user, l, d, pass, clienthost, serverhost);
             log_print(LOG_INFO, _("authcontext_new_user_pass: began session for `%s' with %s; uid %d, gid %d"), a->user, a->auth, a->uid, a->gid);
             break;
         }

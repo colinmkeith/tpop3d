@@ -58,6 +58,10 @@ char *cfgdirectives[] = {
     "tls-no-bug-workarounds",
 #endif
 
+    "authcache-enable",
+    "authcache-use-client-host",
+    "authcache-entry-lifetime",
+
 #ifdef AUTH_PAM
     /* auth-pam options */
     "auth-pam-enable",

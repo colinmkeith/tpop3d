@@ -327,7 +327,7 @@ static int ioabs_tls_post_select(connection c, fd_set *readfds, fd_set *writefds
             || (io->write_blocked_on_read && canread))
         && (wtotal = buffer_available(c->wrb)) > 0) {
         io->write_blocked_on_read = 0;
-        buffer_make_contiguous(c->wrb);
+        buffer_make_contiguous(c->wrb); /* Cf. email of 20031105. */
         do {
             char *w;
             size_t wlen;

@@ -416,6 +416,9 @@ int main(int argc, char **argv, char **envp) {
     /* Start logging. */
     log_init();
 
+    /* Maybe start up authentication cache. */
+    authcache_init();
+
     /* Perhaps we have been asked to save metadata caches for BSD mailspools? */
 #if defined(MBOX_BSD) && defined(MBOX_BSD_SAVE_INDICES)
     if (config_get_string("mailspool-index")) {
@@ -545,8 +548,10 @@ retry_pid_file:
    
     net_loop();
 
-    if (!post_fork)
+    if (!post_fork) {
         authswitch_close();
+        authcache_close();
+    }
 
     if (listeners) {
         item *I;

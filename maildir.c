@@ -205,6 +205,7 @@ mailbox maildir_new(const char *dirname) {
     mailbox M, failM = NULL;
     struct timeval tv1, tv2;
     float f;
+    int locked;
  
     alloc_struct(_mailbox, M);
     
@@ -224,7 +225,7 @@ mailbox maildir_new(const char *dirname) {
         M->name = xstrdup(dirname);
 
     /* Optionally, try to lock the maildir. */
-    if (config_get_bool("maildir-exclusive-lock") && !maildir_lock(M->name)) {
+    if (config_get_bool("maildir-exclusive-lock") && (!locked = maildir_lock(M->name))) {
         log_print(LOG_INFO, _("maildir_new: %s: couldn't lock maildir"), dirname);
         goto fail;
     }
@@ -246,6 +247,7 @@ mailbox maildir_new(const char *dirname) {
 
 fail:
     if (M) {
+        if (locked) maildir_unlock(M->name);
         if (M->name) xfree(M->name);
         if (M->index) xfree(M->index);
         xfree(M);

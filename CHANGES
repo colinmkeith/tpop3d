@@ -6,8 +6,13 @@ got lost; thanks to Haris Hudji. Increased the default value for max-children
 from 16 to 100. Fixed a typo in Makefile.am. Incorporated a patch from Diego
 Alvarez to allow substitution variables to be used in LDAP base configurations.
 Altered the apop-only option to affect unsecured connections only, following a
-suggestion by Dave Baker. Fixed the `mass virtual hosting', following a bug
-report from Matthew Trent.
+suggestion by Dave Baker. Fixed the `mass virtual hosting' option, following a
+bug report from Matthew Trent. Improved performance under heavy load; thanks
+to Larry Chancy for helping to identify this problem. Also added an optional
+cache for authentication results; most users will not need this, but it may
+help for very busy servers. Fixed a bug in the TLS implementation which could
+cause connections to be dropped by the server; thanks to Dave Baker, Jens
+Liebchen and others for assistance with this.
 
 1.5.2
 

@@ -80,4 +80,10 @@ void authcontext_delete(authcontext);
 /* Function to find a mailbox according to the config file. */
 mailbox find_mailbox(authcontext a);
 
+/* Authentication cache. */
+void authcache_init(void);
+void authcache_close(void);
+authcontext authcache_new_user_pass(const char *user, const char *local_part, const char *domain, const char *pass, const char *clienthost, const char *serverhost);
+void authcache_save(authcontext A, const char *user, const char *local_part, const char *domain, const char *pass, const char *clienthost, const char *serverhost);
+
 #endif /* __AUTHSWITCH_H_ */

@@ -86,3 +86,13 @@ $Id$
 
 * Log statistics on transactions (email of 20031013)
 
+* Cache results of authentication for a few minutes, to improve performance
+  under high load?
+
+  The problem with this is that, to be useful, we need to cache the information
+  for a time which is long by comparison with the interval between mail checks.
+  The latter is a few minutes, so we'd need the things to stay in cache for an
+  hour or so. Is a one-hour latency in propagating password changes acceptable?
+
+* Latency vs. throughput tradeoff under high load?
+
