@@ -78,7 +78,7 @@ volatile int authchild_status;
 struct timeval authchild_timeout;
 
 /* File descriptors used to talk to child. */
-volatile int authchild_wr, authchild_rd;
+volatile int authchild_wr = -1, authchild_rd = -1;
 
 /* dump:
  * Debugging method.
