@@ -10,6 +10,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.6  2000/10/28 14:56:43  chris
+ * Fixed reference to AUTH_PAM
+ *
  * Revision 1.5  2000/10/18 21:34:12  chris
  * Changes due to Mark Longair.
  *
@@ -28,6 +31,7 @@
  *
  */
 
+#ifdef AUTH_MYSQL
 static const char rcsid[] = "$Id$";
 
 #include <grp.h>
@@ -42,6 +46,7 @@ static const char rcsid[] = "$Id$";
 #include "authswitch.h"
 #include "md5.h"
 #include "stringmap.h"
+#include "util.h"
 
 MYSQL *mysql;
 
@@ -151,7 +156,7 @@ authcontext auth_mysql_new_apop(const char *name, const char *timestamp, const u
         }
         use_gid = 1;
     }
-#ifdef AUTH_PAM_MAIL_GID
+#ifdef AUTH_MYSQL_MAIL_GID
     else {
         gid = AUTH_PAM_MAIL_GID;
         use_gid = 1;
@@ -425,3 +430,5 @@ fail:
 void auth_mysql_close() {
     if (mysql) mysql_close(mysql);
 }
+
+#endif /* AUTH_MYSQL */
