@@ -20,7 +20,10 @@ static const char rcsid[] = "$Id$";
 
 #include <sys/types.h> /* BSD needs this here, apparently. */
 
+#ifdef CRYPT_FUNCTION_IN_CRYPT_H
 #include <crypt.h>
+#endif
+
 #include <grp.h>
 #include <pwd.h>
 #include <mysql.h>
@@ -28,6 +31,7 @@ static const char rcsid[] = "$Id$";
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
+#include <unistd.h>
 
 #include "auth_mysql.h"
 #include "authswitch.h"
