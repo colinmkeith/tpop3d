@@ -7,6 +7,9 @@
  * Copyright (c) 2000 Chris Lightfoot. All rights reserved.
  *
  * $Log$
+ * Revision 1.3  2000/10/08 16:54:06  chris
+ * Minor changes.
+ *
  * Revision 1.2  2000/10/07 17:41:16  chris
  * Minor changes.
  *
@@ -102,9 +105,10 @@ item *stringmap_insert(stringmap S, const char *k, const item d) {
  */
 item *stringmap_find(const stringmap S, const char *k) {
     stringmap S2;
+    int i;
     if (!S || S->key == NULL) return 0;
     for (S2 = S;;) {
-        int i = strcmp(k, S2->key);
+        i = strcmp(k, S2->key);
         if (i == 0) return &(S2->d);
         else if (i < 0)
             if (S2->l) S2 = S2->l;
