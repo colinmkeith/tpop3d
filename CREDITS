@@ -34,7 +34,7 @@ Michael Klatsky and Marc Lewis-- for helping to fix bugs in the LDAP code.
 
 Angel Marin-- for the auth-flatfile authenticator.
 
-Arkadiusz Miski-- for WHOSON protocol support.
+Arkadiusz Miskiewicz-- for WHOSON protocol support.
 
 And numerous others, for putting up with foolish questions about Unix
 mailspool handling or (more often) indignant rants about Unix in general and

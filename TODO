@@ -62,6 +62,9 @@ $Id$
   a process to handle TLS, while the main daemon carries on doing its stuff.
 
 
+* Multiple database failover for auth-mysql?
+
+
 * Optionally, run as nonprivileged user
 
 

@@ -4,18 +4,20 @@ $Id$
 1.5.1
 
 tpop3d now supports the WHOSON protocol (http://whoson.sourceforge.net/) for
-POP-before-SMTP relaying, thanks to Arkadiusz Miski. Added support for `mass
-virtual hosting', where the domain name used for a connection is based upon
-the name associated with the address to which a client connects. Made a small
-change to the documentation to make it clearer. tpop3d now obeys configure's
---sysconfdir option. Improved the performance of the mailspool parser. Fixed a
-problem in the command parsing code which could cause problems with Eudora's
-command pipelining; thanks to Shin Zukeran for this fix. Fixed a minor problem
-in the PAM code, thanks to Christian Nordmann, and also added facility to use
-auth-pam for authenticating users who have no UNIX account based on his patch.
-Added scripts/tpop3dtraffic, which extracts the identity of the heaviest POP3
-users from logfiles. Added a permit-empty-passwords option, default no,
-largely to protect LDAP users who left LDAP authentication switched on....
+POP-before-SMTP relaying, thanks to Arkadiusz Miskiewicz. Added support for
+`mass virtual hosting', where the domain name used for a connection is based
+upon the name associated with the address to which a client connects. Made a
+small change to the documentation to make it clearer. tpop3d now obeys
+configure's --sysconfdir option. Improved the performance of the mailspool
+parser. Fixed a problem in the command parsing code which could cause problems
+with Eudora's command pipelining; thanks to Shin Zukeran for this fix. Fixed a
+minor problem in the PAM code, thanks to Christian Nordmann, and also added
+facility to use auth-pam for authenticating users who have no UNIX account
+based on his patch.  Fixed a bug which could cause a crash if there were NULL
+values in a database being used by auth-mysql. Added scripts/tpop3dtraffic,
+which extracts the identity of the heaviest POP3 users from logfiles. Added a
+permit-empty-passwords option, default no, largely to protect LDAP users who
+left LDAP anonymous authentication switched on....
 
 1.4.2
 
