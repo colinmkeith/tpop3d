@@ -67,7 +67,7 @@ to communicate with MySQL. This patch was contributed by Roberto Braga.
 A note on developing new authentication schemes
 
 The authentication strategy in tpop3d is very simple; a number of
-"authentcation drivers" are defined, and referenced from authswitch.c.
+"authentication drivers" are defined, and referenced from authswitch.c.
 Individual requests for authentcation (by USER/PASS or APOP) are passed
 to each in turn, and the first to return a positive response is
 considered to have successfullly authenticated the user; no others are
