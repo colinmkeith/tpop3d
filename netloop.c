@@ -41,7 +41,7 @@ static const char rcsid[] = "$Id$";
  * all of it before we time them out. */
 #define MAX_DATA_IN_FLIGHT      8192
 
-int max_running_children = 16;      /* How many children may exist at once. */
+int max_running_children = 16;          /* How many children may exist at once. */
 volatile int num_running_children = 0;  /* How many children are active. */
 
 
@@ -165,7 +165,7 @@ static void connections_pre_select(int *n, fd_set *readfds, fd_set *writefds, fd
     connection *J;
     for (J = connections; J < connections + max_connections; ++J)
         /* Don't add frozen connections to the select masks. */
-        if (*J && !connection_isfrozen(*J) && !(*J)->cstate == closed)
+        if (*J && !connection_isfrozen(*J) && (*J)->cstate != closed)
             (*J)->io->pre_select(*J, n, readfds, writefds, exceptfds);
 }
 

@@ -21,8 +21,9 @@ left LDAP anonymous authentication switched on.... The I/O layer was rewritten
 to use non-blocking I/O throughout. Support for TLS was added. Connections are
 now frozen briefly after a failed authentication using code adapted from a
 contribution by Yann Grossel, who also contributed support for MySQL server
-failover for auth-mysql. tpop3d will now remove a stale lock files for
-mailspools. Various code tidyings-up.
+failover for auth-mysql; a consequence of this is that MySQL usernames and
+passwords are no longer cleared from memory by tpop3d. tpop3d will now remove a
+stale lock files for mailspools. Various code tidyings-up.
 
 1.4.2
 

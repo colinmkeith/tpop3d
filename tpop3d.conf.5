@@ -453,12 +453,8 @@ more information. If more flexibility is required, consider using
 Note that the username and password supplied in the configuration file
 are privileged information, in the sense that they would allow an
 arbitrary person to obtain information from the database if they have
-access to the machine on which it resides. \fBtpop3d\fP clears this data from
-memory when the MySQL authentication code is initialised (though note
-that if you leave the \fBauth-mysql-...\fP directives in place but remove the
-\fBauth-mysql-enable: yes\fP line, then this will not occur). The corollary to
-this is that the \fBtpop3d.conf\fP file should not be readable by arbitrary
-users.
+access to the machine on which it resides.  The corollary to this is that the
+\fBtpop3d.conf\fP file should not be readable by arbitrary users.
 
 .SS LDAP authentication options
 

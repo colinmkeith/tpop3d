@@ -64,17 +64,15 @@ static enum connection_action do_capa(connection c) {
 }
 
 /* do_user CONNECTION COMMAND
- * USER command; supply username of client. */
-static enum connection_action do_user(connection c, const pop3command p) {
-    if (apop_only) {
-        connection_sendresponse(c, 0, _("Sorry, you must use APOP."));
-        return close_connection;
-    } else if (p->toks->num != 2) {
+ * USER command; supply username of client. Returns 1 on success or 0 on
+ * failure. */
+static int do_user(connection c, const pop3command p) {
+    if (p->toks->num != 2) {
         connection_sendresponse(c, 0, _("No, that's not right."));
-        return do_nothing;
+        return 0;
     } else if (c->user) {
         connection_sendresponse(c, 0, _("But you already said `USER'."));
-        return do_nothing;
+        return 0;
     } else {
         c->user = xstrdup((char*)p->toks->toks[1]);
         if (!c->user)
@@ -83,24 +81,25 @@ static enum connection_action do_user(connection c, const pop3command p) {
 #else
             connection_sendresponse(c, 0, _("USER command must be followed by a username."));
 #endif
-        return do_nothing;
+        return 1;
     }
 }
 
 /* do_pass CONNECTION COMMAND
- * PASS command; supply password of user. */
-static enum connection_action do_pass(connection c, const pop3command p) {
+ * PASS command; supply password of user. Returns 1 on success or 0 on
+ * failure. */
+static int do_pass(connection c, const pop3command p) {
     if (p->toks->num != 2) {
         connection_sendresponse(c, 0, _("No, that's not right."));
-        return do_nothing;
+        return 0;
     } else if (c->pass) {
         connection_sendresponse(c, 0, _("But you already said `PASS'."));
-        return do_nothing;
+        return 0;
     } else {
         c->pass = xstrdup(p->toks->toks[1]);
         if (!c->pass)
             connection_sendresponse(c, 0, _("You must give a password."));
-        return do_nothing;
+        return 1;
     }
 }
 
@@ -368,19 +367,24 @@ enum connection_action connection_do(connection c, const pop3command p) {
 
     if (c->state == authorisation) {
         /* Authorisation state: gather username and password or whatever. */
-        enum connection_action act;
         switch (p->cmd) {
             case CAPA:
                 return do_capa(c);
             
             case USER:
-                if ((act = do_user(c, p)) != do_nothing)
-                    return act;
+                if (apop_only) {
+                    connection_sendresponse(c, 0, _("Sorry, you must use APOP"));
+                    return close_connection;
+                } else if (!do_user(c, p))
+                    return do_nothing;
                 break;
 
             case PASS:
-                if ((act = do_pass(c, p)) != do_nothing)
-                    return act;
+                if (apop_only) {
+                    connection_sendresponse(c, 0, _("Sorry, you must use APOP"));
+                    return close_connection;
+                } else if (!do_pass(c, p))
+                    return do_nothing;
                 break;
 
             case APOP:
