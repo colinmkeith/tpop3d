@@ -46,6 +46,7 @@ char *xstrncat(char *pfx, const char *sfx, const size_t n);
 
 /* Function for substituting $(...) in strings. */
 struct sverr {
+    enum {sv_ok = 0, sv_syntax, sv_unknown, sv_range, sv_nullvalue } code;
     char *msg;
     off_t offset;
 };

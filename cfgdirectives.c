@@ -55,6 +55,22 @@ char *cfgdirectives[] = {
     "auth-mysql-onlogin-query",
 #endif /* AUTH_MYSQL */
 
+#ifdef AUTH_LDAP
+    "auth-ldap-enable",
+    "auth-ldap-url",
+    "auth-ldap-searchdn",
+    "auth-ldap-password",
+    "auth-ldap-use-tls",
+    "auth-ldap-filter",
+    "auth-ldap-mailbox",
+    "auth-ldap-mailbox-attr",
+    "auth-ldap-mboxtype-attr",
+    "auth-ldap-mail-user",
+    "auth-ldap-mail-user-attr",
+    "auth-ldap-mail-group",
+    "auth-ldap-mail-group-attr",
+#endif /* AUTH_LDAP */
+    
 #ifdef AUTH_OTHER
     "auth-other-enable",
     "auth-other-program",

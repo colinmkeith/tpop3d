@@ -122,7 +122,7 @@ mailbox emptymbox_new(const char *unused) {
     M->apply_changes = emptymbox_apply_changes;
     M->send_message = NULL;                     /* should never be called */
 
-    M->name = strdup(_("[empty mailbox]"));
+    M->name = xstrdup(_("[empty mailbox]"));
     M->index = NULL;
 
     return M;
@@ -136,7 +136,7 @@ int emptymbox_apply_changes(mailbox M) {
 
 /* try_mailbox_locations:
  * Helper function for find_mailbox. */
-static mailbox try_mailbox_locations(const char *specs, const char *user, const char *domain, const char *home) {
+static mailbox try_mailbox_locations(const char *specs, const char *user, const char *local_part, const char *domain, const char *home) {
     tokens t;
     mailbox m = NULL;
     int i;
@@ -155,7 +155,8 @@ static mailbox try_mailbox_locations(const char *specs, const char *user, const 
             *subspec++ = 0;
         } else subspec = str;
 
-        path = substitute_variables(subspec, &err, 3, "user", user, "domain", domain, "home", home);
+        path = substitute_variables(subspec, &err, 4, "user", user, "local_part", local_part, "domain", domain, "home", home);
+
         if (!path)
             /* Some sort of syntax error. */
             log_print(LOG_ERR, _("try_mailbox_locations: %s near `%.16s'"), err.msg, subspec + err.offset);
@@ -195,12 +196,12 @@ mailbox find_mailbox(authcontext a) {
     buffer = xmalloc(strlen("auth--mailbox") + strlen(a->auth) + 1);
     sprintf(buffer, "auth-%s-mailbox", a->auth);
     if ((s = config_get_string(buffer)))
-        m = try_mailbox_locations(s, a->user, a->domain, a->home);
+        m = try_mailbox_locations(s, a->user, a->local_part, a->domain, a->home);
     xfree(buffer);
 
     /* Then the global one. */
     if (m == MBOX_NOENT && (s = config_get_string("mailbox")))
-        m = try_mailbox_locations(s, a->user, a->domain, a->home);
+        m = try_mailbox_locations(s, a->user, a->local_part, a->domain, a->home);
     
 #ifdef MAILSPOOL_DIR
     /* Then the compiled-in default. */

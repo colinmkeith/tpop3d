@@ -469,7 +469,7 @@ fail:
 
 /* auth_other_new_apop:
  * Attempt to authenticate a user using APOP, via the child program. */
-authcontext auth_other_new_apop(const char *name, const char *timestamp, const unsigned char *digest, const char *host) {
+authcontext auth_other_new_apop(const char *name, const char *local_part, const char *domain, const char *timestamp, const unsigned char *digest, const char *host) {
 #define MISSING(k)     do { log_print(LOG_ERR, _("auth_other_new_apop: missing key `%s' in response"), (k)); goto fail; } while(0)
 #define INVALID(k, v)  do { log_print(LOG_ERR, _("auth_other_new_apop: invalid value `%s' for key `%s' in response"), (v), (k)); goto fail; } while(0)
     char digeststr[33];
@@ -483,8 +483,13 @@ authcontext auth_other_new_apop(const char *name, const char *timestamp, const u
     
     for (p = digeststr, q = digest; q < digest + 16; p += 2, ++q)
         sprintf(p, "%02x", (unsigned int)*q);
-    if (!auth_other_send_request(5, "method", "APOP", "user", name, "timestamp", timestamp, "digest", digeststr, "clienthost", host)
-        || !(S = auth_other_recv_response()))
+    if (local_part && domain) {
+        if (!auth_other_send_request(7, "method", "APOP", "user", name, "local_part", local_part, "domain", domain, "timestamp", timestamp, "digest", digeststr, "clienthost", host))
+            return NULL;
+    } else if (!auth_other_send_request(5, "method", "APOP", "user", name, "timestamp", timestamp, "digest", digeststr, "clienthost", host))
+        return NULL;
+
+    if (!(S = auth_other_recv_response()))
         return NULL;
 
     I = stringmap_find(S, "logmsg");
@@ -519,7 +524,7 @@ authcontext auth_other_new_apop(const char *name, const char *timestamp, const u
         I = stringmap_find(S, "domain");
         if (I) domain = (char*)I->v;
 
-        a = authcontext_new(uid, gid, mboxdrv, mailbox, pw->pw_dir, domain);
+        a = authcontext_new(uid, gid, mboxdrv, mailbox, pw->pw_dir);
     } else if (strcmp((char*)I->v, "NO") != 0) INVALID("result", (char*)I->v);
         
 fail:
@@ -531,7 +536,7 @@ fail:
 
 /* auth_other_new_user_pass:
  * Attempt to authenticate a user using USER/PASS, via the child program. */
-authcontext auth_other_new_user_pass(const char *user, const char *pass, const char *host) {
+authcontext auth_other_new_user_pass(const char *user, const char *local_part, const char *domain, const char *pass, const char *host) {
 #define MISSING(k)     do { log_print(LOG_ERR, _("auth_other_new_user_pass: missing key `%s' in response"), (k)); goto fail; } while(0)
 #define INVALID(k, v)  do { log_print(LOG_ERR, _("auth_other_new_user_pass: invalid value `%s' for key `%s' in response"), (v), (k)); goto fail; } while(0)
     stringmap S;
@@ -540,8 +545,13 @@ authcontext auth_other_new_user_pass(const char *user, const char *pass, const c
 
     if (!authchild_pid) auth_other_start_child();
 
-    if (!auth_other_send_request(4, "method", "PASS", "user", user, "pass", pass, "clienthost", host)
-        || !(S = auth_other_recv_response()))
+    if (local_part && domain) {
+        if (!auth_other_send_request(6, "method", "PASS", "user", user, "local_part", local_part, "domain", domain, "pass", pass, "clienthost", host))
+            return NULL;
+    } else if (!auth_other_send_request(4, "method", "PASS", "user", user, "pass", pass, "clienthost", host))
+        return NULL;
+
+    if (!(S = auth_other_recv_response()))
         return NULL;
     
     I = stringmap_find(S, "logmsg");
@@ -576,7 +586,7 @@ authcontext auth_other_new_user_pass(const char *user, const char *pass, const c
         I = stringmap_find(S, "domain");
         if (I) domain = (char*)I->v;
 
-        a = authcontext_new(uid, gid, mboxdrv, mailbox, pw->pw_dir, domain);
+        a = authcontext_new(uid, gid, mboxdrv, mailbox, pw->pw_dir);
     } else if (strcmp((char*)I->v, "NO") != 0) INVALID("result", (char*)I->v);
         
 fail:
@@ -594,7 +604,7 @@ void auth_other_onlogin(const authcontext A, const char *host) {
 
     if (!authchild_pid) auth_other_start_child();
 
-    if (!auth_other_send_request(4, "method", "ONLOGIN", "local_part", A->user, "domain", A->domain, "clienthost", host)
+    if (!auth_other_send_request(5, "method", "ONLOGIN", "user", A->user, "local_part", A->local_part, "domain", A->domain, "clienthost", host)
         || !(S = auth_other_recv_response()))
         return;
     

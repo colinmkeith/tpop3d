@@ -125,17 +125,11 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     return do_nothing;
                 }
 
-                c->a = authcontext_new_apop(name, c->timestamp, digest, c->domain, inet_ntoa(c->sin.sin_addr));
+                c->a = authcontext_new_apop(name, NULL, c->domain, c->timestamp, digest, inet_ntoa(c->sin.sin_addr));
                 
-                if (!c->a && append_domain && c->domain && strcspn(name, "@%!") == strlen(name)) {
+                if (!c->a && append_domain && c->domain && strcspn(name, "@%!:") == strlen(name))
                     /* OK, if we have a domain name, try appending that. */
-                    char *nn = xmalloc(strlen(name) + strlen(c->domain) + 2);
-                    strcpy(nn, name);
-                    strcat(nn, "@");
-                    strcat(nn, c->domain);
-                    c->a = authcontext_new_apop(nn, c->timestamp, digest, c->domain, inet_ntoa(c->sin.sin_addr));
-                    xfree(nn);
-                }
+                    c->a = authcontext_new_apop(name, name, c->domain, c->timestamp, digest, inet_ntoa(c->sin.sin_addr));
 
                 if (c->a) {
                     /* Now save a new ID string for this client. */
@@ -191,16 +185,9 @@ enum connection_action connection_do(connection c, const pop3command p) {
 
         /* Do we now have enough information to authenticate using USER/PASS? */
         if (!c->a && c->user && c->pass) {
-            c->a = authcontext_new_user_pass(c->user, c->pass, c->domain, inet_ntoa(c->sin.sin_addr));
-            if (!c->a && append_domain && c->domain && strcspn(c->user, "@%!") == strlen(c->user)) {
-                /* OK, if we have a domain name, try appending that. */
-                char *nn = xmalloc(strlen(c->user) + strlen(c->domain) + 2);
-                strcpy(nn, c->user);
-                strcat(nn, "@");
-                strcat(nn, c->domain);
-                c->a = authcontext_new_user_pass(nn, c->pass, c->domain, inet_ntoa(c->sin.sin_addr));
-                xfree(nn);
-            }
+            c->a = authcontext_new_user_pass(c->user, NULL, c->domain, c->pass, inet_ntoa(c->sin.sin_addr));
+            if (!c->a && append_domain && c->domain && strcspn(c->user, "@%!") == strlen(c->user)) 
+                c->a = authcontext_new_user_pass(c->user, c->user, c->domain, c->pass, inet_ntoa(c->sin.sin_addr));
 
             if (c->a) {
                 /* Now save a new ID string for this client. */

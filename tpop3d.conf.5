@@ -40,6 +40,8 @@ section of the name associated with the given address after the first `.', or,
 if no such name can be established, the nodename of the system as determined
 by
 .BR uname (2).
+\fIdomain\fP may be used in virtual-domain authentication where there is
+more than one specified listening address; see below.
 
 To listen for connections on any interface and the default port, the directive
 
@@ -60,7 +62,8 @@ If authentication does not succeed for a given \fIusername\fP, retry with
 with the address on which the connection was received. This is intended to
 be used where multiple virtual domains are served from multiple IP addresses.
 This option only takes effect when \fIusername\fP does not contain a
-separator, which may be `@', `%', `:' or `!'.
+separator, which may be `@', `%', `:' or `!'. See below for a more detailed
+description.
 .TP
 \fBtimeout-seconds\fP: \fInumber\fP
 This is the number of seconds for which a connection may be idle for before it
@@ -86,11 +89,13 @@ a user is authenticated. \fIMailbox-driver\fP should be one of the names
 listed when you execute \fBtpop3d -h\fP; if left blank the default (first
 available) one is used, but this is discouraged as it may vary between builds
 of tpop3d. \fIPath-spec\fP should give a path name in the file system; you can
-use the substitution strings \fB$(user)\fP for username, \fB$(home)\fP for the
-user's home directory and \fB$(domain)\fP for the authenticated domain. In
-addition, the syntax \fB$(foo[\fP\fIindex\fP\fB])\fP may be used to select a
-given letter of the string. 0 is the first character, and -1 the last. This
-allows the used of `hashed' spool directories; for example,
+use the substitution strings \fB$(user)\fP, the username supplied to the POP
+server by the client; \fB$(local_part)\fP, the local part of a client's email
+address in a virtual-domain authentication, \fB$(domain)\fP, the domain,
+and \fB$(home)\fP for the user's home directory. In addition, the syntax
+\fB$(foo[\fP\fIindex\fP\fB])\fP may be used to select a given letter of the
+string. 0 is the first character, and -1 the last. This allows the used of
+`hashed' spool directories; for example,
 
 .nf
   mailbox: bsd:/var/spool/mail/$(user[0])/$(user)
@@ -159,7 +164,76 @@ part of an entry before the first colon in hosts.allow or hosts.deny. If not
 specified, this will default to `tpop3d'. This feature is only available if
 \fBtpop3d\fP has been compiled with support for TCP Wrappers.
 
+.SS Options relating to authentication
+
+\fBtpop3d\fP supports a number of authentication methods, each of which has
+a number of configurable options, which are given below.
+
+Authentication is supported using the conventional USER/PASS method, or the
+challenge-response APOP method. When a client connects to \fBtpop3d\fP and
+attempts authentication, a request is passed to each of a number of configured
+authenticators in turn, until the client is successfully authenticated or all
+authenticators have been tried.
+
+The information supplied with each request consists of \fIuser\fP, the user
+name as supplied by the client; \fIlocal-part\fP, the local-part of a
+virtual-domain email address, and \fIdomain\fP, the domain in which
+authentication is taking place. By default, \fIdomain\fP is the domain
+associated with the address to which the client has connected.
+
+If the client's supplied username contains one of the characters `@', `%', `:'
+or `!', it is interpreted as a \fIlocal-part\fP\fB@\fP\fIdomain\fP
+combination, and the given \fIlocal-part\fP is used while the given
+\fIdomain\fP replaces the domain derived from the address to which the client
+connected.
+
+If there is no separator, authentication is first attempted with no
+\fIlocal-part\fP and the default \fIdomain\fP; if this does not succeed, and
+the \fBappend-domain\fP global option is set, then authentication will also be
+attempted with the \fIlocal-part\fP the same as the supplied \fIuser\fP and
+the default domain.
+
+For example, if the client sends the command
+.nf
+  USER foo
+.fi
+.Sp
+to the listener for domain `dom', \fBtpop3d\fP will try authentication with the
+parameters:
+.nf
+  \fIuser\fP       = foo
+  \fIlocal-part\fP   not set
+  \fIdomain\fP     = dom
+.fi
+.Sp
+If this fails, and \fBappend-domain\fP is set, then a second attempt will be
+made with:
+.nf
+  \fIuser\fP       = foo
+  \fIlocal-part\fP = foo
+  \fIdomain\fP     = dom
+.fi
+.Sp
+Otherwise no second attempt is made.
+
+If instead the client says:
+.nf
+  USER foo@bar
+.fi
+.Sp
+then authentication will be attempted using:
+.nf
+  \fIuser\fP       = foo@bar
+  \fIlocal-part\fP = foo
+  \fIdomain\fP     = bar
+.fi
+.Sp
+In this case, no alternative attempt will be made if authentication fails.
+
 .SS PAM authentication options
+
+\fBauth-pam\fP uses Pluggable Authentication Modules to authenticate
+conventional (non-virtual-domains) users.
 
 .TP
 \fBauth-pam-enable\fP: (\fByes\fP|\fBtrue\fP)
@@ -178,12 +252,12 @@ may not work. You will normally want to set this to `mail'.
 .SS Password authentication options
 
 These are only available if you compiled \fBtpop3d\fP with \fBauth-passwd\fP
-support.
+support. \fBauth-passwd\fP authenticates Unix users by direct lookups in
+/etc/passwd and, if configured at compile time, /etc/shadow.
 
 .TP
 \fBauth-passwd-enable\fP: (\fByes\fP|\fBtrue\fP)
-Enable authentication using /etc/passwd (and /etc/shadow, if this option was
-selected at compile time).
+Enable authentication using /etc/passwd.
 .TP
 \fBauth-passwd-mail-group\fP: (\fIgroup-name\fP | \fIgid\fP)
 The group name or gid under which access to the mailspool will take place. The
@@ -238,13 +312,13 @@ However, it is also possible to use the \fBauth-mysql-pass-query\fP and
 \fBauth-mysql-apop-query\fP directives to specify the SQL syntax for a
 query to use against any database schema. These should specify queries which
 return the mailbox file location, password hash, Unix user and mailbox type,
-in that order. The variables \fB$(local_part)\fP and \fB$(domain)\fP are
-substituted into the string, in the same way as for the mailbox path
-specifications described above. The nature of password hashes is described
-more fully in README.auth_mysql in the distribution. If you do not wish to use
-either of USER/PASS or APOP authentication, specify the value \fBnone\fP for
-the relevant configuration directive; otherwise, the default (vmail-sql)
-query will be used.
+in that order. The variables \fB$(user)\fP, \fB$(local_part)\fP and
+\fB$(domain)\fP are escaped and substituted into the string, in the same way
+as for the mailbox path specifications described above. The nature of password
+hashes is described more fully in README.auth_mysql in the distribution. If
+you do not wish to use either of USER/PASS or APOP authentication, specify the
+value \fBnone\fP for the relevant configuration directive; otherwise, the
+default (vmail-sql) query will be used.
 
 As an example, if you have a table called users which contains fields login,
 domain, cryptpw and the Maildir mailboxes for the users are under
@@ -291,8 +365,8 @@ Enable LDAP authentication.
 \fBauth-ldap-url\fP: \fILDAP URL\fP
 LDAP URL indicating server against which to make authentication requests.
 .TP
-\fBauth-ldap-username\fP: \fILDAP server username\fP
-Username to use when binding to LDAP server to search for a user.
+\fBauth-ldap-searchdn\fP: \fILDAP server username\fP
+DN to use when binding to LDAP server to search for a user.
 .TP
 \fBauth-ldap-password\fP: \fILDAP server password\fP
 Password of search user.
@@ -333,7 +407,7 @@ mailbox will take place.
 \fBtpop3d\fP uses a search-bind model for authenticating users against an LDAP
 server. When a user attempts to log in by supplying a username and password,
 \fBtpop3d\fP will attempt to locate an LDAP record for the user by substituting
-for \fB$(local_part)\fP and (optionally) \fB$(domain)\fP in the
+for \fB$(user)\fP, \fB$(local_part)\fP and \fB$(domain)\fP in the
 \fBauth-ldap-filter\fP filter template, binding to the LDAP server as the
 search user, and querying the LDAP server with this filter. If the search
 yields exactly one result, then an attempt is made to bind to the server using
@@ -395,6 +469,14 @@ Authentication mechanism being attempted.
 \fBuser\fP = \fIusername\fP
 The username being sent with an APOP or USER command.
 .TP
+\fBlocal_part\fP = \fIlocal-part\fP
+(Sent only for virtual-domain authentication.) The local-part of the client's
+email address.
+.TP
+\fBdomain\fP = \fIdomain\fP
+(Sent only for virtual-domain authentication.) The domain of the client's
+email address.
+.TP
 \fBclienthost\fP = \fIIP number\fP
 The host from which the client is connected to the POP server.
 .TP
@@ -404,7 +486,7 @@ The host from which the client is connected to the POP server.
 \fBdigest\fP = \fIhex digest\fP
 (APOP only.) Hex representation of the MD5 digest sent by the client with an APOP command.
 .TP
-\fBpassword\fP = \fIpassword\fP
+\fBpass\fP = \fIpassword\fP
 (PASS only.) The password sent with a PASS command.
 .PP
 In response to an \fBAPOP\fP or \fBPASS\fP request, the program should write to
@@ -444,6 +526,9 @@ have the form
 .TP
 \fBmethod\fP = \fBONLOGIN\fP
 Indicating that the packet describes a login.
+.TP
+\fBuser\fP = \fIusername\fP
+The username as supplied by the client.
 .TP
 \fBlocal_part\fP = \fIlocal-part\fP
 .TP

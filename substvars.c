@@ -22,8 +22,7 @@ static const char rcsid[] = "$Id$";
 #include "util.h"
 
 /* xstrncat:
- * Catenate one string onto another, reallocating space for the first.
- */
+ * Catenate one string onto another, reallocating space for the first. */
 char *xstrncat(char *pfx, const char *sfx, const size_t n) {
     char *s;
     s = xmalloc(strlen(pfx) + n + 1);
@@ -35,14 +34,14 @@ char *xstrncat(char *pfx, const char *sfx, const size_t n) {
 }
 
 /* substitute_variables:
- * Substitute variables of the form $(foo) or $(bar[2]) in a string.
- */
-#define SET_ERR(txt, off)    do {                                    \
+ * Substitute variables of the form $(foo) or $(bar[2]) in a string. */
+#define SET_ERR(cde, txt, off) do {                                  \
                                     if (err) {                       \
+                                        err->code = cde;             \
                                         err->msg = txt;              \
                                         err->offset = (off_t)(off);  \
                                     }                                \
-                                    xfree(res);                       \
+                                    xfree(res);                      \
                                     res = NULL;                      \
                                 } while (0)
 
@@ -86,13 +85,13 @@ char *substitute_variables(const char *spec, struct sverr *err, const int nvars,
                         off = strtol(v, &w, 10);
                         if (v == w || *w != ']' || *(w + 1) != ')') {
                             /* Index was invalid. */
-                            SET_ERR(_("Syntax error in character index"), t - spec);
+                            SET_ERR(sv_syntax, _("Syntax error in character index"), t - spec);
                             goto fail;
                         }
 
                         if (!*u_val) {
                             /* Null value of variable. */
-                            SET_ERR(_("Variable has null value"), t - spec);
+                            SET_ERR(sv_nullvalue, _("Variable has null value"), t - spec);
                             goto fail;
                         }
 
@@ -101,7 +100,7 @@ char *substitute_variables(const char *spec, struct sverr *err, const int nvars,
 
                         if (off < 0 || off >= strlen(*u_val)) {
                             /* String was too short. */
-                            SET_ERR(_("Character index out of range"), t - spec);
+                            SET_ERR(sv_range, _("Character index out of range"), t - spec);
                             goto fail;
                         }
 
@@ -112,7 +111,7 @@ char *substitute_variables(const char *spec, struct sverr *err, const int nvars,
                         /* Simple substitution. */
                         if (!*u_val) {
                             /* Null value of variable. */
-                            SET_ERR(_("Variable has null value"), t - spec);
+                            SET_ERR(sv_nullvalue, _("Variable has null value"), t - spec);
                             goto fail;
                         }
                         
@@ -124,7 +123,7 @@ char *substitute_variables(const char *spec, struct sverr *err, const int nvars,
             }
             if (u == var + nvars) {
                 /* No substitution. */
-                SET_ERR(_("Syntax error or unknown variable"), t - spec);
+                SET_ERR(sv_unknown, _("Syntax error or unknown variable"), t - spec);
                 goto fail;
             }
         }

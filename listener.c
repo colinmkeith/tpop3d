@@ -98,10 +98,10 @@ listener listener_new(const struct sockaddr_in *addr, const char *domain) {
         if (uname(&u) == -1) {
             log_print(LOG_WARNING, "listener_new: uname: %m");
             log_print(LOG_WARNING, _("listener_new: %s: using domain suffix `x.invalid'"), inet_ntoa(addr->sin_addr));
-            L->domain = strdup("x.invalid");
+            L->domain = xstrdup("x.invalid");
         } else {
             log_print(LOG_WARNING, _("listener_new: %s: using fallback domain suffix `%s'"), inet_ntoa(addr->sin_addr), u.nodename);
-            L->domain = strdup(u.nodename);
+            L->domain = xstrdup(u.nodename);
         }
     }
 

@@ -53,8 +53,9 @@ int auth_pam_conversation(int num_msg, const struct pam_message **msg, struct pa
 }
 
 /* auth_pam_new_user_pass:
- * Attempt to authenticate user and pass using PAM. */
-authcontext auth_pam_new_user_pass(const char *user, const char *pass, const char *host /* unused */) {
+ * Attempt to authenticate user and pass using PAM. This is not a
+ * virtual-domains authenticator, so it only looks at user. */
+authcontext auth_pam_new_user_pass(const char *user, const char *local_part, const char *domain, const char *pass, const char *host /* unused */) {
     pam_handle_t *pamh = NULL;
     struct passwd pw, *pw2;
     int r, n = PAM_SUCCESS;
@@ -64,11 +65,9 @@ authcontext auth_pam_new_user_pass(const char *user, const char *pass, const cha
     char *s;
     int use_gid = 0;
     gid_t gid = 99;
-    const char *x;
 
     /* Check the this isn't a virtual-domain user. */
-    x = user + strcspn(user, "@%!");
-    if (*x) return NULL;
+    if (local_part) return NULL;
 
     /* Copy the password structure, since it is in static storage and may
      * get overwritten by calls in the PAM code. */
@@ -108,7 +107,7 @@ authcontext auth_pam_new_user_pass(const char *user, const char *pass, const cha
         r = pam_acct_mgmt(pamh, PAM_SILENT);
         if (r == PAM_SUCCESS) {
             /* Succeeded; figure out the mailbox name later. */
-            a = authcontext_new(pw.pw_uid, use_gid ? gid : pw.pw_gid, NULL, NULL, pw2->pw_dir, NULL);
+            a = authcontext_new(pw.pw_uid, use_gid ? gid : pw.pw_gid, NULL, NULL, pw2->pw_dir);
         } else log_print(LOG_ERR, "auth_pam_new_user_pass: pam_acct_mgmt(%s): %s", user, pam_strerror(pamh, r));
     } else log_print(LOG_ERR, "auth_pam_new_user_pass: pam_authenticate(%s): %s", user, pam_strerror(pamh, r));
 

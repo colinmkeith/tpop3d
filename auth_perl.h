@@ -25,8 +25,8 @@ int auth_perl_init(void);
 void auth_perl_close(void);
 void auth_perl_postfork(void);
 stringmap auth_perl_callfn(const char *perlfn, const int nvars, ...);
-authcontext auth_perl_new_apop(const char *name, const char *timestamp, const unsigned char *digest, const char *host);
-authcontext auth_perl_new_user_pass(const char *user, const char *pass, const char *host);
+authcontext auth_perl_new_apop(const char *name, const char *local_part, const char *domain, const char *timestamp, const unsigned char *digest, const char *host);
+authcontext auth_perl_new_user_pass(const char *user, const char *local_part, const char *domain, const char *pass, const char *host);
 void auth_perl_onlogin(const authcontext A, const char *host);
 
 #endif /* AUTH_PERL */

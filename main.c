@@ -49,13 +49,11 @@ int deny_severity  = LOG_NOTICE;
 
 /* The socket send buffer is set to this, so that we don't end up in a
  * position that we send so much data that the client will not have received
- * all of it before we time them out.
- */
+ * all of it before we time them out. */
 #define MAX_DATA_IN_FLIGHT      8192
 
 /* Data structure representing the config file, and global variable which we
- * set from it.
- */
+ * set from it. */
 stringmap config;
 
 /* Various configuration options. */
@@ -84,12 +82,10 @@ size_t max_connections;             /* Number of connection slots allocated. */
  * connections_pre_select, then calls select, then calls listeners_ and
  * connections_post_select. In the event that a server is forked to handle a
  * client, fork_child is called. The global variables listeners and
- * connections are used to handle this procedure.
- */
+ * connections are used to handle this procedure. */
 
 /* find_free_connection:
- * Find a free connection slot.
- */
+ * Find a free connection slot. */
 connection *find_free_connection(void) {
     connection *J;
     for (J = connections; J < connections + max_connections; ++J)
@@ -98,8 +94,7 @@ connection *find_free_connection(void) {
 }
 
 /* remove_connection:
- * Remove a connection from the list.
- */
+ * Remove a connection from the list. */
 void remove_connection(connection c) {
     connection *J;
     for (J = connections; J < connections + max_connections; ++J)
@@ -107,8 +102,7 @@ void remove_connection(connection c) {
 }
 
 /* listeners_pre_select:
- * Called before the main select(2) so listening sockets can be polled.
- */
+ * Called before the main select(2) so listening sockets can be polled. */
 void listeners_pre_select(int *n, fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
     item *t;
     vector_iterate(listeners, t) {
@@ -120,8 +114,7 @@ void listeners_pre_select(int *n, fd_set *readfds, fd_set *writefds, fd_set *exc
 
 /* listeners_post_select:
  * Called after the main select(2) to allow listening sockets to sort
- * themselves out.
- */
+ * themselves out. */
 void listeners_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
     item *t;
     vector_iterate(listeners, t) {
@@ -175,8 +168,7 @@ void listeners_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfds)
 }
 
 /* connections_pre_select:
- * Called before the main select(2) so connections can be polled.
- */
+ * Called before the main select(2) so connections can be polled. */
 void connections_pre_select(int *n, fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
     connection *J;
     for (J = connections; J < connections + max_connections; ++J)
@@ -488,8 +480,8 @@ void usage(FILE *fp) {
 #endif
     
     fprintf(fp, _(
-"tpop3d, copyright (c) 2000-2001 Chris Lightfoot <chris@ex-parrot.com>;\n"
-"portions copyright (c) 2001 Mark Longair, Paul Makepeace.\n"
+"tpop3d, copyright (c) 2000-2 Chris Lightfoot <chris@ex-parrot.com>;\n"
+"portions copyright (c) 2001-2 Mark Longair, Paul Makepeace, Sebastien Thomas.\n"
 "home page: http://www.ex-parrot.com/~chris/tpop3d/\n"
 "\n"
 "This program is free software; you can redistribute it and/or modify\n"
@@ -734,7 +726,9 @@ retry_pid_file:
    
     net_loop();
 
-    authswitch_close();
+    if (!post_fork)
+        authswitch_close();
+
     if (listeners) {
         item *I;
         vector_iterate(listeners, I) listener_delete((listener)I->v);

@@ -35,8 +35,7 @@ static const char rcsid[] = "$Id$";
 extern int verbose;
 
 /* make_timestamp:
- * Create a timestamp string.
- */
+ * Create a timestamp string. */
 #define TIMESTAMP_LEN   32
 static char hex[] = "0123456789abcdef";
 
@@ -89,8 +88,7 @@ static char *make_timestamp(const char *domain) {
 }
 
 /* connection_new:
- * Create a connection object from a socket.
- */
+ * Create a connection object from a socket. */
 connection connection_new(int s, const struct sockaddr_in *sin, const char *domain) {
     connection c = 0;
 
@@ -128,8 +126,7 @@ connection connection_new(int s, const struct sockaddr_in *sin, const char *doma
 }
 
 /* connection_delete:
- * Delete a connection and disconnect the peer.
- */
+ * Delete a connection and disconnect the peer. */
 void connection_delete(connection c) {
     if (!c) return;
 
@@ -152,8 +149,7 @@ void connection_delete(connection c) {
 
 /* connection_read:
  * Read data from the socket into the buffer, if available. Returns -1 on
- * error or buffer full, 0 on EOF or the number of bytes read.
- */
+ * error or buffer full, 0 on EOF or the number of bytes read. */
 ssize_t connection_read(connection c) {
     ssize_t n;
     if (!c) return -1;
@@ -187,8 +183,7 @@ static void dump(const char *s, size_t l) {
 */
 
 /* connection_parsecommand:
- * Parse a command from the connection, returning NULL if none is available.
- */
+ * Parse a command from the connection, returning NULL if none is available. */
 struct {
     char *s;
     enum pop3_command_code cmd;
@@ -250,8 +245,7 @@ pop3command connection_parsecommand(connection c) {
 }
 
 /* pop3command_new:
- * Create a new pop3command object.
- */
+ * Create a new pop3command object. */
 pop3command pop3command_new(const char *s) {
     pop3command p;
     int i;
@@ -276,8 +270,7 @@ pop3command pop3command_new(const char *s) {
 }
 
 /* pop3command_delete:
- * Free a command returned by pop3command_new.
- */
+ * Free a command returned by pop3command_new. */
 void pop3command_delete(pop3command p) {
     if (!p) return;
     if (p->toks) tokens_delete(p->toks);
@@ -286,8 +279,7 @@ void pop3command_delete(pop3command p) {
 
 /* connection_sendresponse:
  * Send a +OK... / -ERR... response to a message. Returns 1 on success or 0 on
- * failure.
- */
+ * failure. */
 int connection_sendresponse(connection c, const int success, const char *s) {
     char *x;
     size_t l, m;
@@ -303,8 +295,7 @@ int connection_sendresponse(connection c, const int success, const char *s) {
 
 /* connection_sendline:
  * Send an arbitrary line to a connected peer. Returns 1 on success or 0 on
- * failure. Used to send multiline responses.
- */
+ * failure. Used to send multiline responses. */
 int connection_sendline(connection c, const char *s) {
     char *x;
     size_t l, m;

@@ -20,7 +20,7 @@
 #include "authswitch.h"
 
 /* auth_passwd.c */
-authcontext auth_passwd_new_user_pass(const char *user, const char *pass, const char *host);
+authcontext auth_passwd_new_user_pass(const char *user, const char *local_part, const char *domain, const char *pass, const char *host);
 
 #endif /* AUTH_PASSWD */
 

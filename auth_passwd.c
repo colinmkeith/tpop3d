@@ -41,8 +41,9 @@ static const char rcsid[] = "$Id$";
 
 /* auth_passwd_new_user_pass:
  * Attempt to authenticate user and pass using /etc/passwd or /etc/shadow,
- * as configured at compile-time. */
-authcontext auth_passwd_new_user_pass(const char *user, const char *pass, const char *host /* unused */) {
+ * as configured at compile-time. This is not a virtual-domains authenticator,
+ * so it only uses user. */
+authcontext auth_passwd_new_user_pass(const char *user, const char *local_part, const char *domain, const char *pass, const char *host /* unused */) {
     struct passwd *pw;
 #ifdef AUTH_PASSWD_SHADOW
     struct spwd *spw;
@@ -52,11 +53,9 @@ authcontext auth_passwd_new_user_pass(const char *user, const char *pass, const 
     int use_gid = 0;
     gid_t gid = 99;
     authcontext a = NULL;
-    const char *x;
 
     /* Check the this isn't a virtual-domain user. */
-    x = user + strcspn(user, "@%!");
-    if (*x) return NULL;
+    if (local_part) return NULL;
 
     pw = getpwnam(user);
     if (!pw) return NULL;
@@ -80,7 +79,7 @@ authcontext auth_passwd_new_user_pass(const char *user, const char *pass, const 
     /* Now we need to authenticate the user; we will leave finding the
      * mailspool for later. */
     if (!strcmp(crypt(pass, user_passwd), user_passwd)) {
-        a = authcontext_new(pw->pw_uid, use_gid ? gid : pw->pw_gid, NULL, NULL, pw->pw_dir, NULL);
+        a = authcontext_new(pw->pw_uid, use_gid ? gid : pw->pw_gid, NULL, NULL, pw->pw_dir);
     }
     
     return a;

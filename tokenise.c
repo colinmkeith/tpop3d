@@ -17,8 +17,7 @@ static const char rcsid[] = "$Id$";
 #include "vector.h"
 
 /* chomp:
- * Remove a CR/CRLF-type combination from the end of a string.
- */
+ * Remove a CR/CRLF-type combination from the end of a string. */
 void chomp(char *str) {
     char *p;
     p = str + strlen(str) - 1;
@@ -28,8 +27,7 @@ void chomp(char *str) {
 /* tokenise_string:
  * Break a string into tokens, using the separator characters in seps. The
  * return value is a tokens object which contains a copy of the string and an
- * array of pointers to the individual tokens in it.
- */
+ * array of pointers to the individual tokens in it. */
 tokens tokens_new(const char *str, const char *seps) {
     tokens T;
     char *p, *r;
@@ -66,8 +64,7 @@ tokens tokens_new(const char *str, const char *seps) {
 }
 
 /* tokens_delete:
- * Free a tokens object.
- */
+ * Free a tokens object. */
 void tokens_delete(tokens T) {
     if (!T) return;
     if (T->str) xfree(T->str);

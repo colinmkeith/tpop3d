@@ -202,6 +202,11 @@ server, including
   user
     client's supplied username
 
+  local_part
+  domain
+    local-part and domain derived from client's username;
+    may not be present
+
   digest
     client's supplied digest, in hex
 
@@ -273,6 +278,11 @@ server, including
 
   user
     client's supplied username
+
+  local_part
+  domain
+    local-part and domain derived from client's username;
+    may not be present
 
   pass
     client's supplied password

@@ -9,21 +9,21 @@
 
 sbin_PROGRAMS = tpop3d
 
-tpop3d_SOURCES = auth_mysql.c auth_other.c auth_perl.c auth_pam.c \
+tpop3d_SOURCES = auth_mysql.c auth_ldap.c auth_other.c auth_perl.c auth_pam.c \
                  auth_passwd.c authswitch.c cfgdirectives.c config.c \
                  connection.c listener.c locks.c logging.c mailbox.c \
                  maildir.c mailspool.c main.c md5c.c pidfile.c pop3.c \
                  signals.c stringmap.c strtok_r.c substvars.c \
                  tokenise.c util.c vector.c
 
-noinst_HEADERS = auth_mysql.h auth_other.h auth_perl.h auth_pam.h \
+noinst_HEADERS = auth_mysql.h auth_ldap.h auth_other.h auth_perl.h auth_pam.h \
                  auth_passwd.h authswitch.h config.h connection.h \
                  global.h listener.h locks.h mailbox.h md5.h pidfile.h \
                  signals.h stringmap.h tokenise.h vector.h util.h
 
 #tpop3d_LDFLAGS = -L@mysql_root@/lib/mysql
 
-CFLAGS = -Wall -Wpointer-arith -Wstrict-prototypes -g -O2
+CFLAGS = -Wall -Wstrict-prototypes -g -O2
 
 man_MANS = tpop3d.8 tpop3d.conf.5
 

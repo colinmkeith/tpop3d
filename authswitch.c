@@ -118,7 +118,7 @@ void authswitch_describe(FILE *fp) {
  * auth_drivers. Returns the number of drivers successfully started. */
 extern stringmap config;
     
-int authswitch_init() {
+int authswitch_init(void) {
     const struct authdrv *aa;
     int *aar;
     int ret = 0;
@@ -146,40 +146,88 @@ int authswitch_init() {
 
 /* authcontext_new_apop:
  * Attempts to authenticate the apop data with each driver in turn. */
-authcontext authcontext_new_apop(const char *name, const char *timestamp, const unsigned char *digest, const char *domain, const char *host) {
+authcontext authcontext_new_apop(const char *user, const char *local_part, const char *domain, const char *timestamp, const unsigned char *digest, const char *host) {
     authcontext a = NULL;
     const struct authdrv *aa;
     int *aar;
+    char *x = NULL;
+    const char *l = NULL, *d = NULL;
+
+    l = local_part;
+    d = domain;
+    
+    if (!local_part && domain) {
+        int n;
+        n = strcspn(user, "@%!:");
+        if (n > 0 && user[n]) {
+            x = xstrdup(user);
+            x[n] = 0;
+            l = x;
+            d = l + n + 1;
+        } else
+            l = NULL;
+    }
     
     for (aa = auth_drivers, aar = auth_drivers_running; aa < auth_drivers_end; ++aa, ++aar)
-        if (*aar && aa->auth_new_apop && (a = aa->auth_new_apop(name, timestamp, digest, host))) {
-            a->auth = strdup(aa->name);
-            a->user = strdup(name);
-            if (!a->domain && domain) a->domain = strdup(domain);
+        if (*aar && aa->auth_new_apop && (a = aa->auth_new_apop(user, l, d, timestamp, digest, host))) {
+            a->auth = xstrdup(aa->name);
+            a->user = xstrdup(user);
+            if (!a->local_part && l)
+                a->local_part = xstrdup(l);
+            if (!a->domain && d)
+                a->domain = xstrdup(d);
             log_print(LOG_INFO, _("authcontext_new_apop: began session for `%s' with %s; uid %d, gid %d"), a->user, a->auth, a->uid, a->gid);
-            return a;
+            break;
         }
 
-    return NULL;
+    xfree(x);
+    
+    return a;
 }
 
 /* authcontext_new_user_pass:
  * Attempts to authenticate user and pass with each driver in turn. */
-authcontext authcontext_new_user_pass(const char *user, const char *pass, const char *domain, const char *host) {
+authcontext authcontext_new_user_pass(const char *user, const char *local_part, const char *domain, const char *pass, const char *host) {
     authcontext a = NULL;
     const struct authdrv *aa;
     int *aar;
+    char *x = NULL;
+    const char *l = NULL, *d = NULL;
+
+    l = local_part;
+    d = domain;
+    
+    if (!local_part && domain) {
+        int n;
+        n = strcspn(user, "@%!:");
+        if (n > 0 && user[n]) {
+            x = xstrdup(user);
+            x[n] = 0;
+            l = x;
+            d = l + n + 1;
+        } else
+            l = NULL;
+    }
 
     for (aa = auth_drivers, aar = auth_drivers_running; aa < auth_drivers_end; ++aa, ++aar)
-        if (*aar && aa->auth_new_user_pass && (a = aa->auth_new_user_pass(user, pass, host))) {
+        if (*aar && aa->auth_new_user_pass && (a = aa->auth_new_user_pass(user, l, d, pass, host))) {
             a->auth = strdup(aa->name);
             a->user = strdup(user);
-            if (!a->domain && domain) a->domain = strdup(domain);
+            if (!a->local_part) {
+                if (l)
+                    a->local_part = xstrdup(l);
+                else
+                    a->local_part = xstrdup(user);
+            }
+            if (!a->domain && d)
+                a->domain = xstrdup(d);
             log_print(LOG_INFO, _("authcontext_new_user_pass: began session for `%s' with %s; uid %d, gid %d"), a->user, a->auth, a->uid, a->gid);
-            return a;
+            break;
         }
 
-    return NULL;
+    xfree(x);
+    
+    return a;
 }
 
 /* authswitch_onlogin:
@@ -221,7 +269,7 @@ void authswitch_close() {
 
 /* authcontext_new:
  * Fill in a new authentication context structure with the given information. */
-authcontext authcontext_new(const uid_t uid, const gid_t gid, const char *mboxdrv, const char *mailbox, const char *home, const char *domain) {
+authcontext authcontext_new(const uid_t uid, const gid_t gid, const char *mboxdrv, const char *mailbox, const char *home) {
     authcontext a;
     a = xcalloc(1, sizeof *a);
     if (!a) return NULL;
@@ -229,14 +277,16 @@ authcontext authcontext_new(const uid_t uid, const gid_t gid, const char *mboxdr
     a->uid = uid;
     a->gid = gid;
 
-    if (mboxdrv) a->mboxdrv = strdup(mboxdrv);
-    if (mailbox) a->mailbox = strdup(mailbox);
+    if (mboxdrv)
+        a->mboxdrv = xstrdup(mboxdrv);
+    if (mailbox)
+        a->mailbox = xstrdup(mailbox);
 
     a->auth = NULL;
     a->user = NULL;
     
-    if (home) a->home = strdup(home);
-    if (domain) a->domain = strdup(domain);
+    if (home)
+        a->home = xstrdup(home);
 
     return a;
 }

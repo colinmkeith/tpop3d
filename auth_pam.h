@@ -29,7 +29,7 @@
 #define AUTH_PAM_FACILITY       "tpop3d"
 
 int         auth_pam_init(void);
-authcontext auth_pam_new_user_pass(const char *user, const char *pass, const char *host);
+authcontext auth_pam_new_user_pass(const char *user, const char *local_part, const char *domain, const char *pass, const char *host);
 void        auth_pam_close(void);
 
 #endif /* AUTH_PAM */

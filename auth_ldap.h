@@ -20,8 +20,8 @@
 
 #include "authswitch.h"
 
-int  auth_ldap_init(void);
-authcontext auth_ldap_new_user_pass(const char *user, const char *pass, const char *host);
+int auth_ldap_init(void);
+authcontext auth_ldap_new_user_pass(const char *user, const char *local_part, const char *domain, const char *pass, const char *host);
 void auth_ldap_close(void);
 void auth_ldap_postfork(void);
 
