@@ -17,6 +17,30 @@ static const char rcsid[] = "$Id$";
 #include "signals.h"
 #include "util.h"
 
+#ifdef APPALLING_BACKTRACE_HACK
+#include <execinfo.h>
+
+/* appalling_backtrace_hack:
+ * Attempt to read a backtrace of the current stack; can be called from a
+ * signal handler if the program dies unexpectedly.
+ */
+#define BT_LEVELS   16
+void appalling_backtrace_hack() {
+    void *func_addr[BT_LEVELS];
+    int i, n;
+
+    n = backtrace(func_addr, BT_LEVELS);
+
+    print_log(LOG_ERR, "appalling_backtrace_hack: stack trace of program begins");
+    
+    for (i = 0; i < n; ++i)
+        print_log(LOG_ERR, "appalling_backtrace_hack:    [%d]: %p", i, func_addr[i]);
+
+    print_log(LOG_ERR, "appalling_backtrace_hack: stack trace of program ends");
+    print_log(LOG_ERR, "appalling_backtrace_hack: use addr2line(1) to resolve the addresses");
+}
+#endif
+
 /* set_signals:
  * Set the relevant signals to be ignored/handled.
  */
@@ -94,6 +118,9 @@ void die_signal_handler(const int i) {
     struct sigaction sa;
 /*    print_log(LOG_ERR, "quit: %s", sys_siglist[i]); */
     print_log(LOG_ERR, "quit: signal %d", i); /* Some systems do not have sys_siglist. */
+#ifdef APPALLING_BACKTRACE_HACK
+    appalling_backtrace_hack();
+#endif /* APPALLING_BACKTRACE_HACK */
     if (this_child_connection) connection_delete(this_child_connection);
     memset(&sa, 0, sizeof(sa));
     sa.sa_handler = SIG_DFL;
@@ -121,3 +148,5 @@ extern int restart, post_fork;              /* in main.c */
 void restart_signal_handler(const int i) {
     if (!post_fork) foad = restart = 1;
 }
+
+

@@ -65,7 +65,7 @@ void net_loop(vector listen_addrs) {
     item *t;
 
     print_log(LOG_INFO, "net_loop: tpop3d version " TPOP3D_VERSION " successfully started");
-
+    
     /* Main select() loop */
     while (!foad) {
         fd_set readfds;

@@ -133,6 +133,12 @@ CFLAGS += -DIGNORE_CCLIENT_METADATA
 #LDFLAGS += -umalloc -ufree -ucalloc -urealloc
 #LDLIBS  += -lefence
 
+# If tpop3d crashes (unlikely :) ), and you are running on a system with
+# backtrace(3) -- probably only modern Linux systems and others which have
+# glibc >= 2.1 -- then uncomment this. Do not do so under any other
+# circumstances.
+#CFLAGS += -DAPPALLING_BACKTRACE_HACK
+
 TXTS =  README          \
 	PORTABILITY     \
         CHANGES         \
