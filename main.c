@@ -200,6 +200,7 @@ int parse_listeners(const char *stmt) {
 #endif
         } else if (*p == '(') {
             /* Explicit domain. */
+            ++p;
             i = strcspn(p, ")");
             if (p[i] != ')') {
                 log_print(LOG_ERR, _("parse_listeners: `%s': missing `)'"), s);
