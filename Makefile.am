@@ -2,6 +2,7 @@ sbin_PROGRAMS = tpop3d
 
 tpop3d_SOURCES = auth_mysql.c \
                  auth_other.c \
+                 auth_perl.c \
                  auth_pam.c \
                  auth_passwd.c \
                  authswitch.c \
@@ -29,6 +30,7 @@ tpop3d_SOURCES = auth_mysql.c \
 
 noinst_HEADERS = auth_mysql.h \
                  auth_other.h \
+                 auth_perl.h \
                  auth_pam.h \
                  auth_passwd.h \
                  authswitch.h \

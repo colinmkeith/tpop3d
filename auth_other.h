@@ -29,7 +29,7 @@ int auth_other_start_child(void);
 void auth_other_kill_child(void);
 int auth_other_init(void);
 void auth_other_close(void);
-int auth_other_send_request(int nvars, ...);
+int auth_other_send_request(const int nvars, ...);
 stringmap auth_other_recv_response(void);
 authcontext auth_other_new_apop(const char *name, const char *timestamp, const unsigned char *digest);
 authcontext auth_other_new_user_pass(const char *user, const char *pass);

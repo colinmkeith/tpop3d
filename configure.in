@@ -70,9 +70,15 @@ AC_ARG_WITH(mysql-root,
     [mysql_root="/usr"])
 
 AC_ARG_ENABLE(auth-other,
-        [  --enable-auth-other     Enable authentication by an external program
+        [  --enable-auth-other     Enable authentication by an external program.
                           [default=no]],
     [enable_auth_other=$enableval],
+    [enable_auth_other="no"])
+
+AC_ARG_ENABLE(auth-perl,
+        [  --enable-auth-perl      Enable authentication by embedded perl subroutines.
+                          [default=no]],
+    [enable_auth_perl=$enableval],
     [enable_auth_other="no"])
 
 dnl Mailbox types.
@@ -197,6 +203,11 @@ then
     LDFLAGS="$LDFLAGS -lm"  
 fi
 
+if test x"$enable_auth_perl" = x"yes"
+then
+    AC_DEFINE(AUTH_PERL,1,[Use an embedded perl interpreter for authentication.])
+fi
+
 dnl Mailbox drivers
 if test x"$enable_mbox_bsd" = x"yes"
 then
@@ -260,6 +271,13 @@ fi
 
 dnl Checks for programs.
 AC_PROG_CC
+
+if test x"$enable_auth_perl" = x"yes"
+then
+    AC_PATH_PROG(PERL, "perl")
+    CPPFLAGS="$CPPFLAGS "`$PERL -MExtUtils::Embed -e ccopts`
+    LDFLAGS="$LDFLAGS "`$PERL -MExtUtils::Embed -e ldopts`
+fi
 
 dnl Checks for libraries.
 

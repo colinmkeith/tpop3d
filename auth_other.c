@@ -316,7 +316,7 @@ void auth_other_close() {
  * Send the auth child a request consisting of several key/value pairs, as
  * above. Returns 1 on success or 0 on failure.
  */
-int auth_other_send_request(int nvars, ...) {
+int auth_other_send_request(const int nvars, ...) {
     va_list ap;
     int i, ret = 0;
     char buffer[MAX_DATA_SIZE] = {0};
@@ -530,13 +530,17 @@ fail:
  * Attempt to authenticate a user using USER/PASS, via the child program.
  */
 authcontext auth_other_new_user_pass(const char *user, const char *pass) {
-#define MISSING(k)     do { print_log(LOG_ERR, _("auth_other_new_apop: missing key `%s' in response"), (k)); goto fail; } while(0)
-#define INVALID(k, v)  do { print_log(LOG_ERR, _("auth_other_new_apop: invalid value `%s' for key `%s' in response"), (v), (k)); goto fail; } while(0)
+#define MISSING(k)     do { print_log(LOG_ERR, _("auth_other_new_user_pass: missing key `%s' in response"), (k)); goto fail; } while(0)
+#define INVALID(k, v)  do { print_log(LOG_ERR, _("auth_other_new_user_pass: invalid value `%s' for key `%s' in response"), (v), (k)); goto fail; } while(0)
     stringmap S;
     item *I;
     authcontext a = NULL;
 
     if (!authchild_pid) auth_other_start_child();
+
+    if (!auth_other_send_request(3, "method", "PASS", "user", user, "pass", pass)
+        || !(S = auth_other_recv_response()))
+        return NULL;
     
     I = stringmap_find(S, "logmsg");
     if (I) print_log(LOG_INFO, "auth_other_new_user_pass: child: %s", (char*)I->v);

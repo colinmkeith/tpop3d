@@ -57,6 +57,14 @@ char *cfgdirectives[] = {
     "auth-other-group",
     "auth-other-timeout",
 #endif /* AUTH_OTHER */
+ 
+#ifdef AUTH_PERL
+    "auth-perl-enable",
+    "auth-perl-start",
+    "auth-perl-finish",
+    "auth-perl-apop",
+    "auth-perl-pass",
+#endif /* AUTH_PERL */
     
     /* final entry must be NULL */
     NULL};

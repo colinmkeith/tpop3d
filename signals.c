@@ -12,6 +12,7 @@ static const char rcsid[] = "$Id$";
 #include "configuration.h"
 #endif /* HAVE_CONFIG_H */
 
+#include <errno.h>
 #include <signal.h>
 #include <syslog.h>
 
@@ -166,7 +167,7 @@ void child_signal_handler(const int i) {
             } else
 #endif /* AUTH_OTHER */
                 --num_running_children;
-        } else if (pid == 0 || pid == -1 && errno != EINTR)
+        } else if (pid == 0 || (pid == -1 && errno != EINTR))
             return;
     }
 }

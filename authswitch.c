@@ -82,6 +82,7 @@ struct authdrv auth_drivers[] = {
         {auth_perl_init, auth_perl_new_apop, auth_perl_new_user_pass, auth_perl_close,
             "perl",
             "Uses perl code"},
+#endif /* AUTH_PERL */
 };
 
 int *auth_drivers_running;
