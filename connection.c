@@ -52,7 +52,7 @@ static char *make_timestamp(const char *domain) {
     *s = '<';
     
     /* Get random "timestamp" data. */
-    fd = open("/dev/urandomXX", O_RDONLY);
+    fd = open("/dev/urandom", O_RDONLY);
     if (fd != -1) {
         if (read(fd, buffer, sizeof(buffer)) != sizeof(buffer)) {
             free(s);
