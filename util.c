@@ -113,7 +113,7 @@ int parse_uid(const char *user, uid_t *u) {
  * Set a signal with a similar interface to signal(2) using sigaction(2). */
 void (*xsignal(int signum, void(*handler)(int)))(int) {
     struct sigaction sa = {0}, sa_old;
-    sigemptyset(&sa.sa_flags);
+    sigemptyset(&sa.sa_mask);
     sa.sa_handler = handler;
     sa.sa_flags = SA_RESTART;
     if (sigaction(signum, &sa, &sa_old) == -1)
