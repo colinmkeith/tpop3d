@@ -43,6 +43,8 @@ noinst_HEADERS = auth_mysql.h \
 
 tpop3d_LDFLAGS = -L@mysql_root@/lib/mysql
 
+CFLAGS = -Wall
+
 man_MANS = tpop3d.8
 
 SUBDIRS = init.d config
