@@ -41,7 +41,7 @@ EXTRA_DIST = bootstrap \
              CREDITS PORTABILITY CHANGES HACKING TODO FAQ \
              README.auth_mysql README.darwin README.POP-before-SMTP \
              $(man_MANS) \
-             tpop3d.cat tpop3d.conf.cat \
+             tpop3d.cat tpop3d.conf.cat tpop3d.conf.sample \
              scripts/dotapopfile scripts/nasty scripts/oraclevmail \
              scripts/ruby-sample scripts/relaydbm scripts/authdbm \
              scripts/tpop3dtraffic \

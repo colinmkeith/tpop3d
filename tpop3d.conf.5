@@ -60,7 +60,7 @@ specify additional \fItls-options\fP for each address, in the following form:
 The first token after \fBtls=\fP specifies the mode of TLS operation in use on
 this address. There are two widely-supported modes of POP-3-over-TLS
 operation. In the first case, which we call \fBimmediate\fP mode, TLS
-negotiation is intiated immediately after a connection is received. In this
+negotiation is initiated immediately after a connection is received. In this
 mode, only TLS connections can be made to a particular address. In the other
 mode, the client establishes an unencrypted TCP connection, then issues the
 POP-3 command \fBSTLS\fP to initiate TLS negotiation. We call this \fBstls\fP
@@ -657,7 +657,8 @@ The address to which the client connected on the POP server.
 (APOP only.) The `timestamp' string sent by the server to this client.
 .TP
 \fBdigest\fP = \fIhex digest\fP
-(APOP only.) Hex representation of the MD5 digest sent by the client with an APOP command.
+(APOP only.) Hex representation of the MD5 digest sent by the client with an
+APOP command.
 .TP
 \fBpass\fP = \fIpassword\fP
 (PASS only.) The password sent with a PASS command.
