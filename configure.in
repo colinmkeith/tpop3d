@@ -276,7 +276,7 @@ if test x"$enable_auth_perl" = x"yes"
 then
     AC_PATH_PROG(PERL, "perl")
     CPPFLAGS="$CPPFLAGS "`$PERL -MExtUtils::Embed -e ccopts`
-    LDFLAGS="$LDFLAGS "`$PERL -MExtUtils::Embed -e ldopts`
+    LIBS="$LIBS "`$PERL -MExtUtils::Embed -e ldopts`
 fi
 
 dnl Checks for libraries.

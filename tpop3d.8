@@ -7,8 +7,14 @@
 .\" $Id$
 .\"
 
+.\" Here are the registers which correspond to which options are compiled.
+.nr AUTH_PAM        1
+.nr AUTH_PASSWD     0
+.nr AUTH_MYSQL      0
+.nr AUTH_OTHER      0
+.nr AUTH_PERL       0
 
-
+.\" Text begins
 .SH NAME
 tpop3d \- small, fast, extensible POP3 server
 .SH SYNOPSIS
@@ -56,9 +62,9 @@ Do not fork to become a daemon, but stay attached to a controlling terminal
 and print log messages to standard error as well as the syslog
 .TP
 .B -v
-Log traffic being sent to/from the server, for debugging purposes; tpop3d will
-log commands and responses sent, but not passwords or the actual content of
-messages.
+Log traffic being sent to/from the server, for debugging purposes; \fBtpop3d\fP
+will log commands and responses sent, but not passwords or the actual content
+of messages.
 
 .SS SIGNALS
 
@@ -91,7 +97,10 @@ Presently-recognised configuration directives are:
 .SS Global options
 
 .TP
+.nf
 \fBlisten-address\fP: (\fIhostname\fP | \fIIP number\fP)[:\fIport\fP][(\fIdomain\fP)] ...
+.fi
+.Sp
 The ports and addresses on which the daemon should listen for incoming
 connections. If any \fIport\fP is not specified, it is assumed to be
 \fBpop-3\fP (110). If \fIdomain\fP is not specified, it is assumed to be the
@@ -101,9 +110,10 @@ by
 .BR uname (2).
 
 To listen for connections on any interface and the default port, the directive
-
-listen-address: 0.0.0.0
-
+.nf
+    listen-address: 0.0.0.0
+.Sp
+.fi
 is sufficient. There is no default for this option.
 .TP
 \fBmax-children\fP: \fInumber\fP
@@ -123,7 +133,10 @@ This is the number of seconds a connection may be idle for before it
 is closed.  If it is set to 0, then timeouts are disabled.  The
 default value is 30 seconds (see BUGS, below.)
 .TP
+.nf
 \fBmailbox:\fP: [\fImailbox driver\fP:]\fIpath\fP ...
+.fi
+.Sp
 This selects the location, and optionally the type, of the mailbox to use when
 a user is authenticated. \fIMailbox driver\fP should be one of the names
 listed when you execute \fBtpop3d -h\fP; if left blank the default (first
@@ -135,18 +148,20 @@ addition, the syntax \fB$(foo[\fP\fIindex\fP\fB])\fP may be used to select a
 given letter of the string. 0 is the first character, and -1 the last. This
 allows the used of `hashed' spool directories; for example,
 
-.ad l
-mailbox: bsd:/var/spool/mail/$(user[0])/$(user)
-.ad n
+.nf
+    mailbox: bsd:/var/spool/mail/$(user[0])/$(user)
+.Sp
+.fi
 
 If several mailbox locations and types are specified, \fBtpop3d\fP will try
 each in turn, stopping when it opens a mailbox or encounters an error other
 than the mailbox not being present. This means that if your users have both
 maildir and bsd mailboxes, you can use something like
 
-.ad l
-mailbox: maildir:$(home)/Maildir bsd:/var/spool/mail/$(user)
-.ad n
+.nf
+    mailbox: maildir:$(home)/Maildir bsd:/var/spool/mail/$(user)
+.Sp
+.fi
 
 to support both.
 
@@ -170,7 +185,7 @@ The group name or gid under which access to the mailspool will take place. The
 default for this option is the primary group of the authenticated user, which
 will probably not work. You will normally want to set this to `mail'.
 
-.SS Passwd authentication options
+.SS Password authentication options
 
 These are only available if you compiled \fBtpop3d\fP with \fBauth_passwd\fP
 support.
@@ -191,7 +206,7 @@ These are only available if you compiled tpop3d with \fBauth_mysql\fP support.
 
 .TP
 \fBauth-mysql-enable\fP: (\fByes\fP | \fBtrue\fP)
-`yes' or `true' to enable MySQL authentication.
+Enable MySQL authentication.
 .TP
 \fBauth-mysql-mail-group\fP: (\fIgroup-name\fP | \fIgid\fP)
 The group name or gid under which access to the mailspool will take place. The
@@ -209,17 +224,15 @@ MySQL username used to access the database.
 .TP
 \fBauth-mysql-password\fP: \fIpassword\fP
 Password of MySQL user.
-
-.in 7 \" hack
+.PP
 Since mailbox names are stored in the database, the \fBauth-mysql-mailbox:\fP
 setting is ignored.
 
 .SS A note on MySQL authentication
 
 The MySQL authentication scheme is intended to be used with the
-vmail-sql virtual domains configuration described at
-
-.I http://www.ex-parrot.com/~chris/vmail-sql/
+vmail-sql virtual domains configuration described at 
+\fIhttp://www.ex-parrot.com/~chris/vmail-sql/\fP.
 
 However, it is extremely simple to adjust it to use another database schema,
 should this be required. The code is all contained in auth_mysql.c in the
@@ -242,7 +255,7 @@ These are only available if you compiled \fBtpop3d\fP with support for
 
 .TP
 \fBauth-other-enable\fP: (\fByes\fP | \fBtrue\fP)
-`yes' or `true' to enable external program authentication.
+Enable external program authentication.
 .TP
 \fBauth-other-program\fP: \fIpath\fP
 Program to use for external authentication; this must be an absolute path and
@@ -272,9 +285,10 @@ library.
 An external authentication program reads data `packets' structured in the
 following format on its standard input:
 
-.ad l
-\fIkey\fP\\0\fIvalue\fP\\0 ... \\0
-.ad n
+.nf
+    \fIkey\fP\\0\fIvalue\fP\\0 ... \\0
+.Sp
+.fi
 
 Defined \fIkey\fPs are:
 .TP
@@ -292,8 +306,7 @@ The username being sent with an APOP or USER command.
 .TP
 \fBpassword\fP = \fIpassword\fP
 (PASS only.) The password sent with a PASS command.
-
-.in 7 \" hack
+.PP
 In response, the program should write to standard output `packets' in the
 format described above. Defined \fIkey\fPs are:
 .TP
@@ -302,8 +315,7 @@ Was authentication successful?
 .TP
 \fBlogmsg\fP = \fIstring\fP
 (Optional.) Specifies a message to be written to the system log.
-
-.in 7 \" hack
+.PP
 The following apply only if authentication is successful; all but \fBuid\fP
 and \fBgid\fP are optional:
 .TP
@@ -318,8 +330,7 @@ Path of this user's mailbox.
 .TP
 \fBmboxtype\fP = \fImailbox driver\fP
 The type of the mailbox.
-
-.in 7 \" hack
+.PP
 If the mailbox is not specified, then the normal mechanism (via configuration
 directives \fBmailbox:\fP and \fBauth-other-mailbox:\fP) is used.
 
@@ -329,6 +340,8 @@ is received within the timeout period specified, then the program will be
 killed with \fBSIGTERM\fP; if it fails to expire, \fBSIGKILL\fP will then be
 sent. An authentication program should catch \fBSIGTERM\fP to do any essential
 cleaning up.
+
+.SS Perl authentication options
 
 .SH BUGS
 

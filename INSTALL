@@ -14,7 +14,8 @@ and to install it using
 
 However, it is well worth reviewing the various options to configure before
 proceeding blindly along this route. Below are various notes about configuring
-tpop3d for your system.
+tpop3d for your system. (In addition to those noted here, tpop3d supports
+standard configure options such as --prefix.)
 
 
 * Authentication
@@ -49,6 +50,12 @@ tpop3d for your system.
     --enable-auth-other
       Passes authentication requests to an external program; designed to allow
       custom virtual domains authentication schemes.
+
+    auth_perl
+    --enable-auth-perl
+      Authenticates users via perl subroutines run in an embedded perl
+      interpreter. Note that enabling this may increase the size of the tpop3d
+      binary alarmingly.
 
   For tpop3d to be useful, you must enable at least one authentication driver.
   By default, only PAM is switched on; this is correct for most modern Unix
@@ -95,7 +102,7 @@ tpop3d for your system.
   Specification, version 2.)
 
   Unfortunately, Unix mailspool locking is arcane and complex (a less
-  charitable author would say "broken"). You may have to experiment to get
+  charitable author would say `broken'). You may have to experiment to get
   this right.
 
   Your choices are:

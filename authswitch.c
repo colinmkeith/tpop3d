@@ -48,40 +48,42 @@ static const char rcsid[] = "$Id$";
  * References the various authentication drivers. New ones should be added as
  * below.
  */
+#define _X(String) (String)
+
 struct authdrv auth_drivers[] = {
 #ifdef AUTH_PAM
         /* This is the PAM driver, which should be used wherever possible. */
         {NULL, NULL, auth_pam_new_user_pass, NULL,
             "pam",
-            "Uses Pluggable Authentication Modules"},
+            _X("Uses Pluggable Authentication Modules")},
 #endif /* AUTH_PAM */
             
 #ifdef AUTH_PASSWD
         /* This is the old-style unix authentication driver. */
         {NULL, NULL, auth_passwd_new_user_pass, NULL,
             "passwd",
-            "Uses /etc/passwd or /etc/shadow"},
+            _X("Uses /etc/passwd or /etc/shadow")},
 #endif /* AUTH_PASSWD */
             
 #ifdef AUTH_MYSQL
         /* This is for vmail-sql and similar schemes */
         {auth_mysql_init, auth_mysql_new_apop, auth_mysql_new_user_pass, auth_mysql_close,
             "mysql",
-            "Uses a MySQL database"},
+            _X("Uses a MySQL database")},
 #endif /* AUTH_MYSQL */
 
 #ifdef AUTH_OTHER
         /* This talks to an external program. */
         {auth_other_init, auth_other_new_apop, auth_other_new_user_pass, auth_other_close,
             "other",
-            "Uses an external program"},
+            _X("Uses an external program")},
 #endif /* AUTH_OTHER */
 
 #ifdef AUTH_PERL
         /* This calls into perl subroutines. */
         {auth_perl_init, auth_perl_new_apop, auth_perl_new_user_pass, auth_perl_close,
             "perl",
-            "Uses perl code"},
+            _X("Uses perl code")},
 #endif /* AUTH_PERL */
 };
 
@@ -149,7 +151,7 @@ authcontext authcontext_new_apop(const char *name, const char *timestamp, const 
             a->auth = strdup(aa->name);
             a->user = strdup(name);
             if (!a->domain && domain) a->domain = strdup(domain);
-            print_log(LOG_INFO, "authcontext_new_apop: began session for `%s' with %s; uid %d, gid %d", a->user, a->auth, a->uid, a->gid);
+            print_log(LOG_INFO, _("authcontext_new_apop: began session for `%s' with %s; uid %d, gid %d"), a->user, a->auth, a->uid, a->gid);
             return a;
         }
 
@@ -169,7 +171,7 @@ authcontext authcontext_new_user_pass(const char *user, const char *pass, const 
             a->auth = strdup(aa->name);
             a->user = strdup(user);
             if (!a->domain && domain) a->domain = strdup(domain);
-            print_log(LOG_INFO, "authcontext_new_user_pass: began session for `%s' with %s; uid %d, gid %d", a->user, a->auth, a->uid, a->gid);
+            print_log(LOG_INFO, _("authcontext_new_user_pass: began session for `%s' with %s; uid %d, gid %d"), a->user, a->auth, a->uid, a->gid);
             return a;
         }
 
@@ -229,7 +231,7 @@ void authcontext_delete(authcontext a) {
     /* Only log if this is the end of the session, not the parent freeing its
      * copy of the data. (This is a hack, and I am ashamed.)
      */
-    if (post_fork) print_log(LOG_INFO, "authcontext_delete: finished session for `%s' with %s", a->user, a->auth);
+    if (post_fork) print_log(LOG_INFO, _("authcontext_delete: finished session for `%s' with %s"), a->user, a->auth);
 
     if (a->auth) free(a->auth);
     if (a->user) free(a->user);

@@ -28,24 +28,26 @@
  * that the first driver in this list will be used if mailbox_new is called
  * with a NULL mailspool type, so it should be a sensible default.
  */
+#define _X(String) (String)
+
 struct mboxdrv mbox_drivers[] = {
 #ifdef MBOX_BSD
     /* Traditional, "From " separated mail spool. */
     {"bsd",
-     "BSD (`Unix') mailspool",
+     _X("BSD (`Unix') mailspool"),
      mailspool_new_from_file},
 #endif /* MBOX_BSD */
 
 #ifdef MBOX_MAILDIR
     /* The maildir format of qmail. */
     {"maildir",
-     "Qmail-style maildir",
+     _X("Qmail-style maildir"),
      maildir_new},
 #endif /* WITH_MAILDIR */
 
     /* A null mailspool implementation. Must be the last driver listed. */
     {"empty",
-     "Empty mailbox",
+     _X("Empty mailbox"),
      emptymbox_new}
 };
 
@@ -76,7 +78,7 @@ mailbox mailbox_new(const char *filename, const char *type) {
     for (mr = mbox_drivers; mr < mbox_drivers_end; ++mr)
         if (strcmp(type, mr->name) == 0) return mr->m_new(filename);
     
-    print_log(LOG_ERR, "mailbox_new(%s): request for unknown mailbox type %s", filename, type);
+    print_log(LOG_ERR, _("mailbox_new(%s): request for unknown mailbox type %s"), filename, type);
     return MBOX_NOENT;
 }
 
@@ -107,7 +109,7 @@ mailbox emptymbox_new(const char *unused) {
     M->apply_changes = emptymbox_apply_changes;
     M->send_message = NULL;                     /* should never be called */
 
-    M->name = strdup("[empty mailbox]");
+    M->name = strdup(_("[empty mailbox]"));
     M->index = vector_new();
 
     return M;
@@ -203,7 +205,7 @@ mailbox find_mailbox(authcontext a) {
     /* No good. Give the user an empty mailbox. */
     if (m == MBOX_NOENT) {
         m = emptymbox_new(NULL);
-        print_log(LOG_WARNING, "find_mailbox: using empty mailbox for user %s", a->user);
+        print_log(LOG_WARNING, _("find_mailbox: using empty mailbox for user %s"), a->user);
     }
     
     return m;
