@@ -7,7 +7,9 @@
  *
  */
 
-#ifdef TPOP3D_TLS
+#include "configuration.h"
+
+#ifdef USE_TLS
 
 static const char rcsid[] = "$Id$";
 
@@ -110,4 +112,4 @@ void tls_close(void) {
     
 }
 
-#endif /* TPOP3D_TLS */
+#endif /* USE_TLS */

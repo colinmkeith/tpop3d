@@ -17,7 +17,7 @@
 #include <regex.h>
 #endif
 
-#ifdef TPOP3D_TLS
+#ifdef USE_TLS
 #include <openssl/err.h>
 #include <openssl/ssl.h>
 enum tls_mode { none = 0, immediate, stls };
@@ -33,7 +33,7 @@ typedef struct _listener {
     regex_t re;
     char *regex;    /* string form of RE */
 #endif
-#ifdef TPOP3D_TLS
+#ifdef USE_TLS
     struct {
         enum tls_mode mode;
         SSL_CTX *ctx;
@@ -48,7 +48,7 @@ listener listener_new(const struct sockaddr_in *addr, const char *domain
 #ifdef MASS_HOSTING
  /* leading comma-- yuk */  , const char *regex
 #endif
-#ifdef TPOP3D_TLS
+#ifdef USE_TLS
                             , enum tls_mode mode,
                               const char *certfile, const char *pkeyfile
 #endif

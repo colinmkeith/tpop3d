@@ -36,7 +36,7 @@ static const char rcsid[] = "$Id$";
 
 #include "listener.h"
 
-#ifdef TPOP3D_TLS
+#ifdef USE_TLS
 #include "tls.h"
 #endif
 
@@ -48,7 +48,7 @@ listener listener_new(const struct sockaddr_in *addr, const char *domain
 #ifdef MASS_HOSTING
  /* leading comma-- yuk */  , const char *regex
 #endif
-#ifdef TPOP3D_TLS
+#ifdef USE_TLS
                             , enum tls_mode mode,
                               const char *certfile, const char *pkeyfile
 #endif
@@ -147,7 +147,7 @@ listener listener_new(const struct sockaddr_in *addr, const char *domain
         }
     }
 
-#ifdef TPOP3D_TLS
+#ifdef USE_TLS
     /* Should this listener support some sort of TLS? */
     if (mode != none) {
         tls_init();

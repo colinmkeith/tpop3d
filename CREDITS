@@ -23,7 +23,7 @@ Mike Bremford-- for contributing the SQL templating code for auth-mysql.
 
 Sebastien Thomas-- for contributing auth-ldap.
 
-Ben Schumacher-- for bug fixes and useful commentary.
+Ben Schumacher-- for bug fixes and useful commentary, especially on TLS stuff.
 
 Jason Clifford-- for an enhancement of the PAM code.
 

@@ -247,7 +247,7 @@ int parse_listeners(const char *stmt) {
                     continue;
                 } else sin.sin_port = se->s_port;
             } else sin.sin_port = htons(sin.sin_port);
-        } else sin.sin_port = htons(110); /* pop-3 */
+        } else sin.sin_port = htons(tls == immediate ? 995 : 110); /* pop-3 */
 
         /* Address. */
         if (!inet_aton(host, &(sin.sin_addr))) {

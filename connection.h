@@ -118,7 +118,7 @@ struct ioabs_tcp {
 /* in ioabs_tcp.c */
 struct ioabs_tcp *ioabs_tcp_create(void);
 
-#ifdef TPOP3D_TLS
+#ifdef USE_TLS
 /* TLS support through OpenSSL. */
 #include <openssl/ssl.h>
 
@@ -135,7 +135,7 @@ struct ioabs_tls {
 
 struct ioabs_tls *ioabs_tls_create(connection c, listener l);
 
-#endif /* TPOP3D_TLS */
+#endif /* USE_TLS */
 
 
 /* From rfc1939 */

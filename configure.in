@@ -480,7 +480,7 @@ fi
 # OpenSSL
 if test x"$enable_tls" = x"yes"
 then
-    AC_SEARCH_LIBS(SSL_new, [ssl], [], AC_MSG_ERROR([[TLS enabled, but can't find libssl]]), [-lcrypto])
+    AC_CHECK_LIB2(ssl, SSL_new, [], AC_MSG_ERROR([[TLS enabled, but can't find libssl]]), -lcrypto)
 fi
 
 # Where is nanosleep?
@@ -676,6 +676,5 @@ then
 fi
 
 AC_SUBST(ac_aux_dir)
-AC_SUBST(mysql_root)
 
 AC_OUTPUT(Makefile init.d/Makefile config/Makefile)

@@ -188,6 +188,16 @@ move it.
   that disaster will strike if you get this wrong.
 
 
+* TLS (`SSL')
+
+  tpop3d now supports encrypted TLS connections. To enable this, use
+  
+    --enable-tls
+
+  and possibly --with-openssl-root if configure can't find your OpenSSL
+  installation.
+
+
 * Interaction with PINE and the Washington University IMAP server
 
   Independent of C-Client-style locking, you can opt for tpop3d not to allow

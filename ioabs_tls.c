@@ -7,7 +7,9 @@
  *
  */
 
-#ifdef TPOP3D_TLS
+#include "configuration.h"
+
+#ifdef USE_TLS
 
 static const char rcsid[] = "$Id$";
 
@@ -385,4 +387,4 @@ struct ioabs_tls *ioabs_tls_create(connection c, listener l) {
     return io;
 }
 
-#endif /* TPOP3D_TLS */
+#endif /* USE_TLS */

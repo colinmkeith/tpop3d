@@ -41,7 +41,7 @@ enum connection_action do_capa(connection c) {
 #ifdef REVEAL_IMPLEMENTATION
             "IMPLEMENTATION tpop3d-" TPOP3D_VERSION,
 #endif
-#ifdef TPOP3D_TLS
+#ifdef USE_TLS
             "STLS",
 #endif
             NULL /* last element must be NULL */
@@ -52,7 +52,7 @@ enum connection_action do_capa(connection c) {
         if (strcmp(*p, "USER") == 0 && apop_only)
             continue;
         
-#ifdef TPOP3D_TLS
+#ifdef USE_TLS
         if (strcmp(*p, "STLS") == 0 && c->l->tls.mode != stls)
             continue;
 #endif
@@ -373,7 +373,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                 return close_connection;
 
             case STLS:
-#ifdef TPOP3D_TLS
+#ifdef USE_TLS
                 if (c->secured) {
                     connection_sendresponse(c, 0, _("You're already using TLS"));
                     return do_nothing;
