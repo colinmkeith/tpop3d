@@ -33,5 +33,5 @@ Hooks exist in three authentication drivers:
         login.
 
 There is example code for auth-other and auth-perl in scripts/relaydbm.
-
+Full documentation is in the tpop3d.conf manual page.
 

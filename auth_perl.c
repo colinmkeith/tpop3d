@@ -347,10 +347,9 @@ fail:
 void auth_perl_onlogin(const authcontext A, const char *host) {
     stringmap S;
     item *I;
-    authcontext a = NULL;
 
     if (!onlogin_sub || !(S = auth_perl_callfn(onlogin_sub, 4, "method", "ONLOGIN", "local_part", A->user, "domain", A->domain, "clienthost", host)))
-        return NULL;
+        return;
     
     if ((I = stringmap_find(S, "logmsg")))
         log_print(LOG_INFO, "auth_perl_onlogin: (perl code): %s", (char*)I->v);
