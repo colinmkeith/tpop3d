@@ -416,7 +416,18 @@ int connection_sendresponse(connection c, const int success, const char *s) {
  * Send an arbitrary line to a connected peer. Returns 1 on success or 0 on
  * failure. Used to send multiline responses. */
 int connection_sendline(connection c, const char *s) {
-    return connection_send(c, s, strlen(s)) && connection_send(c, "\r\n", 2);
+    /* Buffer copy, for reasons as given in connection_sendresponse. */
+    static char *buf;
+    static size_t buflen;
+    size_t l;
+    
+    l = strlen(s) + 2;
+    
+    if (!buf || buflen < l + 1)
+        buf = xrealloc(buf, buflen = l + 1);
+
+    sprintf(buf, "%s\r\n", s);
+    return connection_send(c, s, buf, l);
 }
 
 /* connection_sendmessage:
