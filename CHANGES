@@ -3,7 +3,9 @@ $Id$
 
 1.4.2
 
-auth-pam now passes the client host information to the authentication stack.
+tpop3d now accepts passwords containing spaces. auth-pam now passes the client
+host information to the authentication stack. A fix to the logging code to work
+around PAM brokenness was made.
 
 1.4.1
 

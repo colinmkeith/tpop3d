@@ -51,6 +51,8 @@ static struct logfac {
 
 #define NFACIL      (sizeof(facil) / sizeof(struct logfac))
 
+static int log_fac;
+
 /* log_init:
  * Start up logging. */
 void log_init(void) {
@@ -71,6 +73,8 @@ void log_init(void) {
     openlog("tpop3d", LOG_PID | LOG_NDELAY, fac);
     if (warn == 1)
         log_print(LOG_ERR, _("log_init: log-facility `%s' unknown, using `mail'"), s);
+
+    log_fac = fac;
 }
 
 
@@ -111,7 +115,7 @@ void log_print(int priority, const char *fmt, ...) {
     va_start(ap, fmt);
     s = verrprintf(fmt, ap);
     va_end(ap);
-    syslog(priority, "%s", s);
+    syslog(priority | log_fac, "%s", s);
     if (log_stderr) fprintf(stderr, "%s\n", s);
 }
 
