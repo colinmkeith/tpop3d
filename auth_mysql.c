@@ -405,7 +405,10 @@ authcontext auth_mysql_new_apop(const char *name, const char *local_part, const 
                 if (!row || !(lengths = mysql_fetch_lengths(result))) break;
 
                 /* Verify that this user has a plaintext password. */
-                if (strncmp(row[1], "{plaintext}", 11) != 0) {
+                if (!row[1]) {
+                    log_print(LOG_ERR, _("auth_mysql_new_apop: password hash for user %s is NULL"), who);
+                    break;
+                } else if (strncmp(row[1], "{plaintext}", 11) != 0) {
                     log_print(LOG_WARNING, _("auth_mysql_new_apop: attempted APOP login by %s, who does not have a plaintext password"), who);
                     break;
                 }
@@ -514,7 +517,9 @@ authcontext auth_mysql_new_user_pass(const char *user, const char *local_part, c
                 /* Verify the password. There are several possibilities here. */
                 pwhash = (char*)row[1];
 
-                if (strncmp(pwhash, "{crypt}", 7) == 0) {
+                if (!pwhash) {
+                    log_print(LOG_ERR, _("auth_mysql_new_user_pass: password hash for user %s is NULL"), who);
+                } else if (strncmp(pwhash, "{crypt}", 7) == 0) {
                     /* Password hashed by system crypt function. */
                     if (strcmp(crypt(pass, pwhash + 7), pwhash + 7) == 0) authok = 1;
                 } else if (strncmp(pwhash, "{crypt_md5}", 11) == 0) {
