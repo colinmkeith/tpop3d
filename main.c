@@ -223,12 +223,8 @@ fail:
  */
 void listener_delete(listener L) {
     if (!L) return;
-    if (L->s != -1) {
-        shutdown(L->s, 2);
-        close(L->s);
-    }
-    if (L->domain)
-        free(L->domain);
+    if (L->s != -1) close(L->s); /* Do not shutdown(2). */
+    if (L->domain) free(L->domain);
     free(L);
 }
 
@@ -282,8 +278,10 @@ void net_loop(vector listen_addrs) {
                     size_t l = sizeof(sin);
                     int s = accept(L->s, (struct sockaddr*)&sin, &l);
                     int a = MAX_DATA_IN_FLIGHT;
-                    if (s == -1) print_log(LOG_ERR, "net_loop: accept: %m");
-                    else if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, &a, sizeof(a)) == -1) {
+
+                    if (s == -1) {
+                        if (errno != EAGAIN) print_log(LOG_ERR, "net_loop: accept: %m");
+                    } else if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, &a, sizeof(a)) == -1) {
                         /* Set a small send buffer so that we get usefully blocking writes. */
                         print_log(LOG_ERR, "net_loop: setsockopt: %m");
                         close(s);

@@ -86,7 +86,7 @@ LDLIBS += -lpam -ldl
 CFLAGS += -DWITH_FCNTL_LOCKING -DWITH_DOTFILE_LOCKING
 
 # Uncomment this if you have a good reason to want flock(2) locking:
-CFLAGS += -DWITH_FLOCK_LOCKING
+#CFLAGS += -DWITH_FLOCK_LOCKING
 
 # On recent RedHat releases and other lockfile-free systems use only this:
 #CFLAGS += -DWITH_FCNTL_LOCKING
