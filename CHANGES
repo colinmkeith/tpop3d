@@ -6,7 +6,8 @@ $Id$
 Made logging clearer; fixed a potential problem with lock files for
 non-existent (empty) mail spools, and another which might lead to zombie
 processes being generated under very high load. In addition, tpop3d now
-checks the configuration file for the presence of unknown directives.
+checks the configuration file for the presence of unknown directives, and uses
+getopt(3) for option processing, making it more like other Unix programs.
 
 1.2.2
 
