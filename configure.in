@@ -327,7 +327,7 @@ fi
 
 if test x"$enable_pam" = x"yes"
 then
-    AC_CHECK_LIB(dl, main )
+    AC_CHECK_LIB(dl, dlopen, , )
     AC_CHECK_LIB(pam, pam_start, [], AC_MSG_ERROR([[pam authentication enabled, but can't find libpam]]) )
 fi
 
