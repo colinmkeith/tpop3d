@@ -25,9 +25,7 @@ static const char rcsid[] = "$Id$";
  * Allocate memory for a new stringmap. */
 stringmap stringmap_new() {
     stringmap S;
-    
-    S = xcalloc(sizeof *S, 1);
-
+    alloc_struct(_stringmap, S);   
     return S;
 }
 

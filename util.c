@@ -27,7 +27,7 @@ static const char rcsid[] = "$Id$";
 #include "md5.h"
 #include "util.h"
 
-/* xwrite:
+/* xwrite FD DATA COUNT
  * Write some data, taking account of short writes and signals. */
 ssize_t xwrite(int fd, const void *buf, size_t count) {
     size_t c = count;
@@ -166,7 +166,7 @@ int unhex_digest(const char *from, unsigned char *to) {
 }
 
 #ifndef MTRACE_DEBUGGING
-/* xmalloc:
+/* xmalloc COUNT
  * Malloc, and abort if malloc fails. */
 void *xmalloc(size_t n) {
     void *v;
@@ -175,7 +175,7 @@ void *xmalloc(size_t n) {
     return v;
 }
 
-/* xcalloc:
+/* xcalloc NITEMS COUNT
  * As above. */
 void *xcalloc(size_t n, size_t m) {
     void *v;
@@ -184,7 +184,7 @@ void *xcalloc(size_t n, size_t m) {
     return v;
 }
 
-/* xrealloc:
+/* xrealloc PTR COUNT
  * As above. */
 void *xrealloc(void *w, size_t n) {
     void *v;
@@ -193,7 +193,7 @@ void *xrealloc(void *w, size_t n) {
     return v;
 }
 
-/* xfree:
+/* xfree PTR
  * Free, ignoring a passed NULL value. */
 void xfree(void *v) {
     if (v) free(v);
@@ -220,8 +220,8 @@ char *xstrndup(const char *s, const size_t count) {
     return S;
 }
 
-/* md5_digest:
- * Make an MD5 digest of some data. */
+/* md5_digest DATA COUNT MD5
+ * Save in MD5 the MD5 digest of the first COUNT bytes of DATA. */
 void md5_digest(const void *v, const size_t n, unsigned char *md5) {
     md5_ctx ctx;
     MD5Init(&ctx);
@@ -229,9 +229,10 @@ void md5_digest(const void *v, const size_t n, unsigned char *md5) {
     MD5Final(md5, &ctx);
 }
 
-/* md5_digest_str:
- * Make an MD5 digest in a representable format, by default hex, otherwise in
- * base64. */
+/* md5_digest_str DATA COUNT BASE64
+ * Return a static string containing a printable representation of the MD5 hash
+ * of the first COUNT bytes of DATA; in hex by default or in base64 if BASE64
+ * is nonzero. */
 char *md5_digest_str(const void *v, const size_t n, const int base64) {
     unsigned char md5[16], *p;
     static char res[33] = {0};

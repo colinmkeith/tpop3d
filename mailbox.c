@@ -115,12 +115,14 @@ void mailbox_add_indexpoint(mailbox m, const struct indexpoint *i) {
  * New empty mailbox. */
 mailbox emptymbox_new(const char *unused) {
     mailbox M;
-    M = xcalloc(1, sizeof *M);
+
+    alloc_struct(_mailbox, M);
+    
     if (!M) return NULL;
 
     M->delete = mailbox_delete;                 /* generic destructor */
     M->apply_changes = emptymbox_apply_changes;
-    M->send_message = NULL;                     /* should never be called */
+    M->sendmessage = NULL;                     /* should never be called */
 
     M->name = xstrdup(_("[empty mailbox]"));
     M->index = NULL;

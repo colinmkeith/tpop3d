@@ -32,8 +32,7 @@ tokens tokens_new(const char *str, const char *seps) {
     char *p, *r;
     int nn = 4;
     
-    T = xcalloc(1, sizeof *T);
-    if (!T) return NULL;
+    alloc_struct(_tokens, T);
 
     T->str = xstrdup(str);
     T->toks = xcalloc(nn, sizeof *T->toks);

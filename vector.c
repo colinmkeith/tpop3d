@@ -20,9 +20,8 @@ static const char rcsid[] = "$Id$";
 
 vector vector_new(void) {
     vector v;
-    
-    v = xcalloc(1, sizeof *v);
-    if (!v) return NULL;
+ 
+    alloc_struct(_vector, v);
 
     v->ary = xcalloc(16, sizeof *v->ary);
     v->n = 16;

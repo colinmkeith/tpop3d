@@ -56,10 +56,9 @@ listener listener_new(const struct sockaddr_in *addr, const char *domain
     listener L;
     struct hostent *he;
     
-    L = xcalloc(1, sizeof *L);
-    if (!L) return NULL;
+    alloc_struct(_listener, L);
 
-    memcpy(&(L->sin), addr, sizeof(struct sockaddr_in));
+    L->sin = *addr;
     L->s = socket(PF_INET, SOCK_STREAM, 0);
     if (L->s == -1) {
         log_print(LOG_ERR, "listener_new: socket: %m");

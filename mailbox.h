@@ -74,7 +74,7 @@ struct _mailbox {
 
     /* function pointers for pseudo OO-ness */
     void    (*delete)(mailbox m);
-    int     (*send_message)(mailbox m, struct _connection* c, const int i, int n);
+    int     (*sendmessage)(mailbox m, struct _connection* c, const int i, int n);
     int     (*apply_changes)(mailbox m);
 };
 
@@ -106,7 +106,7 @@ int     emptymbox_apply_changes(mailbox m);
 mailbox mailspool_new_from_file(const char *filename);
 void    mailspool_delete(mailbox m);
 int     mailspool_build_index(mailbox m, char *filemem);
-int     mailspool_send_message(mailbox m, struct _connection* c, const int i, int n);
+int     mailspool_sendmessage(mailbox m, struct _connection* c, const int i, int n);
 int     mailspool_apply_changes(mailbox m);
 
 /* How long we wait between trying to lock the mailspool */
@@ -120,7 +120,7 @@ int     mailspool_apply_changes(mailbox m);
 #ifdef MBOX_MAILDIR
 mailbox maildir_new(const char *filename);
 void    maildir_delete(mailbox m);
-int     maildir_send_message(mailbox m, struct _connection* c, const int i, int n);
+int     maildir_sendmessage(mailbox m, struct _connection* c, const int i, int n);
 int     maildir_apply_changes(mailbox m);
 #endif /* MBOX_MAILDIR */
 

@@ -32,6 +32,10 @@ char *cfgdirectives[] = {
     "no-detach",
     "permit-empty-passwords",
 
+#ifdef USE_TLS
+    "tls-bug-workarounds",
+#endif
+
 #ifdef AUTH_PAM
     /* auth-pam options */
     "auth-pam-enable",

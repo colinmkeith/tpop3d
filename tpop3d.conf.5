@@ -245,6 +245,11 @@ DRAC notifications about successful logins.
 \fBwhoson-enable\fP: (\fByes\fP|\fBtrue\fP)
 Enable notification of successful logins to a WHOSON server as defined in
 /etc/whoson.conf.
+.TP
+\fBtls-no-bug-workarounds\fP: (\fByes\fP|\fBtrue\fP)
+Disable workarounds for various bugs in client TLS implementations, as
+described in \fBSSL_ctx_set_options\fP(3). Only available if \fBtpop3d\fP has
+been built with TLS support.
 
 .SS Options relating to authentication
 

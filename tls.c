@@ -23,6 +23,7 @@ static const char rcsid[] = "$Id$";
 #include <openssl/err.h>
 #include <openssl/ssl.h>
 
+#include "config.h"
 #include "tls.h"
 #include "util.h"
 
@@ -102,6 +103,8 @@ SSL_CTX *tls_create_context(const char *certfile, const char *pkeyfile) {
 
     /* Set various useful options on the context. */
     SSL_CTX_set_mode(ctx, SSL_MODE_ENABLE_PARTIAL_WRITE | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
+    if (!config_get_bool("tls-no-bug-workarounds"))
+        SSL_CTX_set_options(ctx, SSL_OP_ALL);   /* bug workarounds */
 
     return ctx;
 }

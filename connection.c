@@ -96,7 +96,7 @@ connection connection_new(int s, const struct sockaddr_in *sin, listener L) {
     int n;
     connection c = NULL;
 
-    c = xcalloc(1, sizeof *c);
+    alloc_struct(_connection, c);
 
     c->s = s;
     c->sin = *sin;
@@ -326,7 +326,7 @@ pop3command pop3command_new(const char *s) {
     const char *q;
     int i;
     
-    p = xcalloc(sizeof *p, 1);
+    alloc_struct(_pop3command, p);
 
     /* Ugly. PASS is a special case, because we permit a password to contain
      * spaces. */

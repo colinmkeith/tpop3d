@@ -19,10 +19,8 @@ static const char rcsid[] = "$Id$";
 /* buffer_new LEN
  * Create a new buffer initially holding LEN bytes. */
 buffer buffer_new(const size_t len) {
-    struct _buffer b = {0};
     buffer B;
-    B = xmalloc(sizeof *B);
-    *B = b;
+    alloc_struct(_buffer, B);
     B->buf = xmalloc(B->len = len);
     return B;
 }
@@ -117,7 +115,7 @@ char *buffer_consume_to_mark(buffer B, const char *mark, const size_t mlen, char
         for (j = mlen - 1, i = k; j >= 0 && B->buf[(B->get + i) % B->len] == mark[j]; j--) i--;
         if (j == -1) {
             /* Have found the mark at location i + 1. */
-            i += 1 + mlen;
+            i += 1 + mlen;  /* account for mark and terminating null */
             if (!str || *slen < i + 1)
                 str = xrealloc(str, i + 1);
             *slen = i + 1;

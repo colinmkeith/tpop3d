@@ -138,12 +138,11 @@ mailbox mailspool_new_from_file(const char *filename) {
     struct timeval tv1, tv2;
     float f;
     
-    M = xcalloc(1, sizeof *M);
-    if (!M) return NULL;
+    alloc_struct(_mailbox, M);
 
     M->delete = mailspool_delete;
     M->apply_changes = mailspool_apply_changes;
-    M->send_message = mailspool_send_message;
+    M->sendmessage = mailspool_sendmessage;
 
     /* Allocate space for the index. */
     M->index = (struct indexpoint*)xcalloc(32, sizeof(struct indexpoint));
@@ -342,9 +341,9 @@ int mailspool_build_index(mailbox M, char *filemem) {
     return 0;
 }
 
-/* mailspool_send_message:
+/* mailspool_sendmessage:
  * Front-end to connection_sendmessage in util.c. */
-int mailspool_send_message(const mailbox M, connection c, const int i, int n) {
+int mailspool_sendmessage(const mailbox M, connection c, const int i, int n) {
     struct indexpoint *x;
 
     if (!M) return 0;
@@ -414,8 +413,7 @@ int mailspool_apply_changes(mailbox M) {
         return 1;
     else if (M->numdeleted == M->num) {
         /* All messages deleted, so just truncate file at the beginning of the
-         * first message.
-         */
+         * first message. */
         if (ftruncate(M->fd, M->index->offset) == -1) {
             log_print(LOG_ERR, "mailspool_apply_changes(%s): ftruncate: %m", M->name);
             return 0;
@@ -439,7 +437,7 @@ int mailspool_apply_changes(mailbox M) {
     /* Find the first message to be deleted. */
     while (I < End && !I->deleted) ++I;
     if (I == End) {
-        if (munmap(filemem, len) == -1) log_print(LOG_ERR, "mailspool_send_message: munmap: %m");
+        if (munmap(filemem, len) == -1) log_print(LOG_ERR, "mailspool_sendmessage: munmap: %m");
         log_print(LOG_ERR, _("mailspool_apply_changes(%s): inconsistency in mailspool data"), M->name);
         return 0;
     }
@@ -469,13 +467,13 @@ int mailspool_apply_changes(mailbox M) {
     /* Truncate the very end. */
     if (ftruncate(M->fd, d - filemem) == -1) {
         log_print(LOG_ERR, "mailspool_apply_changes(%s): ftruncate: %m", M->name);
-        if (munmap(filemem, len) == -1) log_print(LOG_ERR, "mailspool_send_message: munmap: %m");
+        if (munmap(filemem, len) == -1) log_print(LOG_ERR, "mailspool_sendmessage: munmap: %m");
         return 0;
     }
     
     /* Done, unmap the file. */
     if (munmap(filemem, len) == -1) {
-        log_print(LOG_ERR, "mailspool_send_message: munmap: %m");
+        log_print(LOG_ERR, "mailspool_sendmessage: munmap: %m");
         return 0;
     }
 

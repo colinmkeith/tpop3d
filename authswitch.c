@@ -362,7 +362,8 @@ void authswitch_close() {
  * Fill in a new authentication context structure with the given information. */
 authcontext authcontext_new(const uid_t uid, const gid_t gid, const char *mboxdrv, const char *mailbox, const char *home) {
     authcontext a;
-    a = xcalloc(1, sizeof *a);
+
+    alloc_struct(_authcontext, a);
 
     a->uid = uid;
     a->gid = gid;

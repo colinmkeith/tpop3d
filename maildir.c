@@ -120,13 +120,12 @@ mailbox maildir_new(const char *dirname) {
     mailbox M, failM = NULL;
     struct timeval tv1, tv2;
     float f;
-    
-    M = xcalloc(1, sizeof *M);
-    if (!M) return NULL;
+ 
+    alloc_struct(_mailbox, M);
     
     M->delete = mailbox_delete;                 /* generic destructor */
     M->apply_changes = maildir_apply_changes;
-    M->send_message = maildir_send_message;
+    M->sendmessage = maildir_sendmessage;
 
     /* Allocate space for the index. */
     M->index = (struct indexpoint*)xcalloc(32, sizeof(struct indexpoint));
@@ -163,13 +162,13 @@ fail:
     return failM;
 }
 
-/* maildir_send_message:
+/* maildir_sendmessage:
  * Send the header and n lines of the body of message number i from the
  * maildir, escaping lines which begin . as required by RFC1939. Returns 1
  * on success or 0 on failure. The whole message is sent if n == -1.
  *
  * XXX Assumes that maildirs use only '\n' to indicate EOL. */
-int maildir_send_message(const mailbox M, connection c, const int i, int n) {
+int maildir_sendmessage(const mailbox M, connection c, const int i, int n) {
     struct indexpoint *m;
     int fd, status;
     
@@ -178,10 +177,10 @@ int maildir_send_message(const mailbox M, connection c, const int i, int n) {
     m = M->index +i;
     fd = open(m->filename, O_RDONLY);
     if (fd == -1) {
-        log_print(LOG_ERR, "maildir_send_message: open(%s): %m", m->filename);
+        log_print(LOG_ERR, "maildir_sendmessage: open(%s): %m", m->filename);
         return 0;
     }
-    log_print(LOG_INFO, "maildir_send_message: sending message %d (%s) size %d bytes", i+1, m->filename, m->msglength);
+    log_print(LOG_INFO, "maildir_sendmessage: sending message %d (%s) size %d bytes", i+1, m->filename, m->msglength);
     status = connection_sendmessage(c, fd, 0 /* offset */, 0 /* skip */, m->msglength, n);
     close(fd);
 

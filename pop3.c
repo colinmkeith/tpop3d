@@ -290,7 +290,7 @@ static enum connection_action do_retr(connection c, const int msg_num) {
                 log_print(LOG_DEBUG, _("connection_do: client %s: sending message %d (%d bytes)"),
                         c->idstr, msg_num + 1, (int)curmsg->msglength);
             connection_sendresponse(c, 1, _("Message follows:"));
-            if ((n = c->m->send_message(c->m, c, msg_num, -1)) == -1) {
+            if ((n = c->m->sendmessage(c->m, c, msg_num, -1)) == -1) {
                 connection_sendresponse(c, 0, _("Oops"));
                 return close_connection;
             }
@@ -323,7 +323,7 @@ static enum connection_action do_top(connection c, const int msg_num, const int 
                     c->idstr, nlines, msg_num + 1, (int)curmsg->msglength);
         connection_sendresponse(c, 1, _("Message follows:"));
 
-        if (c->m->send_message(c->m, c, msg_num, nlines) == -1) {
+        if (c->m->sendmessage(c->m, c, msg_num, nlines) == -1) {
             connection_sendresponse(c, 0, _("Oops."));
             return close_connection;
         }
