@@ -376,7 +376,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     connection_sendresponse(c, 0, _("That message is no more."));
                 else {
                     char response[64] = {0};
-                    print_log(LOG_INFO, "UIDL %d (hash = %s)", msg_num+1, I->hash);
+                    print_log(LOG_INFO, "UIDL %d (hash = %s)", 1 + msg_num, hex_digest(I->hash));
                     snprintf(response, 63, "%d %s", 1 + msg_num, hex_digest(I->hash));
                     connection_sendresponse(c, 1, response);
                 }
