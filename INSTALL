@@ -19,7 +19,7 @@ standard configure options such as --prefix.) If you are using Mac OS X, please
 also review the contents of README.darwin.
 
 NB that tpop3d now obeys the --sysconfdir of configure, so you will need to
-set --sysconfidr=/etc if you already have a /etc/tpop3d.conf and do not wish to
+set --sysconfdir=/etc if you already have a /etc/tpop3d.conf and do not wish to
 move it.
 
 * Authentication
