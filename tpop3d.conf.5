@@ -250,7 +250,7 @@ message in a maildir is moved or deleted, so this option is not necessary.
 Tells \fBtpop3d\fP to display messages in IMAP folders as if they were in the
 INBOX. Useful if you mix POP3 with IMAP clients such as webmail systems.
 .TP
-\fBmaildir-ignore-folders\fP: [foldername [...]]
+\fBmaildir-ignore-folders\fP: [\fIfoldername\fP [...]]
 Specifies IMAP folders (without the leading dot) that should be excluded from
 \fBmaildir-recursion\fP. May be empty; more than one folder should be separated
 by spaces (not tabs).
@@ -258,6 +258,39 @@ by spaces (not tabs).
 The default is:
 .nf
   maildir-ignore-folders: Trash Sent
+.fi
+
+.TP
+\fBmaildir-evaluate-filename\fP: (\fByes\fP|\fBtrue\fP)
+If enabled, \fBtpop3d\fP tries to extract information about modification time
+and message size out of the message filenames when reading a maildir. This saves
+some disk I/O, as we don't have to stat() on each file. Extraction of
+information from the unique filenames in a maildir is NOT common practise, so
+use with care! You have to ensure, that message filenames conform to the
+following pattern:
+
+The message filename has to begin with the UNIX timestamp of the time the
+message was delivered. The size of the message in bytes may appear anywhere in
+the filename but has to be preceded with a unique string, which can be altered
+by \fBmaildir-size-string\fP in \fBtpop3d.conf\fP.
+
+If a message filename does not conform correctly, \fBtpop3d\fP may misinterprete
+what it found, allthough if the filename turns out to be definately unusable
+(e.g. the unique string is not found, or it doesn't start with digits) it will
+fall back on using stat().
+
+Message filenames are by default set correct by reasonable recent versions of
+qmail-ldap, exim users may use the maildir_tag option of the appendfile
+transport to conform.
+.TP
+\fBmaildir-size-string\fP: \fIstring\fP
+Specifies the unique string \fBtpop3d\fP will search for when evaluating message
+filenames to find the messages size.
+See \fBmaildir-evaluate-filename\fP for information on how this is used.
+
+The default is:
+.nf
+  maildir-size-string: ,S=
 .fi
 
 .TP

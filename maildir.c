@@ -162,13 +162,35 @@ int maildir_build_index(mailbox M, const char *subdir, time_t T) {
     
     while ((d = readdir(dir))) {
         struct stat st;
-        char *filename;
+        char *filename, *seq;
+        int ret,seql;
         
         if (d->d_name[0] == '.') continue;
         filename = xmalloc(strlen(subdir) + strlen(d->d_name) + 2);
         sprintf(filename, "%s/%s", subdir, d->d_name);
         if (!filename) return -1;
-        if (0 == stat(filename, &st)) {
+
+        if(config_get_bool("maildir-evaluate-filename")) {
+            memset(&st, 0, sizeof(st));
+            st.st_mtime = strtoul(d->d_name, NULL, 10);
+            if(!(seq = config_get_string("maildir-size-string")))
+                seq = ",S=";
+
+            seql = strlen(seq);
+            if(seq = strstr(d->d_name, seq))
+                st.st_size = strtoul(seq + seql, NULL, 10);
+
+            if (st.st_size && st.st_mtime)
+                ret = 0;
+            else {
+                ret = stat(filename, &st);
+                log_print(LOG_DEBUG, "maildir_build_index: Falling back on stat()!");
+            }
+        } else {
+            ret = stat(filename, &st);
+        }
+
+        if (0 == ret) {
             struct indexpoint pt;
 
             /* XXX Previously, we ignored messages from the future, since

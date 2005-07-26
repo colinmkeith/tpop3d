@@ -56,6 +56,8 @@ char *cfgdirectives[] = {
     "maildir-exclusive-lock",
     "maildir-recursion",
     "maildir-ignore-folders",
+    "maildir-evaluate-filename",
+    "maildir-size-string",
 #endif
 
 #ifdef USE_TLS

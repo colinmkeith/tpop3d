@@ -68,6 +68,28 @@ mailbox: bsd:/var/mail/$(user)
 # [default: no]
 #maildir-exclusive-lock: true
 
+# maildir-recursion: (yes|true)
+# Tells tpop3d to recurse into IMAP folders when searching for messages.
+# [default: no]
+#maildir-recursion: true
+
+# maildir-ignore-folders: foldername
+# Specifies IMAP Folders that should be excluded when recursing into IMAP
+# folders. (separated by spaces)
+# [default: Trash Sent]
+#maildir-ignore-folders: Trash Sent Draft Spam
+
+# maildir-evaluate-filename: (yes|true)
+# If enabled, tpop3d tries to extract modification time and message size out
+# of message filenames instead of doing a stat() on the file.
+# [default: no]
+#maildir-evaluate-filename: true
+
+# maildir-size-string: string
+# Tells tpop3d where to find the message size in the filename.
+# [default: ,S=]
+#maildir-size-string: ,S=
+
 # tcp-wrappers-name: name
 # Selects the `daemon name' used by tpop3d with TCP Wrappers. [default: tpop3d]
 #tcp-wrappers-name: tpop3d
