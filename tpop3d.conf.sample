@@ -362,3 +362,23 @@ auth-pam-mail-group: mail
 # a successful login for POP-before-SMTP operation.
 #auth-perl-onlogin:
 
+
+#
+# GDBM authentication options
+#
+
+# auth-gdbm-enable: (yes | true)
+# Enable authentication via GNU dbm files.
+#auth-gdbm-enable: true
+
+# auth-gdbm-passwd-file: string
+# Specify the dbm file in whichtpop3d will search for a user's password.
+#auth-gdbm-passwd-file: /var/lib/gdbm/...
+
+# auth-gdbm-persistent: (yes | true)
+# Tell tpop3d to use persistent filehandles.
+#auth-gdbm-enable: true
+
+# auth-gdbm-mail-user: (user-name | uid)
+# auth-gdbm-mail-group: (group-name | gid)
+# User and group under which access to the mailbox will take place.

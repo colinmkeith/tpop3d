@@ -887,6 +887,37 @@ you could consider forcing \fBtpop3d\fP to restart every so often by calling
 \fBkill(1, $$)\fP, but it would probably be preferable to use \fBauth-other\fP
 in this case.
 
+.SS GNU dbm authentication options
+
+These are only available if you compiled \fBtpop3d\fP with support for
+\fBauth-gdbm\fP.
+.TP
+\fBauth-gdbm-enable\fP: (\fByes\fP | \fBtrue\fP)
+Enable authentication via a GNU dbm file.
+.TP
+\fBauth-gdbm-passwd-file\fP: \fIstring\fP
+Specify the dbm file in which \fBtpop3d\fP will search for a user's password.
+.TP
+\fBauth-gdbm-persistent\fP: (\fByes\fP | \fBtrue\fP)
+Tells whether tpop3d should keep the GDBM file open (persistent: yes) all the time,
+or whether it should be reopened for each authentication request. The former should
+give slight better performance on heavy loaded servers, the latter is easier to
+handle. If you use persistent filehandles, you'll have to send a HUP signal to the
+listener process every time after replacing the GDBM file.
+.TP
+\fBauth-gdbm-mail-user\fP: (\fIuser-name\fP | \fIuid\fP)
+.TP
+\fBauth-gdbm-mail-group\fP: (\fIgroup-name\fP | \fIgid\fP)
+User and group under which access to the mailbox will take place.
+
+.SS A note on GNU dbm authentication
+
+The dbm file has to store password hashes as zero-terminated strings. The
+specified password hash is interpreted as a hash produced using \fBcrypt\fP(3),
+unless it is preceded by a hashing scheme in \fB{}\fP. The user and group under
+which access to the mailbox takes place with \fBauth-gdbm\fP are always as
+specified in the configuration file.
+
 .SH FILES
 .B /etc/tpop3d.conf
 

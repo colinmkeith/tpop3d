@@ -151,6 +151,14 @@ char *cfgdirectives[] = {
     "auth-flatfile-passwd-file",
 #endif /* AUTH_FLATFILE */
 
+#ifdef AUTH_GDBM
+    "auth-gdbm-enable",
+    "auth-gdbm-mail-user",
+    "auth-gdbm-mail-group",
+    "auth-gdbm-passwd-file",
+    "auth-gdbm-persistent",
+#endif
+
     /* final entry must be NULL */
     NULL};
 

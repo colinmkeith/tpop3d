@@ -150,6 +150,13 @@ AC_ARG_ENABLE(auth-perl,
     [enable_auth_perl=$enableval],
     [enable_auth_perl="no"])
 
+AC_ARG_ENABLE(auth-gdbm,
+        [  --enable-auth-gdbm      Enable authentication against GNU dbm files.
+                          [default=no]
+],
+    [enable_auth_gdbm=$enableval],
+    [enable_auth_gdbm="no"])
+
 dnl Mailbox types.
 
 AC_ARG_ENABLE(mbox-bsd,
@@ -374,6 +381,12 @@ then
     AC_DEFINE(AUTH_PERL,1,[Use an embedded perl interpreter for authentication.])
 fi
 
+if test x"$enable_auth_gdbm" = x"yes"
+then
+    AC_DEFINE(AUTH_GDBM,1,[Use GNU dbm for authentication.])
+fi
+
+
 if test x"$enable_auth_pam" != x"yes" \
 && test x"$enable_auth_passwd" != x"yes" \
 && test x"$enable_shadow" != x"yes" \
@@ -381,7 +394,8 @@ if test x"$enable_auth_pam" != x"yes" \
 && test x"$enable_auth_ldap" != x"yes" \
 && test x"$enable_auth_flatfile" != x"yes" \
 && test x"$enable_auth_other" != x"yes" \
-&& test x"$enable_auth_perl" != x"yes"
+&& test x"$enable_auth_perl" != x"yes" \
+&& test x"$enable_auth_gdbm" != x"yes"
 then
     AC_MSG_ERROR([No authentication driver is enabled. At least one is required.])
 fi
@@ -576,6 +590,13 @@ then
     AC_CHECK_LIB2(ssl, SSL_new, [], AC_MSG_ERROR([[TLS/SHA1 passwords enabled, but can't find libssl]]), -lcrypto)
 fi
 
+# GNU dbm
+if test x"$enable_auth_gdbm" = x"yes"
+  then
+    AC_CHECK_LIB(gdbm, main, [], AC_MSG_ERROR([[GNU dbm authentication enabled, but can't find libgdbm]]) )
+fi
+
+
 # Where is nanosleep?
 if test x"$enable_auth_other" = x"yes"
 then
@@ -615,7 +636,7 @@ dnl Checks for header files.
 AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
 
-AC_CHECK_HEADERS(fcntl.h limits.h sys/file.h sys/time.h syslog.h unistd.h crypt.h execinfo.h security/pam_appl.h ldap.h mysql.h tcpd.h openssl/ssl.h libpq-fe.h)
+AC_CHECK_HEADERS(fcntl.h limits.h sys/file.h sys/time.h syslog.h unistd.h crypt.h execinfo.h security/pam_appl.h ldap.h mysql.h tcpd.h openssl/ssl.h libpq-fe.h gdbm.h)
 
 if test x"$enable_backtrace" = x"yes"
 then
@@ -704,6 +725,14 @@ then
     fi
 fi
 
+if test x"$enable_auth_gdbm" = x"yes"
+then
+    if test x"$ac_cv_header_gdbm_h" != x"yes"
+    then
+        AC_MSG_ERROR( [GNU dbm authentication enabled but can't find gdbm.h] )
+    fi
+fi
+
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 AC_TYPE_UID_T
@@ -757,6 +786,12 @@ if test x"$enable_auth_ldap" = x"yes"
 then
     AC_CHECK_FUNC(ldap_open, [], AC_MSG_ERROR([[LDAP authentication enabled, but ldap_open doesn't seem to be available.]]))
 
+fi
+
+if test x"$enable_auth_gdbm" = x"yes"
+then
+    AC_CHECK_FUNC(gdbm_open, [], AC_MSG_ERROR([[GNU dbm authentication enabled, but gdbm_open doesn't seem to be available.]]))
+    AC_CHECK_FUNC(gdbm_fetch, [], AC_MSG_ERROR([[GNU dbm authentication enabled, but gdbm_fetch doesn't seem to be available.]]))
 fi
 
 dnl If flock and fcntl are selected, there's a chance that they

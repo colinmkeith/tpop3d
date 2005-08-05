@@ -15,7 +15,9 @@ patch. The same authors also supplied code to enable recursion into subfolders
 of a maildir mailbox (maildir-recursion config option). Added support for SHA1
 passwords, and fixed a bug in the MD5 base64 password code. By default, commit
 changes on close-after-QUIT (`Microsoft Outlook bug' workaround), with an
-option to restore the previous, correct, behaviour.
+option to restore the previous, correct, behaviour. Added support for
+intelligent filenames in maildirs (maildir-evaluate-filename config option).
+New authenticator auth_gdbm added.
 
 1.5.3
 
