@@ -19,6 +19,7 @@ static const char rcsid[] = "$Id$";
 
 #include <unistd.h>
 #include <sys/types.h>
+#include <ctype.h>
 
 #ifdef AUTH_LDAP
 #include "auth_ldap.h"
@@ -389,6 +390,7 @@ void authswitch_close() {
  * Fill in a new authentication context structure with the given information. */
 authcontext authcontext_new(const uid_t uid, const gid_t gid, const char *mboxdrv, const char *mailbox, const char *home) {
     authcontext a;
+    char *mp;
 
     alloc_struct(_authcontext, a);
 
@@ -397,8 +399,13 @@ authcontext authcontext_new(const uid_t uid, const gid_t gid, const char *mboxdr
 
     if (mboxdrv)
         a->mboxdrv = xstrdup(mboxdrv);
-    if (mailbox)
+    if (mailbox) {
         a->mailbox = xstrdup(mailbox);
+        if (config_get_bool("lowercase-mailbox"))
+            for (mp = a->mailbox; *mp; *mp++)
+                *mp = tolower(*mp);
+    }
+
 
     a->auth = NULL;
     a->user = NULL;

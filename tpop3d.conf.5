@@ -134,6 +134,11 @@ intention of this option is to discourage users from sending plaintext
 passwords over the network, so it has no effect when a user is connected over a
 TLS-secured connection.
 .TP
+\fBlowercase-user\fP: (\fByes\fP|\fBtrue\fP)
+Convert the string provided with the POP3 USER command to lowercase letters.
+This may be usefull with case-sensitive operations like authentication against
+dbm files or case-sensitive SQL databases.
+.TP
 \fBtimeout-seconds\fP: \fInumber\fP
 This is the number of seconds for which a connection may be idle for before it
 is closed.  If it is set to 0, then timeouts are disabled.  The default value
@@ -205,6 +210,12 @@ to support both.
 Some authentication drivers will set the mailbox explicitly, overriding this
 option. Those that do not also have a specific option, of the form
 \fBauth-foo-mailbox:\fP which overrides the global setting.
+.TP
+\fBlowercase-mailbox\fP: (\fByes\fP|\fBtrue\fP)
+Convert the directory/file part of the mailbox specification (see above) to
+lowercase letters, if retrieved by an authentication driver. (E.g. due to a
+database lookup.) Usefull only in cases where case-sensitive filesystems are
+in use, of course.
 .TP
 .nf
 \fBmailspool-index:\fP \fIpath-spec\fP

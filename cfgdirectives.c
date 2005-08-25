@@ -35,6 +35,8 @@ char *cfgdirectives[] = {
     "onlogin-child-wait",
     "log-bad-passwords",
     "no-commit-on-early-close",
+    "lowercase-user",
+    "lowercase-mailbox",
  
 #if defined(MBOX_BSD) && defined(MBOX_BSD_SAVE_INDICES)
     "mailspool-index",

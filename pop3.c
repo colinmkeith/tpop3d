@@ -22,10 +22,12 @@ static const char rcsid[] = "$Id$";
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <ctype.h>
 
 #include "authswitch.h"
 #include "connection.h"
 #include "util.h"
+#include "config.h"
 
 extern int verbose;
 
@@ -70,6 +72,7 @@ static enum connection_action do_capa(connection c) {
  * USER command; supply username of client. Returns 1 on success or 0 on
  * failure. */
 static int do_user(connection c, const pop3command p) {
+    char *up;
     if (p->toks->num != 2) {
         connection_sendresponse(c, 0, _("No, that's not right."));
         return 0;
@@ -78,6 +81,9 @@ static int do_user(connection c, const pop3command p) {
         return 0;
     } else {
         c->user = xstrdup((char*)p->toks->toks[1]);
+        if (config_get_bool("lowercase-user"))
+            for (up = c->user; *up; *up++)
+                *up = tolower(*up);
         if (!c->user)
 #ifndef NO_SNIDE_COMMENTS
             connection_sendresponse(c, 0, _("Tell me your name, knave!"));
