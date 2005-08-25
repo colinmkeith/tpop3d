@@ -445,6 +445,8 @@ retry_pid_file:
                 pid_t pid;
                 switch (read_pid_file(pidfile, &pid)) {
                     case pid_file_success:
+                        if (getpid() == pid)
+                            break;
                         if (kill(pid, 0)) {
                             log_print(LOG_ERR, _("%s: stale PID file; removing it"), pidfile);
                             if (unlink(pidfile) == -1) {
@@ -453,7 +455,7 @@ retry_pid_file:
                             } else goto retry_pid_file; /* harmful? */
                             
                         } else {
-                            log_print(LOG_ERR, _("%s: tpop3d already running, with process ID %d; exiting"), (int)pid);
+                            log_print(LOG_ERR, _("tpop3d already running, with process ID %d; exiting"), (int)pid);
                             return 1;
                         }
                         break;

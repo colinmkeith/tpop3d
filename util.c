@@ -47,6 +47,8 @@ ssize_t xwrite(int fd, const void *buf, size_t count) {
 /* daemon:
  * Become a daemon. From `The Unix Programming FAQ', Andrew Gierth et al. */
 int daemon(int nochdir, int noclose) {
+    pid_t parent_pid = getpid();
+
     switch (fork()) {
         case 0:  break;
         case -1: return -1;
@@ -69,6 +71,12 @@ int daemon(int nochdir, int noclose) {
         for (i = 0; i < j; ++i) close(i);
         open("/dev/null",O_RDWR);
         dup(0); dup(0);
+    }
+
+    /* wait for parent to exit, to avoid race condition
+     * with PID file handling main.c */
+    while(!kill(parent_pid,0)) {
+        usleep(10);
     }
 
     return 0;
