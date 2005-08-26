@@ -19,7 +19,8 @@ option to restore the previous, correct, behaviour. Added support for
 intelligent filenames in maildirs (maildir-evaluate-filename config option) to
 avoid calls to stat(). New authenticator auth_gdbm added. Fixed bug with PID
 file handling after HUP signals. Added lowercase options for POP3 USER command
-and maildir database lookups.
+and maildir database lookups. Added support for qmail-pop3d style UIDLs. (Adds
+uidl-style config option)
 
 1.5.3
 

@@ -37,6 +37,7 @@ char *cfgdirectives[] = {
     "no-commit-on-early-close",
     "lowercase-user",
     "lowercase-mailbox",
+    "uidl-style",
  
 #if defined(MBOX_BSD) && defined(MBOX_BSD_SAVE_INDICES)
     "mailspool-index",

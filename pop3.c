@@ -252,30 +252,89 @@ void do_list(connection c, const int msg_num) {
 /* do_uidl CONNECTION MSGNUM
  * UIDL command: MSGNUM is the argument or -1 if none was specified. */
 static void do_uidl(connection c, const int msg_num) {
-    /* It isn't guaranteed that these IDs are unique; it is likely, though.
-     * See RFC1939. */
     if (msg_num != -1) {
         struct indexpoint *curmsg;
         curmsg = c->m->index + msg_num;
         if (curmsg->deleted)
             connection_sendresponse(c, 0, _("That message is no more."));
         else {
-            char response[64] = {0};
-            snprintf(response, 63, "%d %s", 1 + msg_num, hex_digest(curmsg->hash));
+            char *idstyle;
+            char response[128] = {0};
+            if (!(idstyle = config_get_string("uidl-style")))
+                idstyle = "tpop3d";
+
+            /* qmail-pop3d style unique-ids */
+            if(strcmp(idstyle, "qmail") == 0) {
+                /* qmail-pop3d creates IDs by printing the filename of the message.
+                 * We have to care about suffixes like ":<something>", that e.g.
+                 * qmail-pop3d appends to messages it has read, because in uidl lists
+                 * these suffixes don't get printed.
+                 * Additionally, qmail-pop3d doesn't seem to limit the length of
+                 * unique-ids, violating RFC1939. We cut of uinique-id listings at 127
+                 * characters here, for the sake of compatibility to qmail, with the
+                 * penalty of slight RFC-ignorance. It's very unlikely, but we're still
+                 * not compatible to qmail-pop3d uinique-ids for very long filenames.
+                 *
+                 * So there are two steps we have to take:
+                 * First we print the complete filename, without any leading directory
+                 * parts. This will give uniform IDs even with maildir recursion.
+                 * Then we omit the suffixes by zero-terminating the string at the
+                 * first ':' we find, if any. (That's what qmail-pop3d does too.)
+                 */
+                snprintf(response, 127, "%d %s", 1 + msg_num, 1 + strrchr(curmsg->filename, '/'));
+                response[strcspn(response, ":")] = '\0';
+
+            /*
+             * any unique-id format other than tpop3ds native should go here
+             */
+
+            /* "tpop3d" and fallback for unknown uidl formats */
+            } else {
+                /* It isn't guaranteed that these IDs are unique; it is likely, though.
+                 * See RFC1939. */
+                char response[64] = {0};
+                snprintf(response, 63, "%d %s", 1 + msg_num, hex_digest(curmsg->hash));
+            }
+
             connection_sendresponse(c, 1, response);
         }
     } else {
         struct indexpoint *m;
         int nn = 0;
+        char *idstyle;
+
         if (!(connection_sendresponse(c, 1, _("ID list follows:"))))
             return;
-        for (m = c->m->index; m < c->m->index + c->m->num; ++m) {
-            if (!m->deleted) {
-                char response[64] = {0};
-                snprintf(response, 63, "%d %s", 1 + m - c->m->index, hex_digest(m->hash));
-                if (!connection_sendline(c, response))
-                    return;
-                ++nn;
+
+        if (!(idstyle = config_get_string("uidl-style")))
+            idstyle = "tpop3d";
+
+        if(strcmp(idstyle, "qmail") == 0) {
+            char response[128] = {0};
+            for (m = c->m->index; m < c->m->index + c->m->num; ++m) {
+                if (!m->deleted) {
+                    snprintf(response, 127, "%d %s", 1 + m - c->m->index, 1 + strrchr(m->filename, '/'));
+                    response[strcspn(response, ":")] = '\0';
+                    if (!connection_sendline(c, response))
+                        return;
+                    ++nn;
+                }
+            }
+
+        /*
+         * any unique-id format other than tpop3ds native should go here
+         */
+
+        /* "tpop3d" and fallback for unknown uidl formats */
+        } else {
+            char response[64] = {0};
+            for (m = c->m->index; m < c->m->index + c->m->num; ++m) {
+                if (!m->deleted) {
+                    snprintf(response, 63, "%d %s", 1 + m - c->m->index, hex_digest(m->hash));
+                    if (!connection_sendline(c, response))
+                        return;
+                    ++nn;
+                }
             }
         }
         connection_sendline(c, ".");
@@ -640,7 +699,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
 #ifndef NO_SNIDE_COMMENTS
                 connection_sendresponse(c, 0, _("It's a bit late for that now, isn't it?"));
 #else
-                connection_sendresponse(c, 0, _("STLS command available only in AUTHORIZATION stat"));
+                connection_sendresponse(c, 0, _("STLS command available only in AUTHORIZATION state"));
 #endif
                 break;
 

@@ -305,6 +305,17 @@ The default is:
 .fi
 
 .TP
+\fBuidl-style\fP: \fIstylename\fP
+The UIDL command is used by POP3 clients to distinguish messages they allready
+downloaded from new ones. If you switch between POP3 server software that
+produce different unique-ids, these clients will download all messages again.
+To avoid this, tpop3d supports different unique-id formats.
+
+The available formats are:
+  tpop3d: tpop3ds native format, the default and fallback.
+  qmail: qmail-pop3ds format, uses message-filenames as unique-ids.
+
+.TP
 .nf
 \fBtcp-wrappers-name\fP: \fIname\fP
 .fi
