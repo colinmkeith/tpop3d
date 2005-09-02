@@ -138,7 +138,7 @@ int emptymbox_apply_changes(mailbox M) {
 
 /* try_mailbox_locations:
  * Helper function for find_mailbox. */
-static mailbox try_mailbox_locations(const char *specs, const char *user, const char *local_part, const char *domain, const char *home) {
+static mailbox try_mailbox_locations(const char *specs, authcontext a) {
     tokens t;
     mailbox m = NULL;
     int i;
@@ -157,15 +157,25 @@ static mailbox try_mailbox_locations(const char *specs, const char *user, const 
             *subspec++ = 0;
         } else subspec = str;
 
-        path = substitute_variables(subspec, &err, 4, "user", user, "local_part", local_part, "domain", domain, "home", home);
+        path = substitute_variables(subspec, &err, 4, "user", a->user, "local_part", a->local_part, "domain", a->domain, "home", a->home);
 
         if (!path)
             /* Some sort of syntax error. */
             log_print(LOG_ERR, _("try_mailbox_locations: %s near `%.16s'"), err.msg, subspec + err.offset);
         else {
             m = mailbox_new(path, mdrv);
+            /* Return in case of error ... */
+            if (!m) {
+                xfree(path);
+                break;
+            }
+            /* ... or if we found the mailspool. */
+            if(m != MBOX_NOENT) {
+                a->mboxdrv = strdup(mdrv);
+                a->mailbox = path;
+                break;
+            }
             xfree(path);
-            if (!m || m != MBOX_NOENT) break; /* Return in case of error or if we found the mailspool. */
         }
     }
     
@@ -198,12 +208,12 @@ mailbox find_mailbox(authcontext a) {
     buffer = xmalloc(strlen("auth--mailbox") + strlen(a->auth) + 1);
     sprintf(buffer, "auth-%s-mailbox", a->auth);
     if ((s = config_get_string(buffer)))
-        m = try_mailbox_locations(s, a->user, a->local_part, a->domain, a->home);
+        m = try_mailbox_locations(s, a);
     xfree(buffer);
 
     /* Then the global one. */
     if (m == MBOX_NOENT && (s = config_get_string("mailbox")))
-        m = try_mailbox_locations(s, a->user, a->local_part, a->domain, a->home);
+        m = try_mailbox_locations(s, a);
     
 #ifdef MAILSPOOL_DIR
     /* Then the compiled-in default. */

@@ -264,7 +264,9 @@ static void do_uidl(connection c, const int msg_num) {
                 idstyle = "tpop3d";
 
             /* qmail-pop3d style unique-ids */
-            if(strcmp(idstyle, "qmail") == 0) {
+            if(   strcmp(idstyle, "qmail") == 0
+               && strcmp(c->a->mboxdrv, "maildir") == 0)
+            {
                 /* qmail-pop3d creates IDs by printing the filename of the message.
                  * We have to care about suffixes like ":<something>", that e.g.
                  * qmail-pop3d appends to messages it has read, because in uidl lists
@@ -290,9 +292,11 @@ static void do_uidl(connection c, const int msg_num) {
 
             /* "tpop3d" and fallback for unknown uidl formats */
             } else {
+                if(strcmp(idstyle, "tpop3d") != 0)
+                    log_print(LOG_WARNING, _("do_uidl: '%s' UIDLs not implemented, or not supported with '%s' mailbox, using fallback."), idstyle, c->a->mboxdrv);
+
                 /* It isn't guaranteed that these IDs are unique; it is likely, though.
                  * See RFC1939. */
-                char response[64] = {0};
                 snprintf(response, 63, "%d %s", 1 + msg_num, hex_digest(curmsg->hash));
             }
 
@@ -309,7 +313,9 @@ static void do_uidl(connection c, const int msg_num) {
         if (!(idstyle = config_get_string("uidl-style")))
             idstyle = "tpop3d";
 
-        if(strcmp(idstyle, "qmail") == 0) {
+        if(   strcmp(idstyle, "qmail") == 0
+           && strcmp(c->a->mboxdrv, "maildir") == 0)
+        {
             char response[128] = {0};
             for (m = c->m->index; m < c->m->index + c->m->num; ++m) {
                 if (!m->deleted) {
@@ -328,6 +334,10 @@ static void do_uidl(connection c, const int msg_num) {
         /* "tpop3d" and fallback for unknown uidl formats */
         } else {
             char response[64] = {0};
+
+            if(strcmp(idstyle, "tpop3d") != 0)
+                log_print(LOG_WARNING, _("do_uidl: '%s' UIDLs not implemented, or not supported with '%s' mailbox, using fallback."), idstyle, c->a->mboxdrv);
+
             for (m = c->m->index; m < c->m->index + c->m->num; ++m) {
                 if (!m->deleted) {
                     snprintf(response, 63, "%d %s", 1 + m - c->m->index, hex_digest(m->hash));
