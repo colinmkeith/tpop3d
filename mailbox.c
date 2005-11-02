@@ -155,7 +155,10 @@ static mailbox try_mailbox_locations(const char *specs, authcontext a) {
         if (subspec) {
             mdrv = str;
             *subspec++ = 0;
-        } else subspec = str;
+        } else {
+            subspec = str;
+            mdrv = mbox_drivers[0].name;
+        }
 
         path = substitute_variables(subspec, &err, 4, "user", a->user, "local_part", a->local_part, "domain", a->domain, "home", a->home);
 
