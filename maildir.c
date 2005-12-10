@@ -502,13 +502,16 @@ int maildir_sendmessage(const mailbox M, connection c, const int i, int n) {
  * Apply deletions to a maildir. */
 int maildir_apply_changes(mailbox M) {
     struct indexpoint *m;
+    int did_deletions = 0;
     if (!M) return 1;
 
     for (m = M->index; m < M->index + M->num; ++m) {
         if (m->deleted) {
             if (unlink(m->filename) == -1)
-                log_print(LOG_ERR, "maildir_apply_changes: unlink(%s): %m", m->filename);
                 /* Warn but proceed anyway. */
+                log_print(LOG_ERR, "maildir_apply_changes: unlink(%s): %m", m->filename);
+            else
+                did_deletions = 1;
         } else {
             /* Mark message read. */
             if (strncmp(m->filename, "new/", 4) == 0) {
@@ -519,6 +522,16 @@ int maildir_apply_changes(mailbox M) {
                 xfree(cur);
             }
         }
+    }
+
+    /* This handles the maildirsize file which appears in Maildir++ mailboxes.
+     * We delete it; a later delivery by a compliant MDA will recreate it. */
+    if (did_deletions) {
+        char *name;
+        name = xmalloc(strlen(M->name) + sizeof "/maildirsize");
+        sprintf(name, "%s/maildirsize", M->name);
+        unlink(name);
+        xfree(name);
     }
 
     return 1;
