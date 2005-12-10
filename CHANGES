@@ -21,7 +21,8 @@ avoid calls to stat(). New authenticator auth_gdbm added. Fixed bug with PID
 file handling after HUP signals. Added lowercase options for POP3 USER command
 and maildir database lookups. Added support for qmail-pop3d style UIDLs. (Adds
 uidl-style config option) maildir-ignore-folders now uses tokens_new so
-folders may be separated by spaces or tabs.
+folders may be separated by spaces or tabs. Remove any maildirsize file, for
+compliance with Maildir++ (thanks to Arkadiusz Miskiewicz).
 
 1.5.3
 
