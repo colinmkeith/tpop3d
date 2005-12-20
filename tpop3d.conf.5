@@ -164,6 +164,10 @@ Possible values for \fIfacility\fP are: \fBmail\fP, \fBauthpriv\fP,
 (Although other possibilities are mentioned in \fBopenlog\fP(3), they don't
 make much sense for a POP3 server.)
 .TP
+\fBlog-level\fP: \fIlevel\fP
+This selects the `level' at which \fBtpop3d\fP logs system log messages.
+Possible values for \fIlevel\fP are described in \fBsyslog.conf\fP(5).
+.TP
 \fBlog-stderr\fP: (\fByes\fP|\fBtrue\fP)
 Send log messages to standard error as well as the system log. This makes sense
 only when \fBtpop3d\fP is running with a controlling terminal.

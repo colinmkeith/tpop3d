@@ -28,6 +28,7 @@ char *cfgdirectives[] = {
     "tcp-send-buffer",
     "log-facility",
     "log-stderr",
+    "log-level",
     "apop-only",
     "mailbox",
     "no-detach",

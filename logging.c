@@ -51,30 +51,69 @@ static struct logfac {
 
 #define NFACIL      (sizeof(facil) / sizeof(struct logfac))
 
+/* level:
+ * Log level names and constants, used to allow configurable logging at
+ * run time. */
+static struct loglev {
+    char *name;
+    int lev;
+} level[] = {
+        {"debug",       LOG_DEBUG},
+        {"info",        LOG_INFO},
+        {"notice",      LOG_NOTICE},
+        {"warning",     LOG_WARNING},
+        {"warn",        LOG_WARNING}, /* DEPRECATED */
+        {"err",         LOG_ERR},
+        {"error",       LOG_ERR},     /* DEPRECATED */
+        {"crit",        LOG_CRIT},
+        {"alert",       LOG_ALERT},
+        {"emerg",       LOG_EMERG},
+        {"panic",       LOG_EMERG},   /* DEPRECATED */
+    };
+
+#define NLEVEL      (sizeof(level) / sizeof(struct loglev))
+
 static int log_fac;
+static int log_lev;
 
 /* log_init:
  * Start up logging. */
 void log_init(void) {
-    int fac = LOG_MAIL, warn = 0;
-    char *s;
+    int fac = LOG_MAIL, lev = LOG_DEBUG, warn_fac = 0, warn_lev = 0;
+    char *sfac, *slev;
 
-    if ((s = config_get_string("log-facility"))) {
+    if ((sfac = config_get_string("log-facility"))) {
         struct logfac *l;
-        warn = 1;
+        warn_fac = 1;
         for (l = facil; l < facil + NFACIL; ++l)
-            if (strcasecmp(l->name, s) == 0) {
-                warn = 0;
+            if (strcasecmp(l->name, sfac) == 0) {
+                warn_fac = 0;
                 fac = l->fac;
                 break;
             }
     }
 
-    openlog("tpop3d", LOG_PID | LOG_NDELAY, fac);
-    if (warn == 1)
-        log_print(LOG_ERR, _("log_init: log-facility `%s' unknown, using `mail'"), s);
+    if ((slev = config_get_string("log-level"))) {
+        struct loglev *l;
+        warn_lev = 1;
+        for (l = level; l < level + NLEVEL; ++l)
+            if (strcasecmp(l->name, slev) == 0) {
+                warn_lev = 0;
+                lev = l->lev;
+                break;
+            }
+    }
 
     log_fac = fac;
+    log_lev = lev;
+
+    openlog("tpop3d", LOG_PID | LOG_NDELAY, fac);
+
+    if (warn_fac == 1)
+        log_print(LOG_ERR, _("log_init: log-facility `%s' unknown, using `mail'"), sfac);
+    if (warn_lev == 1)
+        log_print(LOG_ERR, _("log_init: log-level `%s' unknown, using `debug'"), slev);
+
 }
 
 
@@ -112,6 +151,10 @@ static char *verrprintf(const char *fmt, va_list ap) {
 void log_print(int priority, const char *fmt, ...) {
     char *s;
     va_list ap;
+
+    if(priority > log_lev)
+        return;
+
     va_start(ap, fmt);
     s = verrprintf(fmt, ap);
     va_end(ap);

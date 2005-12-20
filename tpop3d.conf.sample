@@ -44,6 +44,10 @@ timeout-seconds: 600
 # The `facility' as which tpop3d emits system log messages.
 #log-facility: mail
 
+# log-level: level
+# The `level' at which tpop3d logs system log messages.
+#log-level: debug
+
 # log-stderr: (yes|true)
 # Send log messages to standard error as well as the system log.
 #log-stderr: true

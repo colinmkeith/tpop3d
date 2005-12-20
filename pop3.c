@@ -496,7 +496,7 @@ enum connection_action connection_do(connection c, const pop3command p) {
                     } else {
                         /* Otherwise we've issued an OK response but haven't
                          * managed to negotiate a TLS connection. */
-                        log_print(LOG_INFO, _("connection_do: client %s: tried and failed to negotiate TLS connection; closing connection"), c->idstr);
+                        log_print(LOG_NOTICE, _("connection_do: client %s: tried and failed to negotiate TLS connection; closing connection"), c->idstr);
                         return close_connection;
                     }
                 }

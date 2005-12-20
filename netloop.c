@@ -339,7 +339,7 @@ static int fork_child(connection c) {
             /* Began session. We log a message in a known format, and call
              * into the authentication drivers in case they want to do
              * something with the information for POP-before-SMTP relaying. */
-            log_print(LOG_INFO, _("fork_child: %s: began session for `%s' with %s; child PID is %d"), c->idstr, c->a->user, c->a->auth, (int)ch);
+            log_print(LOG_NOTICE, _("fork_child: %s: began session for `%s' with %s; child PID is %d"), c->idstr, c->a->user, c->a->auth, (int)ch);
             authswitch_onlogin(c->a, c->remote_ip, c->local_ip);
 
             if (childwait) {
