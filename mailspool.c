@@ -750,6 +750,8 @@ int mailspool_load_index(mailbox m) {
     }
 
     if (!feof(fp)) {
+        --m->num;
+
         log_print(LOG_WARNING, _("mailspool_load_index(%s): index exists, but has some stale or corrupt data"), indexfile);
         goto fail;
     }
