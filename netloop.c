@@ -183,7 +183,7 @@ static void listeners_post_select(fd_set *readfds, fd_set *writefds, fd_set *exc
                 }
             }
 
-            if (errno != EAGAIN)
+            if (errno != EAGAIN && errno != EINTR)
                 log_print(LOG_ERR, "net_loop: accept: %m");
             
         }
