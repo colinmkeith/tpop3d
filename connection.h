@@ -16,6 +16,8 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
+#include "poll.h"
+
 #include "authswitch.h"
 #include "buffer.h"
 #include "listener.h"
@@ -89,13 +91,13 @@ struct ioabs {
      * buffering and state issues. post_select should return a combination of
      * the flags defined below, as well as doing any I/O-layer specific
      * handling. */
-    void (*pre_select)(connection c, int *n, fd_set *readfds, fd_set *writefds, fd_set *exceptfds);
+    void (*pre_select)(connection c, int *n, struct pollfd *pfds);
     
     /* post_select:
      * Do handling after select has completed. Returns 1 if new data have been
      * read, 0 if not. May alter the connection_state of the associated
      * connection. */
-    int (*post_select)(connection c, fd_set *readfds, fd_set *writefds, fd_set *exceptfds);
+    int (*post_select)(connection c, struct pollfd *pfds);
 
     /* shutdown:
      * Shut down the connection. Returns zero on success, IOABS_WOULDBLOCK if

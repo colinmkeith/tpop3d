@@ -21,7 +21,7 @@ static const char rcsid[] = "$Id$";
 
 #include <openssl/ssl.h>
 
-#include <sys/select.h>
+#include "poll.h"
 
 #include "connection.h"
 #include "listener.h"
@@ -228,15 +228,16 @@ static ssize_t ioabs_tls_immediate_write(connection c, const void *buf, size_t c
 
 /* ioabs_tls_pre_select:
  * Pre-select handling for TLS, taking account of the rehandshaking nonsense. */
-static void ioabs_tls_pre_select(connection c, int *n, fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
+static void ioabs_tls_pre_select(connection c, int *n, struct pollfd *pfds) {
     struct ioabs_tls *io;
     io = (struct ioabs_tls*)c->io;
 
-    FD_SET(c->s, readfds);  /* always want to read */
+    pfds[c->s].fd = c->s;
+    pfds[c->s].events |= POLLIN; /* always want to read */
     if (!io->write_blocked_on_read &&
         (buffer_available(c->wrb) > 0 || io->accept_blocked_on_write
          || io->read_blocked_on_write || io->shutdown_blocked_on_write))
-        FD_SET(c->s, writefds);
+        pfds[c->s].events |= POLLOUT;
 
     if (c->s > *n)
         *n = c->s;
@@ -244,15 +245,15 @@ static void ioabs_tls_pre_select(connection c, int *n, fd_set *readfds, fd_set *
 
 /* ioabs_tls_post_select:
  * Post-select handling for TLS, with its complicated logic. */
-static int ioabs_tls_post_select(connection c, fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
+static int ioabs_tls_post_select(connection c, struct pollfd *pfds) {
     int ret = 0, R = 0;
     ssize_t n, wtotal;
     int canread, canwrite;
     struct ioabs_tls *io;
     io = (struct ioabs_tls*)c->io;
 
-    canread  = FD_ISSET(c->s, readfds);
-    canwrite = FD_ISSET(c->s, writefds);
+    canread  = pfds[c->s].revents == POLLIN;
+    canwrite = pfds[c->s].revents == POLLOUT;
     
     /* First, accept handling. */
     if ((io->accept_blocked_on_read && canread) || (io->accept_blocked_on_write && canwrite)) {

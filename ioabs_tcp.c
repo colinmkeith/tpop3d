@@ -17,7 +17,7 @@ static const char rcsid[] = "$Id$";
 #include <time.h>
 #include <unistd.h>
 
-#include <sys/select.h>
+#include "poll.h"
 
 #include "connection.h"
 #include "util.h"
@@ -61,13 +61,14 @@ static ssize_t ioabs_tcp_immediate_write(connection c, const void *buf, size_t c
 
 /* ioabs_tcp_pre_select:
  * Simple pre-select handling for TCP. */
-static void ioabs_tcp_pre_select(connection c, int *n, fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
+static void ioabs_tcp_pre_select(connection c, int *n, struct pollfd *pfds) {
     struct ioabs_tcp *io;
     io = (struct ioabs_tcp*)c->io;
 
-    FD_SET(c->s, readfds);
+    pfds[c->s].fd = c->s;
+    pfds[c->s].events |= POLLIN;
     if (buffer_available(c->wrb) > 0)
-        FD_SET(c->s, writefds);
+       pfds[c->s].events |= POLLOUT;
     
     if (c->s > *n)
         *n = c->s;
@@ -75,13 +76,13 @@ static void ioabs_tcp_pre_select(connection c, int *n, fd_set *readfds, fd_set *
 
 /* ioabs_tcp_post_select:
  * Simple post-select handling for TCP. */
-static int ioabs_tcp_post_select(connection c, fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
+static int ioabs_tcp_post_select(connection c, struct pollfd *pfds) {
     int ret = 0;
     ssize_t n;
     struct ioabs_tcp *io;
     io = (struct ioabs_tcp*)c->io;
 
-    if (FD_ISSET(c->s, readfds)) {
+    if (pfds[c->s].revents == POLLIN) {
         /* Can read data. */
         do {
             char *r;
@@ -110,7 +111,7 @@ static int ioabs_tcp_post_select(connection c, fd_set *readfds, fd_set *writefds
         }
     }
 
-    if (FD_ISSET(c->s, writefds) && buffer_available(c->wrb) > 0) {
+    if (pfds[c->s].revents == POLLOUT && buffer_available(c->wrb) > 0) {
         /* Can write data. */
         n = 1;
         do {

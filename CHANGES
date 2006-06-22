@@ -23,7 +23,9 @@ and maildir database lookups. Added support for qmail-pop3d style UIDLs. (Adds
 uidl-style config option) maildir-ignore-folders now uses tokens_new so
 folders may be separated by spaces or tabs. Remove any maildirsize file, for
 compliance with Maildir++ (thanks to Arkadiusz Miskiewicz). Added support
-for syslog like log levels. (log-level config option)
+for syslog like log levels. (log-level config option) Replace use of select(2)
+with poll(2), to fix `Bad file descriptor' error on very busy servers (thanks
+to Arkadiusz Miskiewicz for this patch).
 
 1.5.3
 

@@ -31,6 +31,8 @@ static const char rcsid[] = "$Id$";
 #include <sys/socket.h>
 #include <sys/time.h>
 
+#include "poll.h"
+
 #include "config.h"
 #include "connection.h"
 #include "listener.h"
@@ -105,11 +107,12 @@ static void remove_connection(connection c) {
 
 /* listeners_pre_select:
  * Called before the main select(2) so listening sockets can be polled. */
-static void listeners_pre_select(int *n, fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
+static void listeners_pre_select(int *n, struct pollfd *pfds) {
     item *t;
     vector_iterate(listeners, t) {
         int s = ((listener)t->v)->s;
-        FD_SET(s, readfds);
+       pfds[s].fd = s;
+       pfds[s].events |= POLLIN;
         if (s > *n) *n = s;
     }
 }
@@ -117,11 +120,11 @@ static void listeners_pre_select(int *n, fd_set *readfds, fd_set *writefds, fd_s
 /* listeners_post_select:
  * Called after the main select(2) to allow listening sockets to sort
  * themselves out. */
-static void listeners_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
+static void listeners_post_select(struct pollfd *pfds) {
     item *t;
     vector_iterate(listeners, t) {
         listener L = (listener)t->v;
-        if (FD_ISSET(L->s, readfds)) {
+       if (pfds[L->s].revents == POLLIN) {
             struct sockaddr_in sin, sinlocal;
             size_t l = sizeof(sin);
             static int tcp_send_buf = -1;
@@ -192,12 +195,12 @@ static void listeners_post_select(fd_set *readfds, fd_set *writefds, fd_set *exc
 
 /* connections_pre_select:
  * Called before the main select(2) so connections can be polled. */
-static void connections_pre_select(int *n, fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
+static void connections_pre_select(int *n, struct pollfd *pfds) {
     connection *J;
     for (J = connections; J < connections + max_connections; ++J)
         /* Don't add frozen connections to the select masks. */
         if (*J && !connection_isfrozen(*J) && (*J)->cstate != closed)
-            (*J)->io->pre_select(*J, n, readfds, writefds, exceptfds);
+            (*J)->io->pre_select(*J, n, pfds);
 }
 
 /* fork_child CONNECTION
@@ -380,7 +383,7 @@ static int fork_child(connection c) {
  * running/closing/closed state machine around and reading and writing the I/O
  * buffers. We need to try to parse commands when it's indicated that data have
  * been read, and react to the changed state of any connection. */
-static void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
+static void connections_post_select(struct pollfd *pfds) {
     static size_t i;
     size_t i0;
     time_t start;
@@ -400,7 +403,7 @@ static void connections_post_select(fd_set *readfds, fd_set *writefds, fd_set *e
         }
 
         /* Handle all post-select I/O. */
-        r = c->io->post_select(c, readfds, writefds, exceptfds);
+        r = c->io->post_select(c, pfds);
 
         if (r && !connection_isfrozen(c)) {
             /*
@@ -528,6 +531,7 @@ void net_loop(void) {
     extern pid_t child_died;
     extern int child_died_signal;
     sigset_t chmask;
+    struct pollfd *pfds;
     
     sigemptyset(&chmask);
     sigaddset(&chmask, SIGCHLD);
@@ -536,32 +540,33 @@ void net_loop(void) {
     max_connections = 2 * max_running_children;
     connections = (connection*)xcalloc(max_connections, sizeof(connection*));
 
+    pfds = malloc(max_connections * sizeof(struct pollfd));
+    if (pfds == NULL) {
+       log_print(LOG_ERR, "net_loop: couldn't allocate memory for poll data");
+       return;
+    }
+
     log_print(LOG_INFO, _("net_loop: tpop3d version %s successfully started"), TPOP3D_VERSION);
     
     /* Main select() loop */
     while (!foad) {
-        fd_set readfds, writefds;
-        struct timeval tv = {0};
         int n = 0, e;
 
-        FD_ZERO(&readfds);
-        FD_ZERO(&writefds);
+       memset(pfds, 0, max_connections * sizeof(struct pollfd));
 
-        tv.tv_sec = 1;  /* must be smaller than timeout */
+        if (!post_fork) listeners_pre_select(&n, pfds);
 
-        if (!post_fork) listeners_pre_select(&n, &readfds, &writefds, NULL);
+        connections_pre_select(&n, pfds);
 
-        connections_pre_select(&n, &readfds, &writefds, NULL);
-
-        e = select(n + 1, &readfds, &writefds, NULL, &tv);
+       e = poll(pfds, n + 1, 1000 /* must be smaller than timeout */);
         if (e == -1 && errno != EINTR) {
-            log_print(LOG_WARNING, "net_loop: select: %m");
+            log_print(LOG_WARNING, "net_loop: poll: %m");
         } else if (e >= 0) {
             /* Check for new incoming connections */
-            if (!post_fork) listeners_post_select(&readfds, &writefds, NULL);
+            if (!post_fork) listeners_post_select(pfds);
 
             /* Monitor existing connections */
-            connections_post_select(&readfds, &writefds, NULL);
+            connections_post_select(pfds);
         }
 
         sigprocmask(SIG_BLOCK, &chmask, NULL);
@@ -596,5 +601,7 @@ void net_loop(void) {
             if (*J) connection_delete(*J);
         xfree(connections);
     }
+
+    free(pfds);
 }
 
