@@ -744,7 +744,7 @@ dnl Checks for library functions.
 AC_FUNC_MEMCMP
 AC_FUNC_MMAP
 
-AC_CHECK_FUNCS(gettimeofday select socket strcspn strdup strerror strspn strstr strtol uname strtok_r inet_aton)
+AC_CHECK_FUNCS(gettimeofday select socket strcspn strdup strerror strspn strstr strtol uname strtok_r inet_aton poll)
 
 if test x"$enable_backtrace" = x"yes"
 then
