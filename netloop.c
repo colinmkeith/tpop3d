@@ -540,11 +540,7 @@ void net_loop(void) {
     max_connections = 2 * max_running_children;
     connections = (connection*)xcalloc(max_connections, sizeof(connection*));
 
-    pfds = malloc(max_connections * sizeof(struct pollfd));
-    if (pfds == NULL) {
-       log_print(LOG_ERR, "net_loop: couldn't allocate memory for poll data");
-       return;
-    }
+    pfds = xmalloc(max_connections * sizeof *pfds);
 
     log_print(LOG_INFO, _("net_loop: tpop3d version %s successfully started"), TPOP3D_VERSION);
     
@@ -602,6 +598,6 @@ void net_loop(void) {
         xfree(connections);
     }
 
-    free(pfds);
+    xfree(pfds);
 }
 
