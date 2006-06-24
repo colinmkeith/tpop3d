@@ -255,6 +255,19 @@ the specified cache file for a given mailspool; therefore, it is recommended
 that the mailspool index files be stored in a directory to which users would
 not customarily have access, for instance /var/spool/tpop3d.
 .TP
+\fBmailspool-no-dotfile-locking\fP: (\fByes\fP|\fBtrue\fP)
+By default \fBtpop3d\fP will try to lock a mailspool for exclusive access using
+all methods available on the local system:
+.BR fcntl (2),
+.BR flock (2),
+and creating a lockfile for the mailspool with a `.lock' suffix. This option
+allows you to switch off the last of these without recompiling the daemon, and
+is recommended \fIif you are absolutely certain that no other programs rely on
+dotfile-locking to synchronise access to mailspools.\fP In particular, if you
+use lockfiles, it is possible for an over-quota user to be unable to log in to
+the POP3 server, because creation of the lockfile is prohibited; switching on
+this option eliminates that possibility.
+.TP
 \fBmaildir-exclusive-lock\fP: (\fByes\fP|\fBtrue\fP)
 Indicates that \fBtpop3d\fP should attempt to lock maildir mailboxes for
 exclusive access, so that it more closely follows the behaviour described in

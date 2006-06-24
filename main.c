@@ -340,6 +340,10 @@ char optstring[] = "+hdvf:p:"
 extern int mailspool_save_indices;  /* in mailspool.c */
 #endif
 
+#ifdef MBOX_BSD
+extern int mailspool_no_dotfile_locking;    /* in mailspool.c */
+#endif
+
 int main(int argc, char **argv, char **envp) {
     int nodaemon = 0;
     char *configfile = CONFIG_DIR"/tpop3d.conf", *s;
@@ -425,6 +429,12 @@ int main(int argc, char **argv, char **envp) {
         mailspool_save_indices = 1;
         log_print(LOG_INFO, _("experimental BSD mailbox metadata cache enabled"));
     }
+#endif
+
+    /* Should we skip dotfile-locking. */
+#ifdef MBOX_BSD
+    if (config_get_bool("mailspool-no-dotfile-locking"))
+        mailspool_no_dotfile_locking = 1;
 #endif
 
     /* We may have been compiled with TCP wrappers support. */

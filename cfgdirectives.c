@@ -43,6 +43,10 @@ char *cfgdirectives[] = {
 #if defined(MBOX_BSD) && defined(MBOX_BSD_SAVE_INDICES)
     "mailspool-index",
 #endif
+
+#ifdef MBOX_BSD
+    "mailspool-no-dotfile-locking",
+#endif
     
 #ifdef USE_TCP_WRAPPERS
     "tcp-wrappers-name",

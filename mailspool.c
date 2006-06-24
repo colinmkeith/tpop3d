@@ -60,6 +60,10 @@ int mailspool_save_index(mailbox m);
 int mailspool_load_index(mailbox m);
 #endif /* MBOX_BSD_SAVE_INDICES */
 
+/* Don't try to dotfile-lock a mailspool, even if support for doing so is
+ * available. */
+int mailspool_no_dotfile_locking;
+
 /* file_unlock FD FILENAME
  * Unlock a mailspool file using the open FD and given FILENAME. Returns 1 on
  * success or 0 on failure. */
@@ -74,7 +78,8 @@ int file_unlock(const int fd, const char *name) {
 #endif
 
 #ifdef WITH_DOTFILE_LOCKING
-    if (name && dotfile_unlock(name) == -1) r = 0;
+    if (!mailspool_no_dotfile_locking
+        && name && dotfile_unlock(name) == -1) r = 0;
 #endif
 
     return r;
@@ -97,8 +102,10 @@ int file_lock(const int fd, const char *name) {
     else l_flock = 1;
 #endif
 #ifdef WITH_DOTFILE_LOCKING
-    if (dotfile_lock(name) == -1) goto fail;
-    else l_dotfile = 1;
+    if (!mailspool_no_dotfile_locking) {
+        if (dotfile_lock(name) == -1) goto fail;
+        else l_dotfile = 1;
+    }
 #endif
 #ifdef WITH_CCLIENT_LOCKING
     if (cclient_steal_lock(fd) == -1) goto fail;
@@ -114,7 +121,8 @@ fail:
     if (l_flock) flock_unlock(fd);
 #endif
 #ifdef WITH_DOTFILE_LOCKING
-    if (l_dotfile) dotfile_unlock(name);
+    if (!mailspool_no_dotfile_locking
+        && l_dotfile) dotfile_unlock(name);
 #endif
     
     return 0;
