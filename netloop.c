@@ -124,7 +124,7 @@ static void listeners_post_select(struct pollfd *pfds) {
     item *t;
     vector_iterate(listeners, t) {
         listener L = (listener)t->v;
-       if (pfds[L->s].revents == POLLIN) {
+       if (pfds[L->s].revents & POLLIN) {
             struct sockaddr_in sin, sinlocal;
             size_t l = sizeof(sin);
             static int tcp_send_buf = -1;
@@ -546,15 +546,16 @@ void net_loop(void) {
     
     /* Main select() loop */
     while (!foad) {
-        int n = 0, e;
+        int n = 0, e, i;
 
-       memset(pfds, 0, max_connections * sizeof(struct pollfd));
+        memset(pfds, 0, max_connections * sizeof *pfds); /* XXX */
+        for (i = 0; i < max_connections; ++i) pfds[i].fd = -1;
 
         if (!post_fork) listeners_pre_select(&n, pfds);
 
         connections_pre_select(&n, pfds);
 
-       e = poll(pfds, n + 1, 1000 /* must be smaller than timeout */);
+        e = poll(pfds, n, 1000 /* must be smaller than timeout */);
         if (e == -1 && errno != EINTR) {
             log_print(LOG_WARNING, "net_loop: poll: %m");
         } else if (e >= 0) {

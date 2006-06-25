@@ -82,7 +82,7 @@ static int ioabs_tcp_post_select(connection c, struct pollfd *pfds) {
     struct ioabs_tcp *io;
     io = (struct ioabs_tcp*)c->io;
 
-    if (pfds[c->s].revents == POLLIN) {
+    if (pfds[c->s].revents & POLLIN) {
         /* Can read data. */
         do {
             char *r;
@@ -111,7 +111,7 @@ static int ioabs_tcp_post_select(connection c, struct pollfd *pfds) {
         }
     }
 
-    if (pfds[c->s].revents == POLLOUT && buffer_available(c->wrb) > 0) {
+    if (pfds[c->s].revents & POLLOUT && buffer_available(c->wrb) > 0) {
         /* Can write data. */
         n = 1;
         do {
