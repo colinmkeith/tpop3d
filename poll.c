@@ -7,6 +7,10 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
+#include <configuration.h>
+#endif
+
 #ifndef HAVE_POLL
 
 static const char rcsid[] = "$Id$";
@@ -42,8 +46,7 @@ int poll(struct pollfd *ufds, unsigned int nfds, int timeout) {
         fd = ufds[i].fd;
 
         if (fd < 0) {
-            errno = EBADF;
-            return -1;
+            next;
         }
         
         if (fd > maxfd)
