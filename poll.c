@@ -73,6 +73,9 @@ int poll(struct pollfd *ufds, unsigned int nfds, int timeout) {
         fd = ufds[i].fd;
 
         if (FD_ISSET(fd, &rds))
+            /* XXX this is broken -- to comply with the poll(2) semantics we
+             * should test for EOF as well, and set POLLHUP if true. How can
+             * we do that sanely, though? */
             ufds[i].revents |= POLLIN;
         if (FD_ISSET(fd, &wrs))
             ufds[i].revents |= POLLOUT;
