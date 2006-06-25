@@ -124,7 +124,7 @@ static void listeners_post_select(struct pollfd *pfds) {
     item *t;
     vector_iterate(listeners, t) {
         listener L = (listener)t->v;
-       if (pfds[L->s].revents & POLLIN) {
+       if (pfds[L->s].revents & (POLLIN | POLLHUP)) {
             struct sockaddr_in sin, sinlocal;
             size_t l = sizeof(sin);
             static int tcp_send_buf = -1;

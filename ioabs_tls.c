@@ -252,7 +252,7 @@ static int ioabs_tls_post_select(connection c, struct pollfd *pfds) {
     struct ioabs_tls *io;
     io = (struct ioabs_tls*)c->io;
 
-    canread  = pfds[c->s].revents & POLLIN;
+    canread  = pfds[c->s].revents & (POLLIN | POLLHUP);
     canwrite = pfds[c->s].revents & POLLOUT;
     
     /* First, accept handling. */
