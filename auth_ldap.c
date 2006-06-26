@@ -16,6 +16,10 @@ static const char rcsid[] = "$Id$";
 
 #include <sys/types.h> /* BSD needs this here, apparently. */
 
+/* Some of the LDAP APIs we're using are deprecated, sadly. Without this they
+ * don't get defined in the header files. */
+#define LDAP_DEPRECATED 1
+
 #include <lber.h>
 #include <ldap.h>
 #include <pwd.h>
