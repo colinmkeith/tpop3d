@@ -390,12 +390,16 @@ static void connections_post_select(struct pollfd *pfds) {
 
     time(&start);
 
-    for (i0 = (i + max_connections - 1) % max_connections; time(NULL) < start + LATENCY && i != i0; i = (i + 1) % max_connections) {
+    for (i0 = (i + max_connections - 1) % max_connections; i != i0; i = (i + 1) % max_connections) {
         connection c;
         int r;
 
         if (!(c = connections[i]))
             continue;
+
+        /* Don't spend too long in this loop. */
+        if (time(NULL) >= start + LATENCY)
+            break;
 
         if (i > 0 && post_fork) {
             connections[0] = c;
@@ -555,7 +559,7 @@ void net_loop(void) {
 
         connections_pre_select(&n, pfds);
 
-        e = poll(pfds, n, 1000 /* must be smaller than timeout */);
+        e = poll(pfds, n + 1, 1000 /* must be smaller than timeout */);
         if (e == -1 && errno != EINTR) {
             log_print(LOG_WARNING, "net_loop: poll: %m");
         } else if (e >= 0) {
