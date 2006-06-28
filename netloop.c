@@ -552,8 +552,10 @@ void net_loop(void) {
     while (!foad) {
         int n = 0, e, i;
 
-        memset(pfds, 0, max_connections * sizeof *pfds); /* XXX */
-        for (i = 0; i < max_connections; ++i) pfds[i].fd = -1;
+        for (i = 0; i < max_connections; ++i) {
+            pfds[i].fd = -1;
+            pfds[i].events = pfds[i].revents = 0;
+        }
 
         if (!post_fork) listeners_pre_select(&n, pfds);
 
