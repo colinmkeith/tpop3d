@@ -39,6 +39,7 @@ char *cfgdirectives[] = {
     "lowercase-user",
     "lowercase-mailbox",
     "uidl-style",
+    "domain-separators",
  
 #if defined(MBOX_BSD) && defined(MBOX_BSD_SAVE_INDICES)
     "mailspool-index",

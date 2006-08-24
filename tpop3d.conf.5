@@ -113,8 +113,7 @@ If authentication does not succeed for a given \fIusername\fP, retry with
 with the address on which the connection was received. This is intended to
 be used where multiple virtual domains are served from multiple IP addresses.
 This option only takes effect when \fIusername\fP does not contain a
-separator, which may be `@', `%', `:' or `!'. See below for a more detailed
-description.
+separator. See below for a more detailed description.
 .TP
 \fBstrip-domain\fP: (\fByes\fP|\fBtrue\fP)
 If authentication does not succeed for a given \fIusername\fP, and the
@@ -126,7 +125,11 @@ by a single authenticator with the same username, such as when
 \fIusername\fP@\fIdomain.com\fP and \fIusername\fP@\fIdomain.net\fP are
 equivalent and served from the same machine.
 This option only takes effect when \fIusername\fP contains a separator,
-which may be `@', `%' or `!'.
+which may be specified via the \fBdomain-separators\fP config option. (see below)
+.TP
+\fBdomain-separators\fP: \fIstring\fP
+Specify which characters may be used to separate local_parts from
+domains in POP3 usernames. The default is "@%!:".
 .TP
 \fBapop-only\fP: (\fByes\fP|\fBtrue\fP)
 Disconnect any client which attempts plaintext USER/PASS authentication. The

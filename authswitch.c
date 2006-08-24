@@ -236,14 +236,17 @@ authcontext authcontext_new_apop(const char *user, const char *local_part, const
  
     /* If no local-part has been explicitly supplied, then we try to construct
      * one by splitting up the username over one of the characters listed in
-     * DOMAIN_SEPARATORS. This is distinct from the append-domain
+     * domain-separators. This is distinct from the append-domain
      * functionality, which will attempt to use the user's supplied username
      * as a local-part, with the listener domain as the domain, and the
      * strip-domain functionality, which will suppress the domain supplied by
      * the user. */
     if (!local_part && domain) {
         int n;
-        n = strcspn(user, DOMAIN_SEPARATORS);
+        char *domsep;
+        if (!(domsep = config_get_string("domain-separators")))
+            domsep = DOMAIN_SEPARATORS;
+        n = strcspn(user, domsep);
         if (n > 0 && user[n]) {
             x = xstrdup(user);
             x[n] = 0;
@@ -292,7 +295,10 @@ authcontext authcontext_new_user_pass(const char *user, const char *local_part, 
     /* Maybe split local part and domain (see above). */
     if (!local_part && domain) {
         int n;
-        n = strcspn(user, DOMAIN_SEPARATORS);
+        char *domsep;
+        if (!(domsep = config_get_string("domain-separators")))
+            domsep = DOMAIN_SEPARATORS;
+        n = strcspn(user, domsep);
         if (n > 0 && user[n]) {
             x = xstrdup(user);
             x[n] = 0;

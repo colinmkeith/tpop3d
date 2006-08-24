@@ -166,8 +166,11 @@ static enum connection_action do_apop(connection c, const pop3command p) {
     /* Maybe retry authentication with an added or removed domain name. */
     if (!c->a && (strip_domain || append_domain)) {
         int n, len;
+        char *domsep;
         len = strlen(name);
-        n = strcspn(name, DOMAIN_SEPARATORS);
+        if (!(domsep = config_get_string("domain-separators")))
+            domsep = DOMAIN_SEPARATORS;
+        n = strcspn(name, domsep);
         if (append_domain && c->domain && n == len)
             /* OK, if we have a domain name, try appending that. */
             c->a = authcontext_new_apop(name, name, c->domain, c->timestamp, digest, c->remote_ip, c->local_ip);
@@ -525,8 +528,11 @@ enum connection_action connection_do(connection c, const pop3command p) {
             /* Maybe retry authentication with an added or removed domain name. */
             if (!c->a && (append_domain || strip_domain)) {
                 int n, len;
+                char *domsep;
                 len = strlen(c->user);
-                n = strcspn(c->user, DOMAIN_SEPARATORS);
+                if (!(domsep = config_get_string("domain-separators")))
+                    domsep = DOMAIN_SEPARATORS;
+                n = strcspn(c->user, domsep);
                 if (append_domain && c->domain && n == len)
                     /* OK, if we have a domain name, try appending that. */
                     c->a = authcontext_new_user_pass(c->user, c->user, c->domain, c->pass, c->remote_ip, c->local_ip);

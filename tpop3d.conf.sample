@@ -31,6 +31,11 @@ listen-address: 0.0.0.0
 # supplied and fails to authenticate. [default: no]
 #strip-domain: true
 
+# domain-separators: string
+# Specifies which characters can be used to separate local_parts from
+# domains in POP3 usernames. [default: @%!:]
+#domain-separators: @
+
 # apop-only: (yes|true)
 # Disconnect any client which sends a USER command. [default: no]
 #apop-only: true
