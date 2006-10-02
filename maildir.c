@@ -26,6 +26,7 @@ static const char rcsid[] = "$Id$";
 #include <unistd.h>
 #include <utime.h>
 #include <time.h>
+#include <regex.h>
 
 #include <sys/fcntl.h>
 #include <sys/stat.h>
@@ -228,7 +229,7 @@ int maildir_build_index(mailbox M, const char *subdir, time_t T) {
 static int maildir_recurse(mailbox M, char *current, time_t time, tokens ignorefolders) {
     DIR *dir;
     struct dirent *d;
-    char *folder, *match, *recursefolder;
+    char *folder, *recursefolder;
     int foldersl, dirl;
     struct stat st;
 
@@ -253,7 +254,18 @@ static int maildir_recurse(mailbox M, char *current, time_t time, tokens ignoref
         foldersl = strlen(folder);
 
         for (i = 0; i < ignorefolders->num; i++) {
-            if(0 == strcmp(folder, ignorefolders->toks[i])) {
+           if (*ignorefolders->toks[i] == '^') {
+               /* We have a regexp */
+               regex_t re;
+               if (regcomp(&re, ignorefolders->toks[i], REG_EXTENDED|REG_NOSUB) == 0) {
+                   if (regexec(&re, folder, (size_t) 0, NULL, 0) == 0) {
+                       ignore = 1;
+                       regfree(&re);
+                       break;
+                   }
+                   regfree(&re);
+               }
+           } else if (0 == strcmp(folder, ignorefolders->toks[i])) {
                 ignore = 1;
                 break;
             }

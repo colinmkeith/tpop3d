@@ -84,7 +84,7 @@ mailbox: bsd:/var/mail/$(user)
 
 # maildir-ignore-folders: foldername
 # Specifies IMAP Folders that should be excluded when recursing into IMAP
-# folders. (separated by spaces or tabs, may be emtpy)
+# folders. (separated by spaces or tabs, supports regex, may be emtpy)
 # [default: Trash Sent]
 #maildir-ignore-folders: Trash Sent Draft Spam
 

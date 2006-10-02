@@ -28,7 +28,8 @@ with poll(2), to fix `Bad file descriptor' error on very busy servers (thanks
 to Arkadiusz Miskiewicz for this patch). Added mailspool-no-dotfile-locking
 option to switch off dot-locks at runtime (useful for sites using quotas).
 Added domain-separators option to make former DOMAIN_SEPARATORS from util.h
-configurable.
+configurable. Thanks to Arkadiusz Miskiewicz maildir-ignore-folders now may
+contain regular expressions.
 
 1.5.3
 
