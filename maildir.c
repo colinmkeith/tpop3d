@@ -519,9 +519,12 @@ int maildir_sendmessage(const mailbox M, connection c, const int i, int n) {
     }
 
     /* fstat is cheap after open. Real size is needed in case when S= size doesn't reflect real file size. */
-    if (fstat(fd, &st) != -1)
+    if (fstat(fd, &st) != -1) {
         real_size = st.st_size;
-    else
+	if (m->msglength != st.st_size)
+            log_print(LOG_ERR, _("maildir_sendmessage(%s/%s): inconsistency in mail size: index (%d) vs filesystem (%d)"),
+	        M->name, m->filename, (int)m->msglength, (int)st.st_size);
+    } else
         real_size = m->msglength;
     
     status = connection_sendmessage(c, fd, 0 /* offset */, 0 /* skip */, real_size, n);
