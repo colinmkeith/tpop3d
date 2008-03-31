@@ -517,7 +517,7 @@ static void connections_post_select(struct pollfd *pfds) {
                 }
                 log_print(LOG_INFO, _("connections_post_select: client %s: finished session for `%s' with %s"), c->idstr, c->a->user, c->a->auth);
             }
-            log_print(LOG_INFO, _("connections_post_select: client %s: disconnected; %d/%d bytes read/written"), c->idstr, c->nrd, c->nwr);
+            log_print(LOG_NOTICE, _("connections_post_select: client %s: disconnected; %d/%d bytes read/written"), c->idstr, c->nrd, c->nwr);
 
 /*            remove_connection(c);*/
             connections[i] = NULL;

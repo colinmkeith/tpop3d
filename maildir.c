@@ -384,7 +384,7 @@ mailbox maildir_new(const char *dirname) {
 
     gettimeofday(&tv2, NULL);
     f = (float)(tv2.tv_sec - tv1.tv_sec) + 1e-6 * (float)(tv2.tv_usec - tv1.tv_usec);
-    log_print(LOG_DEBUG, "maildir_new: scanned maildir %s (%d messages) in %0.3fs", dirname, (int)M->num, f);
+    log_print(LOG_NOTICE, "maildir_new: scanned maildir %s (%d messages) in %0.3fs", dirname, (int)M->num, f);
     
     return M;
 
