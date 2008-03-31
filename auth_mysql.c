@@ -99,6 +99,7 @@ static int get_mysql_server(void) {
     static MYSQL mysql_handle;
     char *password;
     unsigned int timeout;
+    my_bool want_reconnect = 0;
 
     if (mysql && mysql_ping(mysql) == 0)
         /* The current server is up and running. */
@@ -126,6 +127,9 @@ static int get_mysql_server(void) {
         * seconds.... */
         timeout = 5;
         mysql_options(mysql, MYSQL_OPT_CONNECT_TIMEOUT, (char*)&(timeout));
+
+	/* We do not want automatic reconnect to happen. */
+	mysql_options(mysql, MYSQL_OPT_RECONNECT, &want_reconnect);
 
         if (mysql_real_connect(mysql, mysql_servers->toks[n],
                 config_get_string("auth-mysql-username"),
