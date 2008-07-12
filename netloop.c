@@ -128,7 +128,7 @@ static void listeners_pre_select(int *n, struct pollfd *pfds) {
 	pfds[i].fd = s;
 	pfds[i].events |= POLLIN;
 	((listener)t->v)->s_index = i;
-	if (i > *n) *n = i;
+	*n = i;
 	i++;
     }
 }
