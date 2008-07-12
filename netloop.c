@@ -575,7 +575,7 @@ void net_loop(void) {
     while (!foad) {
         int n = 0, e, i;
 
-        for (i = 0; i < max_connections; ++i) {
+        for (i = 0; i < (max_listeners + max_connections); ++i) {
             pfds[i].fd = -1;
             pfds[i].events = pfds[i].revents = 0;
         }
