@@ -552,6 +552,8 @@ void net_loop(void) {
     extern int child_died_signal;
     sigset_t chmask;
     struct pollfd *pfds;
+    int max_listeners;
+    item *t;
     
     sigemptyset(&chmask);
     sigaddset(&chmask, SIGCHLD);
@@ -560,7 +562,12 @@ void net_loop(void) {
     max_connections = 2 * max_running_children;
     connections = (connection*)xcalloc(max_connections, sizeof(connection*));
 
-    pfds = xmalloc(max_connections * sizeof *pfds);
+    /* find out number of listeners */
+    max_listeners = 0;
+    vector_iterate(listeners, t)
+	    max_listeners++;
+
+    pfds = xmalloc((max_listeners + max_connections) * sizeof *pfds);
 
     log_print(LOG_INFO, _("net_loop: tpop3d version %s successfully started"), TPOP3D_VERSION);
     
