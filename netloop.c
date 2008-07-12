@@ -121,22 +121,22 @@ static void remove_connection(connection c) {
 /* listeners_pre_select:
  * Called before the main select(2) so listening sockets can be polled. */
 static void listeners_pre_select(int *n, struct pollfd *pfds) {
-    int i = 0;
+    int i = *n;
     item *t;
     vector_iterate(listeners, t) {
         int s = ((listener)t->v)->s;
 	pfds[i].fd = s;
 	pfds[i].events |= POLLIN;
 	((listener)t->v)->s_index = i;
-	*n = i;
 	i++;
     }
+    *n = i;
 }
 
 /* listeners_post_select:
  * Called after the main select(2) to allow listening sockets to sort
  * themselves out. */
-static void listeners_post_select(struct pollfd *pfds, int *n) {
+static void listeners_post_select(struct pollfd *pfds) {
     item *t;
     vector_iterate(listeners, t) {
         listener L = (listener)t->v;
@@ -573,7 +573,8 @@ void net_loop(void) {
     
     /* Main select() loop */
     while (!foad) {
-        int n = 0, e, i;
+        int n = 0; /* number of pfds elements in use */
+        int e, i;
 
         for (i = 0; i < (max_listeners + max_connections); ++i) {
             pfds[i].fd = -1;
@@ -584,12 +585,12 @@ void net_loop(void) {
 
         connections_pre_select(&n, pfds);
 
-        e = poll(pfds, n + 1, 1000 /* must be smaller than timeout */);
+        e = poll(pfds, n, 1000 /* must be smaller than timeout */);
         if (e == -1 && errno != EINTR) {
             log_print(LOG_WARNING, "net_loop: poll: %m");
         } else if (e >= 0) {
             /* Check for new incoming connections */
-            if (!post_fork) listeners_post_select(pfds, &n);
+            if (!post_fork) listeners_post_select(pfds);
 
             /* Monitor existing connections */
             connections_post_select(pfds);

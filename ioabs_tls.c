@@ -245,8 +245,8 @@ static void ioabs_tls_pre_select(connection c, int *n, struct pollfd *pfds) {
     struct ioabs_tls *io;
     io = (struct ioabs_tls*)c->io;
 
-    (*n)++;
     c->s_index = *n;
+    (*n)++;
 
     pfds[c->s_index].fd = c->s;
     pfds[c->s_index].events |= POLLIN; /* always want to read */
