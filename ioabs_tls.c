@@ -245,15 +245,15 @@ static void ioabs_tls_pre_select(connection c, int *n, struct pollfd *pfds) {
     struct ioabs_tls *io;
     io = (struct ioabs_tls*)c->io;
 
+    (*n)++;
+    c->s_index = *n;
+
     pfds[c->s_index].fd = c->s;
     pfds[c->s_index].events |= POLLIN; /* always want to read */
     if (!io->write_blocked_on_read &&
         (buffer_available(c->wrb) > 0 || io->accept_blocked_on_write
          || io->read_blocked_on_write || io->shutdown_blocked_on_write))
         pfds[c->s_index].events |= POLLOUT;
-
-    if (c->s_index > *n)
-        *n = c->s_index;
 }
 
 /* ioabs_tls_post_select:

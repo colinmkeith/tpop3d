@@ -193,7 +193,7 @@ static void listeners_post_select(struct pollfd *pfds, int *n) {
                         log_print(LOG_WARNING, _("listeners_post_select: rejected connection from %s to local address %s:%d owing to high load"), inet_ntoa(sin.sin_addr), inet_ntoa(sinlocal.sin_addr), htons(sinlocal.sin_port));
                     } else {
                         /* Create connection object. */
-                        if ((*J = connection_new(s, &sin, L, n)))
+                        if ((*J = connection_new(s, &sin, L)))
                             log_print(LOG_INFO, _("listeners_post_select: client %s: connected to local address %s:%d"), (*J)->idstr, inet_ntoa(sinlocal.sin_addr), htons(sinlocal.sin_port));
                         else
                             /* This could be really bad, but all we can do is log the failure. */

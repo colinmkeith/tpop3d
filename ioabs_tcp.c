@@ -78,13 +78,13 @@ static void ioabs_tcp_pre_select(connection c, int *n, struct pollfd *pfds) {
     struct ioabs_tcp *io;
     io = (struct ioabs_tcp*)c->io;
 
+    (*n)++;
+    c->s_index = *n;
+
     pfds[c->s_index].fd = c->s;
     pfds[c->s_index].events |= POLLIN;
     if (buffer_available(c->wrb) > 0)
        pfds[c->s_index].events |= POLLOUT;
-
-    if (c->s_index > *n)
-       *n = c->s_index;
 }
 
 /* ioabs_tcp_post_select:

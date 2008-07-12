@@ -166,7 +166,7 @@ typedef struct _pop3command {
 } *pop3command;
 
 /* Create/destroy connections */
-connection connection_new(int s, const struct sockaddr_in *sin, listener L, int *pfds_n);
+connection connection_new(int s, const struct sockaddr_in *sin, listener L);
 void connection_delete(connection c);
 
 /* Read data out of the socket into the buffer */
