@@ -12,7 +12,7 @@ dnl
 AC_INIT(auth_mysql.c)
 AC_CONFIG_AUX_DIR(config)
 AM_CONFIG_HEADER(configuration.h)
-AM_INIT_AUTOMAKE(tpop3d, "1.5.4")
+AM_INIT_AUTOMAKE(tpop3d, "1.5.5")
 
 AC_DEFINE_UNQUOTED(TPOP3D_VERSION, "$VERSION", [The tpop3d version number])
 

@@ -1,6 +1,10 @@
 Changes for tpop3d
 $Id$
 
+1.5.5
+
+Fix handling of listening/connected sockets array.
+
 1.5.4
 
 Removed the test which ignored messages in a maildir having modification times
