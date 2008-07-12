@@ -105,7 +105,7 @@ static char *make_timestamp(const char *domain) {
 
 /* connection_new:
  * Create a connection object from a socket. */
-connection connection_new(int s, const struct sockaddr_in *sin, listener L) {
+connection connection_new(int s, const struct sockaddr_in *sin, listener L, int *pfds_n) {
     int n;
     connection c = NULL;
 
@@ -113,6 +113,9 @@ connection connection_new(int s, const struct sockaddr_in *sin, listener L) {
 
     c->s = s;
     c->sin = *sin;
+
+    (*pfds_n)++;
+    c->s_index = *pfds_n;
 
     n = sizeof(c->sin_local);
     if (getsockname(s, (struct sockaddr*)&(c->sin_local), &n) < 0) {

@@ -121,23 +121,26 @@ static void remove_connection(connection c) {
 /* listeners_pre_select:
  * Called before the main select(2) so listening sockets can be polled. */
 static void listeners_pre_select(int *n, struct pollfd *pfds) {
+    int i = 0;
     item *t;
     vector_iterate(listeners, t) {
         int s = ((listener)t->v)->s;
-       pfds[s].fd = s;
-       pfds[s].events |= POLLIN;
-        if (s > *n) *n = s;
+	pfds[i].fd = s;
+	pfds[i].events |= POLLIN;
+	((listener)t->v)->s_index = i;
+	if (i > *n) *n = i;
+	i++;
     }
 }
 
 /* listeners_post_select:
  * Called after the main select(2) to allow listening sockets to sort
  * themselves out. */
-static void listeners_post_select(struct pollfd *pfds) {
+static void listeners_post_select(struct pollfd *pfds, int *n) {
     item *t;
     vector_iterate(listeners, t) {
         listener L = (listener)t->v;
-       if (pfds[L->s].revents & (POLLIN | POLLHUP)) {
+       if (pfds[L->s_index].revents & (POLLIN | POLLHUP)) {
             struct sockaddr_in sin, sinlocal;
             size_t l = sizeof(sin);
             static int tcp_send_buf = -1;
@@ -190,7 +193,7 @@ static void listeners_post_select(struct pollfd *pfds) {
                         log_print(LOG_WARNING, _("listeners_post_select: rejected connection from %s to local address %s:%d owing to high load"), inet_ntoa(sin.sin_addr), inet_ntoa(sinlocal.sin_addr), htons(sinlocal.sin_port));
                     } else {
                         /* Create connection object. */
-                        if ((*J = connection_new(s, &sin, L)))
+                        if ((*J = connection_new(s, &sin, L, n)))
                             log_print(LOG_INFO, _("listeners_post_select: client %s: connected to local address %s:%d"), (*J)->idstr, inet_ntoa(sinlocal.sin_addr), htons(sinlocal.sin_port));
                         else
                             /* This could be really bad, but all we can do is log the failure. */
@@ -579,7 +582,7 @@ void net_loop(void) {
             log_print(LOG_WARNING, "net_loop: poll: %m");
         } else if (e >= 0) {
             /* Check for new incoming connections */
-            if (!post_fork) listeners_post_select(pfds);
+            if (!post_fork) listeners_post_select(pfds, &n);
 
             /* Monitor existing connections */
             connections_post_select(pfds);

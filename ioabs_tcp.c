@@ -78,13 +78,13 @@ static void ioabs_tcp_pre_select(connection c, int *n, struct pollfd *pfds) {
     struct ioabs_tcp *io;
     io = (struct ioabs_tcp*)c->io;
 
-    pfds[c->s].fd = c->s;
-    pfds[c->s].events |= POLLIN;
+    pfds[c->s_index].fd = c->s;
+    pfds[c->s_index].events |= POLLIN;
     if (buffer_available(c->wrb) > 0)
-       pfds[c->s].events |= POLLOUT;
-    
-    if (c->s > *n)
-        *n = c->s;
+       pfds[c->s_index].events |= POLLOUT;
+
+    if (c->s_index > *n)
+       *n = c->s_index;
 }
 
 /* ioabs_tcp_post_select:
@@ -95,7 +95,7 @@ static int ioabs_tcp_post_select(connection c, struct pollfd *pfds) {
     struct ioabs_tcp *io;
     io = (struct ioabs_tcp*)c->io;
 
-    if (pfds[c->s].revents & (POLLIN | POLLHUP)) {
+    if (pfds[c->s_index].revents & (POLLIN | POLLHUP)) {
         /* Can read data. */
         do {
             char *r;
@@ -124,7 +124,7 @@ static int ioabs_tcp_post_select(connection c, struct pollfd *pfds) {
         }
     }
 
-    if (pfds[c->s].revents & POLLOUT && buffer_available(c->wrb) > 0) {
+    if (pfds[c->s_index].revents & POLLOUT && buffer_available(c->wrb) > 0) {
         /* Can write data. */
         n = 1;
         do {

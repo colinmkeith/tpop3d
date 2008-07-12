@@ -51,6 +51,7 @@ typedef struct _listener {
     } tls;
 #endif
     int s;
+    int s_index;
 } *listener;
 
 /* the arguments of the constructor vary according to the particular

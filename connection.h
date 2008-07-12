@@ -48,6 +48,7 @@ struct ioabs;
 
 typedef struct _connection {
     int s;                  /* connected socket                 */
+    int s_index;            /* pfds index */
     struct sockaddr_in sin; /* name of peer                     */
     char *remote_ip;        /* ASCII remote IP address          */
     struct sockaddr_in sin_local; /* name of local side         */
@@ -165,7 +166,7 @@ typedef struct _pop3command {
 } *pop3command;
 
 /* Create/destroy connections */
-connection connection_new(int s, const struct sockaddr_in *sin, listener L);
+connection connection_new(int s, const struct sockaddr_in *sin, listener L, int *pfds_n);
 void connection_delete(connection c);
 
 /* Read data out of the socket into the buffer */
