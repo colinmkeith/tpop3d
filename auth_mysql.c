@@ -128,8 +128,10 @@ static int get_mysql_server(void) {
         timeout = 5;
         mysql_options(mysql, MYSQL_OPT_CONNECT_TIMEOUT, (char*)&(timeout));
 
+#ifdef MYSQL_OPT_RECONNECT
 	/* We do not want automatic reconnect to happen. */
 	mysql_options(mysql, MYSQL_OPT_RECONNECT, &want_reconnect);
+#endif
 
         if (mysql_real_connect(mysql, mysql_servers->toks[n],
                 config_get_string("auth-mysql-username"),
