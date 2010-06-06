@@ -588,6 +588,7 @@ fi
 if test x"$enable_tls" = x"yes" || test x"$enable_sha1_passwords" = x"yes"
 then
     AC_CHECK_LIB2(ssl, SSL_new, [], AC_MSG_ERROR([[TLS/SHA1 passwords enabled, but can't find libssl]]), -lcrypto)
+    AC_CHECK_LIB(crypto, SHA1_Init, [], AC_MSG_ERROR([[TLS/SHA1 passwords enabled, but can't find libcrypto]]) )
 fi
 
 # GNU dbm
