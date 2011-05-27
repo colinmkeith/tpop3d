@@ -96,7 +96,7 @@ SSL_CTX *tls_create_context(const char *certfile, const char *pkeyfile) {
 
     /* Load certificate, and, if specified, separate private key. */
     SSL_CTX_set_default_passwd_cb_userdata(ctx, (void*)certfile);
-    if ((ret = SSL_CTX_use_certificate_file(ctx, certfile, SSL_FILETYPE_PEM)) <= 0) {
+    if ((ret = SSL_CTX_use_certificate_chain_file(ctx, certfile)) <= 0) {
         log_print(LOG_ERR, "tls_create_context: %s: %s", certfile, ERR_reason_error_string(ERR_get_error()));
         SSL_CTX_free(ctx);
         return NULL;
