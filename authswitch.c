@@ -70,6 +70,10 @@ static const char rcsid[] = "$Id$";
 #include "auth_gdbm.h"
 #endif /* AUTH_GDBM */
 
+#ifdef AUTH_CDB
+#include "auth_cdb.h"
+#endif /* AUTH_CDB*/
+
 #ifdef USE_WHOSON
 #include <whoson.h>
 #endif
@@ -147,6 +151,13 @@ struct authdrv auth_drivers[] = {
             "gdbm",
             _X("Uses GNU dbm files")},
 #endif /* AUTH_GDBM */
+
+#ifdef AUTH_CDB
+        /* Authenticate against /etc/passwd-style flat files. */
+        {auth_cdb_init, auth_cdb_new_apop, auth_cdb_new_user_pass, auth_cdb_onlogin, NULL, auth_cdb_close,
+            "cdb",
+            _X("Uses CDB format DB files")},
+#endif /* AUTH_CDB */
 };
 
 int *auth_drivers_running;

@@ -157,6 +157,13 @@ AC_ARG_ENABLE(auth-gdbm,
     [enable_auth_gdbm=$enableval],
     [enable_auth_gdbm="no"])
 
+AC_ARG_ENABLE(auth-cdb,
+        [  --enable-auth-cdb       Enable authentication via CDB database files.
+                          [default=no]
+],
+    [enable_auth_cdb=$enableval],
+    [enable_auth_cdb="no"])
+
 dnl Mailbox types.
 
 AC_ARG_ENABLE(mbox-bsd,
@@ -386,6 +393,11 @@ then
     AC_DEFINE(AUTH_GDBM,1,[Use GNU dbm for authentication.])
 fi
 
+if test x"$enable_auth_cdb" = x"yes"
+then
+    AC_DEFINE(AUTH_CDB,1,[Use CDB files for authentication.])
+fi
+
 
 if test x"$enable_auth_pam" != x"yes" \
 && test x"$enable_auth_passwd" != x"yes" \
@@ -396,6 +408,7 @@ if test x"$enable_auth_pam" != x"yes" \
 && test x"$enable_auth_other" != x"yes" \
 && test x"$enable_auth_perl" != x"yes" \
 && test x"$enable_auth_gdbm" != x"yes"
+&& test x"$enable_auth_cdb" != x"yes"
 then
     AC_MSG_ERROR([No authentication driver is enabled. At least one is required.])
 fi
@@ -597,6 +610,12 @@ if test x"$enable_auth_gdbm" = x"yes"
     AC_CHECK_LIB(gdbm, main, [], AC_MSG_ERROR([[GNU dbm authentication enabled, but can't find libgdbm]]) )
 fi
 
+# CDB libraries.
+if test x"$enable_auth_cdb" = x"yes"
+then
+    AC_CHECK_LIB(cdb, main, [], AC_MSG_ERROR([[auth-cbd enabled, but can't find libcdb]]) )
+fi
+
 
 # Where is nanosleep?
 if test x"$enable_auth_other" = x"yes"
@@ -734,6 +753,14 @@ then
     fi
 fi
 
+if test x"$enable_auth_cdb" = x"yes"
+then
+    if test x"$ac_cv_header_cdb_h" != x"yes"
+    then
+        AC_MSG_ERROR( [CDB authentication enabled but can't find cdb.h] )
+    fi
+fi
+
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 AC_TYPE_UID_T
@@ -793,6 +820,11 @@ if test x"$enable_auth_gdbm" = x"yes"
 then
     AC_CHECK_FUNC(gdbm_open, [], AC_MSG_ERROR([[GNU dbm authentication enabled, but gdbm_open doesn't seem to be available.]]))
     AC_CHECK_FUNC(gdbm_fetch, [], AC_MSG_ERROR([[GNU dbm authentication enabled, but gdbm_fetch doesn't seem to be available.]]))
+fi
+
+if test x"$enable_auth_cdb" = x"yes"
+then
+    AC_CHECK_FUNC(cdb_read, [], AC_MSG_ERROR([[CDB authentication enabled, but cdb_read doesn't seem to be available.]]))
 fi
 
 dnl If flock and fcntl are selected, there's a chance that they

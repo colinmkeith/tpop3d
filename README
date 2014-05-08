@@ -28,6 +28,7 @@ mechanisms:
     auth-flatfile       /etc/passwd-style flat files
     auth-other          an external program
     auth-perl           embedded perl subroutines
+    auth-cdb            CDB database back-end. Optimized for reading, atomic updates.
 
 The latter five options provide virtual domain support; the first two are
 designed to authenticate local (Unix) users. The auth-mysql, auth-other

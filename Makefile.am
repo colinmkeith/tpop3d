@@ -22,7 +22,7 @@
 sbin_PROGRAMS = tpop3d
 
 tpop3d_SOURCES = auth_mysql.c auth_pgsql.c auth_ldap.c auth_other.c auth_gdbm.c \
-                 auth_perl.c auth_pam.c auth_passwd.c auth_flatfile.c \
+                 auth_cdb.c auth_perl.c auth_pam.c auth_passwd.c auth_flatfile.c \
                  authcache.c authswitch.c buffer.c cfgdirectives.c config.c \
                  connection.c ioabs_tcp.c ioabs_tls.c listener.c locks.c \
                  logging.c mailbox.c maildir.c mailspool.c main.c md5c.c \
@@ -34,7 +34,7 @@ noinst_HEADERS = auth_mysql.h auth_ldap.h auth_other.h auth_perl.h auth_pam.h \
                  auth_passwd.h auth_flatfile.h auth_pgsql.h authswitch.h \
                  buffer.h config.h connection.h listener.h locks.h mailbox.h \
                  md5.h password.h pidfile.h signals.h stringmap.h tls.h \
-                 tokenise.h vector.h util.h auth_gdbm.h
+                 tokenise.h vector.h util.h auth_gdbm.h auth_cdb.h
 
 CFLAGS += -Wall -g -O2 -DCONFIG_DIR='"@sysconfdir@"' # -Wstrict-prototypes
 

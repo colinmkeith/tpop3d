@@ -30,6 +30,7 @@ static const char rcsid[] = "$Id$";
 
 #include <stdlib.h>
 #include <string.h>
+#include <auth_cdb.h>
 
 char *cfgdirectives[] = {
     /* global directives */
@@ -180,6 +181,32 @@ char *cfgdirectives[] = {
     "auth-gdbm-passwd-file",
     "auth-gdbm-persistent",
 #endif
+
+#ifdef AUTH_CDB
+    "auth-cdb-enable",
+    "auth-cdb-mail-user",
+    "auth-cdb-mail-group",
+    "auth-cdb-userfile",
+    "auth-cdb-spoolfile",
+    "auth-cdb-homedir",
+    "auth-cdb-allow-plus-sign",
+    "auth-cdb-plaintext-fallback",
+#ifdef USE_BULLETINS
+    "auth-cdb-enable-bulletins",
+    "auth-cdb-bulletins-directory",
+#endif
+    "auth-cdb-allow-sublogins",
+#ifdef WANBLIST
+    "auth-cdb-enable-acl",
+    "auth-cdb-acl-whitelist",
+    "auth-cdb-acl-blacklist",
+#endif
+#ifdef USE_LAST_LOGIN
+    "auth-cdb-keep-last-login",
+#endif
+    "auth-cdb-case-sensitive-username",
+#endif /* AUTH_CDB */
+
 
     /* final entry must be NULL */
     NULL};

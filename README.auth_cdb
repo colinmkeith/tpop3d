@@ -1,0 +1,45 @@
+This code provides the support for using CDB's as an authentication method.
+CDB's were created by Dr D. J. Bernstein, author of Qmail and in turn maildir
+and LMTP. They differ from other databases in that they work on the basis that
+most DB interaction is reading records, not writing them. If a DB could be
+optimized to support reading without needing to worry about the key being
+re-written then the structure becomes much more compact, and thus faster to
+read.
+
+This is how CDB's work - they are "Constant" databases. Of course databases
+need to be updated too, so with CDB's this occurs by creating the CDB with the
+new records as a temporary file and then replacing the existing DB with this
+temporary file. This method has the added bonus of eliminating the need for
+locking - because the entire process of replacing the old data is atomic as it
+is simply a rename of the file. Of course it doesn't work well in a situation
+where lots of updates need to occur. It is however perfect for much of the
+Internet's data where updates occur infrequently, but reading is much more
+frequent, as is the case with a POP3 server.
+
+This setup is for use with tpop3 v 1.5.3 (RC).
+
+It consists of the auth_cdb.[ch] files for the CDB authentication and patch
+files to patch the configure.in file to support using this module from the
+command line.  It also modifies the authswitch.c file to include the necessary
+code for adding auth_cdb as an authentication handler.
+
+Auth_CDB supports white/blacklisting of IP's as unique IP's, IP ranges or *
+(all IP's) as well as hostnames and wildcard endings of hostnames. It also
+supports bulletins.
+
+Patches are included for mailquota daemon support.
+
+
+All work is copyright Colin Keith / Hagen Software Inc. (c) 2005
+
+
+NOTES:
+
+To implement the bulletins properly you ****MUST**** enable onlogin-child-wait.
+If you don't then whether the user gets the bulletin on this login or the next
+is up to random chance. This is because the parent process handles the onlogin()
+directives. The child meanwhile is merrily looking for files in the mailbox. If
+the bulletin isn't in the mailbox before the child scans it the child won't see
+it. Which happens first is really up to chance (well technically the OS's task
+scheduler, but its roughly the same thing :)
+CFLAGS=-I/usr/local/openssl/include -I/usr/local/include/cdb/ LDFLAGS=-L/usr/local/openssl/lib ./configure '--enable-tls' '--with-openssl-root=/usr/local/openssl' '--disable-snide-comments' '--enable-mbox-maildir' '--disable-auth-pam' '--disable-auth-passwd' '--disable-auth-mysql' '--disable-auth-pgsql' '--disable-auth-ldap' '--disable-auth-flatfile' '--disable-auth-other' '--disable-auth-perl' '--enable-auth-cdb'

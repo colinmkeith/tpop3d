@@ -391,3 +391,122 @@ auth-pam-mail-group: mail
 # auth-gdbm-mail-user: (user-name | uid)
 # auth-gdbm-mail-group: (group-name | gid)
 # User and group under which access to the mailbox will take place.
+
+
+#
+# CDB Authentication
+#
+
+# This method is used for hosting mailboxes for multiple domains. As the same
+# program needs to access so many different mailboxes the application should
+# run as the same (unique) for all mailboxes.
+#
+
+# auth-cdb-enable: (yes | true)
+# Enable authentication via an CDB file.
+# auth-cdb-enable: true
+
+# auth-cdb-mail-user: (username | uid)
+# A username or UID under which the program runs.
+#auth-cdb-mail-user:
+
+# auth-cdb-mail-group: (groupname | gid)
+# A groupname or GID under which the program runs. If not defined uses GID of
+# user account
+#auth-cdb-mail-group:
+
+# auth-cdb-homedir: (text)
+# The home directoy of the program. Defaults to homedir of user if not defined.
+#auth-cdb-homedir:
+
+# auth-cdb-userfile: (file)
+# The CDB containing usernames and passwords. The key is the username and the
+# corresponding value is the password for the account.  It can, optionally,
+# also contain the mailspooldir. This is assumed unless auth-cdb-spoolfile is
+# defined. If it is a combined spoolfile the format of the value becomes
+#  key => dir:password
+# auth-cdb-userfile:
+
+# auth-cdb-spoolfile: (file)
+# If defined this CDB contains the mailbox directories for the user and the
+# file specified in auth-cdb-userfile contains only passwords.
+# NOTE: You must use this if your OS uses : as directory separatrs.
+# auth-cdb-spoolfile:
+
+# auth-cdb-allow-plus-sign: (yes|true)
+# If defined then when the user logs in with a full e-mail address as the
+# username, if it does not contain a @, but does contain a + or % symbol then
+# the *last* + (or %) symbol is replaced with an @ symbol. E.g.
+# The CDB lookup key changes from user+domain to user@domain.
+# Note this modifies the *last* + symbol so you can have
+# my+mail+addr+domain.com => my+mail+addr@domain.com [default: no]
+# auth-cdb-allow-plus-sign: true
+
+# auth-cdb-plaintext-fallback: (yes|true)
+# If defined and if the password does not appear to be plain text (E.g. starts
+# with $1$ or is 13 characters long, then if the login fails a second attempt
+# is made to authenticate with the password as a plaintext password. This
+# allows customers to have 23 character plain text passwords starting $1$...
+# auth-cdb-plaintext-fallback: true
+
+# auth-cdb-enable-bulletins: (yes|true)
+# Enable checks for bulletins. These are messages which are copied from a
+# central location to the user's mailbox when it is accessed.
+# NOTE: If you enable bulletins you MUST enable onlogin-child-wait as well.
+#       If you do not then at the point of forking the parent process copies
+#       the bulletins while the child merrily starts looking for files in the
+#       mailspool. If the child process finishes before the file has been
+#       copied then it won't know about the file even though it is in the
+#       mailbox. Set onlogin-child-wait and the child process won't scan until
+#       the parent has finished with auth_*_onlogin() handlers.
+# Default [no]
+
+# auth-cdb-enable-bulletins: true
+
+# auth-cdb-bulletins-directory: [directory]
+# If bulletin checks are enabled, this is the central directory that is checked
+# for the latest bulletin.
+# auth-cdb-bulletins-directory: /var/spool/bulletins/
+
+# auth-cdb-allow-sublogins: (yes|true) If defined allows customers to enter
+# their username as: user-mailbox  (or user-mailbox@domain if usernames are
+# e-mail addresses) If no match is found for a username called "user-mailbox"
+# then the "user" part (or user@domain part) is looked up and if valid the mdir
+# is set to be the submail box of spool/mailbox, e.g.
+#
+#   d/o/m/domain.com/user/Maildir/webmaster
+#
+# This allows the MTA/MDA to deliver to sub-mailboxes - for viewing via webmail
+# clients, for example - and for that same restriction to be applied to POP3
+# logins. This is great for low bandwidth connections such as mobile phones.
+# Default [no]
+# auth-cdb-allow-sublogins: true
+
+# auth-cdb-enable-acl: (yes|true)
+# If enabled allows the use of whitelisting/blacklisting to restrict who can
+# access the mailbox.
+# auth-cdb-enable-acl: true
+
+# auth-cdb-acl-whitelist: [CDB file]
+# If auth-cdb-enable-acl is enabled then this is the whitelist CDB that is
+# checked for valid IP addresses. If an address is blacklisted as a network
+# block (or * for everyone) it is checked against the whitelist CDB to see if
+# it is allowed.
+# auth-cdb-acl-whitelist: /var/spool/acl/whitelist.cdb
+
+# auth-cdb-acl-blacklist: [CDB file]
+# As per auth-cdb-acl-whitelist. If an IP is explicitly listed in the
+# blacklist a connection is rejected (before the pasword is checked). If it
+# is blacklisted as part of a netblock (or *, for everyone) then a second
+# check is made to determine if the IP is whitelisted before rejecting it.
+# auth-cdb-acl-blacklist: /var/spool/acl/blacklist.cdb
+
+# NOTE: Monitoring of the time it takes to fail authentication will most
+# likely allow an attacker to determine if the address is white/blacklisted.
+# This program does not attempt to mask this time of close monitoring.
+
+
+# auth-cdb-keep-last-login: (yes|true)
+# If enabled causes the login IP to be recorded in a .lastlogin file in the
+# mailbox root directory.
+# Default [no]
